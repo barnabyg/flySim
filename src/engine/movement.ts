@@ -84,6 +84,7 @@ interface Flight {
   readonly distances: readonly number[];
   segment: number;
   travelled: number;
+  arrived: boolean;
 }
 
 const FLIGHT_WAYPOINTS = 2;
@@ -153,7 +154,7 @@ export function createMovement(room: RoomSetup, random: RandomStream): Movement 
   }
 
   function up(): Record<Axis, number> {
-    return flight ? { x: 0, y: 0, z: 1 } : normalOf(surface);
+    return flight && !flight.arrived ? { x: 0, y: 0, z: 1 } : normalOf(surface);
   }
 
   function normaliseForward(): void {
@@ -266,7 +267,7 @@ export function createMovement(room: RoomSetup, random: RandomStream): Movement 
       if (!a || !b) throw new Error("missing path point");
       distances.push((distances[i - 1] ?? 0) + Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z));
     }
-    return { target, points, distances, segment: 0, travelled: 0 };
+    return { target, points, distances, segment: 0, travelled: 0, arrived: false };
   }
 
   /** Keeps the body level, turning it to the direction of flight unless that's nearly vertical. */
@@ -280,6 +281,24 @@ export function createMovement(room: RoomSetup, random: RandomStream): Movement 
       forward.x = dx / level;
       forward.y = dy / level;
     }
+  }
+
+  /**
+   * Takes up the attitude for standing on the surface it has reached. This happens on
+   * arrival rather than on landing, so that a level body never reaches into the surface.
+   */
+  function arrive(at: Flight): void {
+    const end = at.points.at(-1);
+    if (!end) throw new Error("missing path point");
+    for (const axis of AXES) position[axis] = end[axis];
+    at.arrived = true;
+    surface = at.target;
+    const onAxis = SURFACE_PLANES[surface].axis;
+    forward[onAxis] = 0;
+    if (Math.hypot(forward.x, forward.y, forward.z) < 0.01) {
+      forward[onAxis === "x" ? "y" : "x"] = 1;
+    }
+    normaliseForward();
   }
 
   return {
@@ -296,8 +315,14 @@ export function createMovement(room: RoomSetup, random: RandomStream): Movement 
     },
     fly: (distanceMetres) => {
       if (!flight) throw new Error("The fly isn't flying");
+      if (flight.arrived) return;
       flight.travelled += distanceMetres;
       const { points, distances } = flight;
+      // Stopping short keeps the body clear of the surface right up to arrival.
+      if (flight.travelled >= (distances.at(-1) ?? 0) - CLEARANCE_METRES) {
+        arrive(flight);
+        return;
+      }
       while (
         flight.segment < points.length - 2 &&
         flight.travelled >= (distances[flight.segment + 1] ?? Infinity)
@@ -312,26 +337,15 @@ export function createMovement(room: RoomSetup, random: RandomStream): Movement 
         throw new Error("missing path point");
       }
       faceAlong(start, end);
-      const along = Math.min(1, (flight.travelled - startDistance) / (endDistance - startDistance));
+      const along = (flight.travelled - startDistance) / (endDistance - startDistance);
       for (const axis of AXES) {
-        const value = along === 1 ? end[axis] : start[axis] + along * (end[axis] - start[axis]);
+        const value = start[axis] + along * (end[axis] - start[axis]);
         position[axis] = Math.min(extents[axis], Math.max(0, value));
       }
     },
-    hasArrived: () => {
-      if (!flight) return false;
-      return flight.travelled >= (flight.distances.at(-1) ?? 0);
-    },
+    hasArrived: () => flight?.arrived ?? false,
     land: () => {
-      if (!flight) throw new Error("The fly isn't flying");
-      surface = flight.target;
       flight = undefined;
-      const onAxis = SURFACE_PLANES[surface].axis;
-      forward[onAxis] = 0;
-      if (Math.hypot(forward.x, forward.y, forward.z) < 0.01) {
-        forward[onAxis === "x" ? "y" : "x"] = 1;
-      }
-      normaliseForward();
     },
     walk: (distanceMetres, turnRadians) => {
       turn(turnRadians);

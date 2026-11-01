@@ -59,6 +59,12 @@ function isInsideRoom({ x, y, z }: Position, room: RoomSetup): boolean {
   );
 }
 
+const HALF_BODY_METRES = 0.00125;
+
+function distanceToNearestSurface({ x, y, z }: Position, room: RoomSetup): number {
+  return Math.min(x, y, z, room.widthMetres - x, room.depthMetres - y, room.heightMetres - z);
+}
+
 /** What's wrong with the fly's place on its surface. A cheap check, for use on every step. */
 function surfaceProblem(sample: RunSample, room: RoomSetup): string | undefined {
   const { position, surface, up, forward } = sample;
@@ -319,6 +325,17 @@ describe("Simulation Run", () => {
           if (sample.behaviour === "flying") {
             if (sample.surface !== null) problems.add("on a surface while flying");
             if (!isInsideRoom(sample.position, DEFAULT_ROOM)) problems.add("flew out of the Room");
+            if (sample.speedMetresPerSecond === 0) {
+              // On reaching a surface, it already faces the way it will stand on it.
+              const reached = (Object.keys(NORMALS) as Surface[]).find(
+                (surface) => dot(sample.up, NORMALS[surface]) === 1,
+              );
+              if (!reached) problems.add("reached a surface facing no surface");
+              const problem = surfaceProblem({ ...sample, surface: reached ?? null }, DEFAULT_ROOM);
+              if (problem) problems.add(`on arrival: ${problem}`);
+            } else if (distanceToNearestSurface(sample.position, DEFAULT_ROOM) < HALF_BODY_METRES) {
+              problems.add("in the air, too close to a surface for its body to clear it");
+            }
           } else {
             const problem = surfaceProblem(sample, DEFAULT_ROOM);
             if (problem) problems.add(problem);
