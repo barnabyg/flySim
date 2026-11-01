@@ -9,16 +9,12 @@ import {
 } from "../engine";
 import { BEHAVIOUR_NAMES, DRIVER_COLOURS, DRIVER_NAMES, behaviourIcon } from "./palette";
 
-/** Bars use a log scale, as hazards span about three orders of magnitude. */
-const BAR_MINIMUM_HAZARD = 0.001;
-const BAR_MAXIMUM_HAZARD = 1;
+/**
+ * The hazard, per second, that fills a bar. Bars are linear, so a segment's length
+ * measures that Driver's contribution directly, and a constant Driver stays constant.
+ */
+const BAR_FULL_HAZARD = 0.3;
 const FLASH_MILLISECONDS = 700;
-
-function barFraction(hazard: number): number {
-  const fraction =
-    Math.log(hazard / BAR_MINIMUM_HAZARD) / Math.log(BAR_MAXIMUM_HAZARD / BAR_MINIMUM_HAZARD);
-  return Math.min(1, Math.max(0, fraction));
-}
 
 interface TransitionRow {
   readonly element: HTMLElement;
@@ -150,10 +146,9 @@ export function createDriverPanel(container: HTMLElement): DriverPanel {
       for (const [id, row] of rows) {
         const state = sample.transitions.find((item) => item.transition === id);
         row.element.dataset["available"] = String(state !== undefined);
-        const total = state ? barFraction(state.hazard) : 0;
         for (const driver of DRIVERS) {
-          const share = state ? state.contributions[driver] / state.hazard : 0;
-          row.segments[driver].style.width = `${100 * total * share}%`;
+          const contribution = state?.contributions[driver] ?? 0;
+          row.segments[driver].style.width = `${(100 * contribution) / BAR_FULL_HAZARD}%`;
         }
         row.strip.style.opacity = String(state?.fireProbabilityNextMinute ?? 0);
       }
