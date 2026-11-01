@@ -1,0 +1,10 @@
+{
+  // Compiles the engine with no DOM or Node types, so a rendering or UI
+  // dependency in the engine fails type checking.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2023"],
+    "types": []
+  },
+  "include": ["src/engine"]
+}

@@ -1,0 +1,9 @@
+dist/
+playwright-report/
+test-results/
+package-lock.json
+fly_behaviour_simulator_proposal.md
+.claude/
+AGENTS.md
+GLOSSARY.md
+docs/
