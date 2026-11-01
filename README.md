@@ -6,7 +6,7 @@ Model values are roughly chosen to give watchable behaviour. They are Provisiona
 
 ## Run it
 
-From the repo root, with Node 22.12 or later:
+From the repo root, with Node 24 or later:
 
 ```powershell
 npm start
@@ -34,4 +34,9 @@ Then run every gate: formatting, lint with type-aware static analysis, type chec
 npm run verify
 ```
 
-CI runs the same command. Secret scanning isn't part of it, as the app has no credentials or secrets.
+CI runs the same command on the only Node version it's tested with.
+
+Exceptions:
+
+- **Secret scanning** isn't part of it, as the app has no credentials or secrets. Review if it gains any.
+- **`overrides.minimatch`** in `package.json` pins a patched version (GHSA-g3hv-75wg-m249), as ESLint's dependencies don't allow one yet. Remove it when `npm audit` passes without it.

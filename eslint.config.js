@@ -11,6 +11,8 @@ export default tseslint.config(
       parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
     },
     rules: {
+      // Numbers in templates only build CSS values and messages, where the default
+      // formatting is what's wanted. Review if numbers are ever formatted for reading.
       "@typescript-eslint/restrict-template-expressions": ["error", { allowNumber: true }],
     },
   },

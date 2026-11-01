@@ -3,6 +3,7 @@ playwright-report/
 test-results/
 package-lock.json
 fly_behaviour_simulator_proposal.md
+# Written by hand before the code existed. Review when these are next rewritten.
 .claude/
 AGENTS.md
 GLOSSARY.md
