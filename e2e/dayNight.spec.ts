@@ -2,11 +2,11 @@ import { expect, test, type Page } from "@playwright/test";
 import { countPixels, currentSample, currentTime, meanBrightness, openApp } from "./helpers";
 
 /** A short day, so that lights-off comes after a few seconds at the default speed. */
-const SHORT_DAY_URL = "/?seed=7&lightHours=0.05";
+const SHORT_DAY_URL = "/?seed=7&lightHours=0.2";
 
 async function waitForNight(page: Page): Promise<void> {
   await expect
-    .poll(async () => (await currentSample(page))?.lightLevel, { timeout: 30_000 })
+    .poll(async () => (await currentSample(page))?.lightLevel, { timeout: 45_000 })
     .toBe(0);
   await page.waitForTimeout(200);
 }
@@ -17,6 +17,8 @@ test("the Room's lighting changes when simulated time crosses lights-off", async
   expect((await currentSample(page))?.lightLevel).toBe(1);
   await expect.poll(() => meanBrightness(page, "#scene")).toBeGreaterThan(40);
   const day = await meanBrightness(page, "#scene");
+  // On a slow page the reading could have come after lights-off, which would prove nothing.
+  expect((await currentSample(page))?.lightLevel).toBe(1);
 
   await waitForNight(page);
   const night = await meanBrightness(page, "#scene");

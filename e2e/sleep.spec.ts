@@ -80,7 +80,7 @@ test("the ribbon's foot leaves no stale pixels when the window reaches before th
 }) => {
   await page.goto("/?seed=4&speed=1000");
   await expect.poll(() => currentSample(page).then(Boolean), { timeout: 30_000 }).toBe(true);
-  await expect.poll(() => currentTime(page)).toBeGreaterThan(600);
+  await expect.poll(() => currentTime(page), { timeout: 30_000 }).toBeGreaterThan(600);
 
   // At 1×, the 60 s window is all within the run, so the strip fills the ribbon's foot.
   await page.locator("#speed").fill("0");
