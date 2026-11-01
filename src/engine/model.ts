@@ -54,6 +54,8 @@ export function vigilanceStateOf(behaviour: Behaviour): VigilanceState {
 export interface Senses {
   /** Whether a flying fly has reached a surface it can land on. */
   readonly touchingSurface: boolean;
+  /** How bright the Room is here, from 0 to 1. */
+  readonly lightLevel: number;
 }
 
 /** The fly's hidden state that Drivers read. */

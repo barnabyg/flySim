@@ -8,10 +8,18 @@ import {
   type Behaviour,
   type DriverId,
   type ModelParameters,
+  type Senses,
   type TransitionDefinition,
   type TransitionId,
   type VigilanceState,
 } from "./model";
+import {
+  DEFAULT_LIGHT_SCHEDULE,
+  lightLevel,
+  timeOfDayHours,
+  validateLightSchedule,
+  type LightSchedule,
+} from "./lightSchedule";
 import {
   SURFACES,
   createMovement,
@@ -40,6 +48,8 @@ export interface SimulationSetup {
   readonly room: RoomSetup;
   readonly seed: number;
   readonly parameters?: ModelParameters;
+  /** The default is 12:12. The run starts at lights-on and the schedule stays fixed. */
+  readonly lightSchedule?: LightSchedule;
   /**
    * Which random stream draws Trigger Levels. Changing it changes when transitions
    * fire and nothing else, which shows what does and doesn't depend on Trigger Levels.
@@ -62,6 +72,12 @@ export interface TransitionState {
 export interface RunSample extends MovementPose {
   readonly step: number;
   readonly timeSeconds: number;
+  /** The Room's clock, from 0 up to 24. */
+  readonly timeOfDayHours: number;
+  /** The Room's overhead light, from 0 to 1. The fly gets it only through its senses. */
+  readonly lightLevel: number;
+  /** What the fly can currently sense. */
+  readonly senses: Senses;
   readonly behaviour: Behaviour;
   /** The fly's true state, which a lab can't read directly. */
   readonly vigilanceState: VigilanceState;
@@ -94,6 +110,7 @@ export interface RunRecord {
   readonly seed: number;
   readonly room: RoomSetup;
   readonly parameters: ModelParameters;
+  readonly lightSchedule: LightSchedule;
   readonly stepsPerSecond: number;
   /** One per simulated second, starting at step 0 unless older ones were dropped. */
   readonly samples: readonly RunSample[];
@@ -124,6 +141,8 @@ interface PendingTransition {
 export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   const { room, seed, maxRecordedSamples = Infinity } = setup;
   const parameters = setup.parameters ?? DEFAULT_PARAMETERS;
+  const lightSchedule = setup.lightSchedule ?? DEFAULT_LIGHT_SCHEDULE;
+  validateLightSchedule(lightSchedule);
   const driverNoise = createRandomStream(seed, DRIVER_NOISE_STREAM);
   const movementNoise = createRandomStream(seed, MOVEMENT_STREAM);
   const sleepDepthNoise = createRandomStream(seed, SLEEP_DEPTH_NOISE_STREAM);
@@ -153,11 +172,19 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
     }));
   }
 
+  /** The only route from the world to the fly's hazards. */
+  function currentSenses(): Senses {
+    return {
+      touchingSurface: movement.hasArrived(),
+      lightLevel: lightLevel(lightSchedule, step * STEP_SECONDS),
+    };
+  }
+
   function transitionState(transition: TransitionId): TransitionState {
     const contributions = driverContributions(
       transition,
       { arousal, sleepPressure, sleepDepth },
-      { touchingSurface: movement.hasArrived() },
+      currentSenses(),
       parameters,
     );
     const hazard = DRIVERS.reduce((sum, driver) => sum + contributions[driver], 0);
@@ -262,6 +289,9 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
     return {
       step,
       timeSeconds: step * STEP_SECONDS,
+      timeOfDayHours: timeOfDayHours(lightSchedule, step * STEP_SECONDS),
+      lightLevel: lightLevel(lightSchedule, step * STEP_SECONDS),
+      senses: currentSenses(),
       behaviour,
       vigilanceState: vigilanceStateOf(behaviour),
       ...movement.pose(),
@@ -310,6 +340,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       seed,
       room,
       parameters,
+      lightSchedule,
       stepsPerSecond: STEPS_PER_SECOND,
       samples: [...samples],
       firedTransitions: [...firedTransitions],

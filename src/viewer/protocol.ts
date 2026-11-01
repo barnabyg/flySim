@@ -1,4 +1,4 @@
-import type { FiredTransition, RunRecord, RunSample, RoomSetup } from "../engine";
+import type { FiredTransition, LightSchedule, RunRecord, RunSample, RoomSetup } from "../engine";
 
 export type ToSimulation =
   | {
@@ -6,6 +6,7 @@ export type ToSimulation =
       readonly seed: number;
       readonly room: RoomSetup;
       readonly speed: number;
+      readonly lightSchedule: LightSchedule;
     }
   | { readonly type: "set-speed"; readonly speed: number }
   | { readonly type: "set-paused"; readonly paused: boolean }

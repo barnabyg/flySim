@@ -1,4 +1,4 @@
-import type { FiredTransition, RoomSetup, RunRecord, RunSample } from "../engine";
+import type { FiredTransition, LightSchedule, RoomSetup, RunRecord, RunSample } from "../engine";
 import type { FromSimulation, ToSimulation } from "./protocol";
 
 export interface SimulationClient {
@@ -11,7 +11,12 @@ export interface SimulationClient {
 }
 
 /** The viewer's only link to the engine, which runs off the rendering thread. */
-export function startSimulation(seed: number, room: RoomSetup, speed: number): SimulationClient {
+export function startSimulation(
+  seed: number,
+  room: RoomSetup,
+  speed: number,
+  lightSchedule: LightSchedule,
+): SimulationClient {
   const worker = new Worker(new URL("./simulationWorker.ts", import.meta.url), { type: "module" });
   const listeners: ((sample: RunSample, fired: readonly FiredTransition[]) => void)[] = [];
   const pendingRecords = new Map<number, (record: RunRecord) => void>();
@@ -36,7 +41,7 @@ export function startSimulation(seed: number, room: RoomSetup, speed: number): S
     }
   };
 
-  send({ type: "start", seed, room, speed });
+  send({ type: "start", seed, room, speed, lightSchedule });
 
   return {
     latest: () => latest,

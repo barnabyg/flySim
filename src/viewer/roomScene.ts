@@ -7,6 +7,13 @@ export const CLOSE_UP_ONLY_LAYER = 2;
 
 const MARKING_HEIGHT_METRES = 0.00005;
 const AIR_TURNING_SECONDS = 0.05;
+/** The Room stays dimly visible at night, so that the experimenter can still watch the fly. */
+const NIGHT_BRIGHTNESS = 0.22;
+const NIGHT_TINT = new THREE.Color(0x9fb4ff);
+const DAY_TINT = new THREE.Color(0xffffff);
+const DAY_BACKGROUND = new THREE.Color(0x14161a);
+const NIGHT_BACKGROUND = new THREE.Color(0x07080c);
+const HEMISPHERE_INTENSITY = 2;
 
 /** Engine positions have z up, and the scene has y up. */
 function toScene(position: Position): THREE.Vector3 {
@@ -110,15 +117,20 @@ export interface RoomScene {
   readonly scene: THREE.Scene;
   readonly fly: FlyModel;
   updateFly(sample: RunSample): void;
+  /** Sets how bright the Room looks, from the overhead light's level. */
+  updateLighting(lightLevel: number): void;
 }
 
 export function createRoomScene(room: RoomSetup): RoomScene {
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x14161a);
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x888888, 2));
+  const background = DAY_BACKGROUND.clone();
+  scene.background = background;
+  const hemisphere = new THREE.HemisphereLight(0xffffff, 0x888888, HEMISPHERE_INTENSITY);
+  scene.add(hemisphere);
   // Brightness falls with distance, so a smaller Room needs a weaker light to look the same.
   const size = Math.max(room.widthMetres, room.depthMetres, room.heightMetres);
-  const overhead = new THREE.PointLight(0xffffff, 1.5 * size, 0, 1);
+  const overheadIntensity = 1.5 * size;
+  const overhead = new THREE.PointLight(0xffffff, overheadIntensity, 0, 1);
   overhead.position.set(room.widthMetres / 2, room.heightMetres * 0.95, room.depthMetres / 2);
   scene.add(overhead);
   scene.add(createRoomMesh(room));
@@ -132,6 +144,14 @@ export function createRoomScene(room: RoomSetup): RoomScene {
   return {
     scene,
     fly,
+    updateLighting: (lightLevel) => {
+      const brightness = NIGHT_BRIGHTNESS + (1 - NIGHT_BRIGHTNESS) * lightLevel;
+      hemisphere.intensity = HEMISPHERE_INTENSITY * brightness;
+      hemisphere.color.lerpColors(NIGHT_TINT, DAY_TINT, lightLevel);
+      overhead.intensity = overheadIntensity * brightness;
+      overhead.color.lerpColors(NIGHT_TINT, DAY_TINT, lightLevel);
+      background.lerpColors(NIGHT_BACKGROUND, DAY_BACKGROUND, lightLevel);
+    },
     updateFly: (sample) => {
       fly.object.position.copy(toScene(sample.position));
       const forward = toScene(sample.forward);

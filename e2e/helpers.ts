@@ -59,7 +59,29 @@ export async function distinctColours(page: Page, selector: string): Promise<num
   return (await analyse(page, await page.locator(selector).screenshot())).distinctColours;
 }
 
-/** Counts pixels in a page region, from a screenshot of what's really on screen. */
+/** How bright a screenshot of an element is on average, from 0 to 255. */
+export async function meanBrightness(page: Page, selector: string): Promise<number> {
+  const png = await page.locator(selector).screenshot();
+  return page.evaluate(async (base64) => {
+    const image = new Image();
+    image.src = `data:image/png;base64,${base64}`;
+    await image.decode();
+    const canvas = document.createElement("canvas");
+    canvas.width = image.width;
+    canvas.height = image.height;
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("No 2D context");
+    context.drawImage(image, 0, 0);
+    const { data } = context.getImageData(0, 0, image.width, image.height);
+    let total = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      total += ((data[i] ?? 0) + (data[i + 1] ?? 0) + (data[i + 2] ?? 0)) / 3;
+    }
+    return total / (data.length / 4);
+  }, png.toString("base64"));
+}
+
+/** Counts pixels in a page region,from a screenshot of what's really on screen. */
 export async function countPixels(
   page: Page,
   clip: { x: number; y: number; width: number; height: number },

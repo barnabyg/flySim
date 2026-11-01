@@ -1,4 +1,9 @@
-import { DEFAULT_ROOM, type RoomSetup } from "../engine";
+import {
+  DEFAULT_LIGHT_SCHEDULE,
+  DEFAULT_ROOM,
+  type LightSchedule,
+  type RoomSetup,
+} from "../engine";
 
 export const MIN_ROOM_METRES = 0.1;
 export const MAX_ROOM_METRES = 5;
@@ -8,6 +13,7 @@ export interface RunSettings {
   readonly seed: number;
   readonly room: RoomSetup;
   readonly speed: number;
+  readonly lightSchedule: LightSchedule;
 }
 
 export function randomSeed(): number {
@@ -23,6 +29,12 @@ function roomSize(parameter: string | null, fallback: number): number {
   const parsed = numberFrom(parameter);
   if (!Number.isFinite(parsed)) return fallback;
   return Math.min(MAX_ROOM_METRES, Math.max(MIN_ROOM_METRES, parsed));
+}
+
+function lightHours(parameter: string | null): number {
+  const parsed = numberFrom(parameter);
+  if (!Number.isFinite(parsed)) return DEFAULT_LIGHT_SCHEDULE.lightHours;
+  return Math.min(24, Math.max(0, parsed));
 }
 
 export function settingsFromUrl(
@@ -41,16 +53,21 @@ export function settingsFromUrl(
       heightMetres: roomSize(parameters.get("height"), DEFAULT_ROOM.heightMetres),
     },
     speed: speeds.includes(speed) ? speed : defaultSpeed,
+    lightSchedule: {
+      ...DEFAULT_LIGHT_SCHEDULE,
+      lightHours: lightHours(parameters.get("lightHours")),
+    },
   };
 }
 
-export function urlForSettings({ seed, room, speed }: RunSettings): string {
+export function urlForSettings({ seed, room, speed, lightSchedule }: RunSettings): string {
   const parameters = new URLSearchParams({
     seed: String(seed),
     width: String(room.widthMetres),
     depth: String(room.depthMetres),
     height: String(room.heightMetres),
     speed: String(speed),
+    lightHours: String(lightSchedule.lightHours),
   });
   return `?${parameters.toString()}`;
 }

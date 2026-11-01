@@ -1,3 +1,5 @@
+import type { LightSchedule } from "../engine";
+
 export const SPEEDS: readonly number[] = [1, 2, 5, 10, 20, 30, 60, 120, 300, 600, 1000];
 export const INITIAL_SPEED = 60;
 
@@ -14,8 +16,19 @@ function formatClock(timeSeconds: number): string {
   return `${pad(Math.floor(total / 3600))}:${pad(Math.floor(total / 60) % 60)}:${pad(total % 60)}`;
 }
 
+/** Hours on a 24-hour dial, with midnight at the bottom and noon at the top. */
+function dialDegrees(hours: number): number {
+  return (hours / 24) * 360 + 180;
+}
+
+function formatTimeOfDay(hours: number): string {
+  const totalMinutes = Math.floor(hours * 60);
+  const pad = (value: number): string => String(value).padStart(2, "0");
+  return `${pad(Math.floor(totalMinutes / 60))}:${pad(totalMinutes % 60)}`;
+}
+
 export interface TimeControls {
-  showTime(timeSeconds: number): void;
+  showTime(timeSeconds: number, timeOfDayHours: number): void;
 }
 
 export interface TimeControlHandlers {
@@ -26,6 +39,7 @@ export interface TimeControlHandlers {
 export function createTimeControls(
   container: HTMLElement,
   initialSpeed: number,
+  lightSchedule: LightSchedule,
   handlers: TimeControlHandlers,
 ): TimeControls {
   const initialIndex = SPEEDS.indexOf(initialSpeed);
@@ -34,13 +48,24 @@ export function createTimeControls(
     <span class="speed-icon" title="Time speed">${SPEED_ICON}</span>
     <input id="speed" type="range" min="0" max="${SPEEDS.length - 1}" step="1" value="${initialIndex}" aria-label="Time speed" />
     <output id="speed-readout">${initialSpeed}×</output>
+    <span id="day-dial" role="img" aria-label="Time of day ${formatTimeOfDay(lightSchedule.lightsOnHour)}" title="Time of day"><span id="day-dial-hand"></span></span>
+    <output id="time-of-day" title="Time of day">${formatTimeOfDay(lightSchedule.lightsOnHour)}</output>
     <output id="clock" title="Simulated time">${formatClock(0)}</output>`;
 
   const pause = container.querySelector<HTMLButtonElement>("#pause");
   const speedInput = container.querySelector<HTMLInputElement>("#speed");
   const readout = container.querySelector<HTMLOutputElement>("#speed-readout");
   const clock = container.querySelector<HTMLOutputElement>("#clock");
-  if (!pause || !speedInput || !readout || !clock) throw new Error("Malformed time controls");
+  const dial = container.querySelector<HTMLElement>("#day-dial");
+  const hand = container.querySelector<HTMLElement>("#day-dial-hand");
+  const timeOfDay = container.querySelector<HTMLOutputElement>("#time-of-day");
+  if (!pause || !speedInput || !readout || !clock || !dial || !hand || !timeOfDay) {
+    throw new Error("Malformed time controls");
+  }
+
+  // The dial's bright part is the schedule's day, so the hand shows the light it's under.
+  const lightDegrees = lightSchedule.lightHours * 15;
+  dial.style.background = `conic-gradient(from ${dialDegrees(lightSchedule.lightsOnHour)}deg, #e8d98a 0 ${lightDegrees}deg, #2a3048 ${lightDegrees}deg 360deg)`;
 
   let paused = false;
 
@@ -66,8 +91,12 @@ export function createTimeControls(
   });
 
   return {
-    showTime: (timeSeconds) => {
+    showTime: (timeSeconds, timeOfDayHours) => {
       clock.textContent = formatClock(timeSeconds);
+      const text = formatTimeOfDay(timeOfDayHours);
+      timeOfDay.textContent = text;
+      dial.setAttribute("aria-label", `Time of day ${text}`);
+      hand.style.transform = `rotate(${dialDegrees(timeOfDayHours)}deg)`;
     },
   };
 }

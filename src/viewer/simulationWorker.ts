@@ -58,6 +58,7 @@ onmessage = (event: MessageEvent<ToSimulation>) => {
       run = createSimulationRun({
         room: message.room,
         seed: message.seed,
+        lightSchedule: message.lightSchedule,
         maxRecordedSamples: MAX_RECORDED_SAMPLES,
       });
       lastTickTime = performance.now();
