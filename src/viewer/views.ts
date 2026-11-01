@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { RoomSetup } from "../engine";
-import { FLY_LENGTH_METRES } from "./flyModel";
+import { FLY_CENTRE_HEIGHT_METRES, FLY_LENGTH_METRES, type FlyModel } from "./flyModel";
 import {
   FIELD_OF_VIEW_DEGREES,
   createMonitoringCamera,
@@ -17,7 +17,6 @@ const RING_LAYER = 1;
 const RING_RADIUS_PIXELS = 11;
 /** Above this drawn length, the fly can be found without help. */
 const RING_MAX_FLY_PIXELS = 24;
-const FLY_CENTRE_HEIGHT_METRES = 0.0004;
 const CLOSE_UP_OFFSET = new THREE.Vector3(0.007, 0.006, 0.009);
 
 export type CameraName = "monitoring" | "close-up";
@@ -30,6 +29,8 @@ export interface ViewState {
   readonly flyLengthInScene: number;
   readonly flyInCloseUp: { x: number; y: number };
   readonly closeUpDistance: number;
+  /** Where each foot is, in the scene. */
+  readonly flyFeet: readonly { x: number; y: number; z: number }[];
 }
 
 export interface Views {
@@ -59,10 +60,26 @@ function createRing(): THREE.Mesh {
   return ring;
 }
 
-/** Measures the fly as drawn, from its vertices, so any scaling would show up here. */
-function drawnFlyLength(fly: THREE.Object3D): number {
-  const size = new THREE.Box3().setFromObject(fly, true).getSize(new THREE.Vector3());
-  return Math.max(size.x, size.y, size.z);
+/**
+ * Measures the body as drawn, from its vertices and along its own axis, so any scaling
+ * would show up here. Legs and wings reach beyond the body, as they do on a real fly.
+ */
+function drawnBodyLength(model: FlyModel): number {
+  model.object.updateWorldMatrix(true, true);
+  const axis = new THREE.Vector3(1, 0, 0).applyQuaternion(model.object.quaternion);
+  const vertex = new THREE.Vector3();
+  let least = Infinity;
+  let most = -Infinity;
+  model.body.traverse((part) => {
+    if (!(part instanceof THREE.Mesh)) return;
+    const positions = (part as THREE.Mesh).geometry.getAttribute("position");
+    for (let i = 0; i < positions.count; i++) {
+      vertex.fromBufferAttribute(positions, i).applyMatrix4(part.matrixWorld);
+      least = Math.min(least, vertex.dot(axis));
+      most = Math.max(most, vertex.dot(axis));
+    }
+  });
+  return most - least;
 }
 
 /**
@@ -72,12 +89,13 @@ function drawnFlyLength(fly: THREE.Object3D): number {
 export function createViews(options: {
   readonly renderer: THREE.WebGLRenderer;
   readonly scene: THREE.Scene;
-  readonly fly: THREE.Object3D;
+  readonly model: FlyModel;
   readonly room: RoomSetup;
   readonly view: HTMLElement;
   readonly inset: HTMLElement;
 }): Views {
-  const { renderer, scene, fly, room, view, inset } = options;
+  const { renderer, scene, model, room, view, inset } = options;
+  const fly = model.object;
 
   const monitoringCamera = createMonitoringCamera();
   monitoringCamera.layers.enable(RING_LAYER);
@@ -193,9 +211,13 @@ export function createViews(options: {
           const projected = corner.project(mainCamera);
           return { x: projected.x, y: projected.y };
         }),
-        flyLengthInScene: drawnFlyLength(fly),
+        flyLengthInScene: drawnBodyLength(model),
         flyInCloseUp: { x: flyProjected.x, y: flyProjected.y },
         closeUpDistance: closeUpCamera.position.distanceTo(fly.position),
+        flyFeet: model.feet.map((foot) => {
+          const world = foot.getWorldPosition(new THREE.Vector3());
+          return { x: world.x, y: world.y, z: world.z };
+        }),
       };
     },
   };

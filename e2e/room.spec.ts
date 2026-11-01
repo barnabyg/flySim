@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { currentSample, distinctColours, openApp, runRecord } from "./helpers";
 
-test("opening the app shows the Room running with the marker moving on its floor", async ({
+test("opening the app shows the Room running with the fly moving on its floor", async ({
   page,
 }) => {
   const errors: string[] = [];

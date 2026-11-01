@@ -70,6 +70,8 @@ export interface RunSample {
   readonly position: Position;
   /** Radians anticlockwise from the +x axis. */
   readonly heading: number;
+  /** How fast the fly is really moving, for anything that needs to show its movement. */
+  readonly speedMetresPerSecond: number;
   readonly arousal: number;
   /** The transitions available from the current behaviour. */
   readonly transitions: readonly TransitionState[];
@@ -204,6 +206,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       behaviour,
       position: { x, y, z: 0 },
       heading,
+      speedMetresPerSecond: behaviour === "walking" ? parameters.walkingSpeedMetresPerSecond : 0,
       arousal,
       transitions: pending.map((item) => transitionState(item.definition.id)),
     };

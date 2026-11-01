@@ -79,6 +79,18 @@ describe("Simulation Run", () => {
     expect(walkedDistance).toBeGreaterThan(0);
   });
 
+  it("reports the walking speed only while the fly is walking", () => {
+    const run = createSimulationRun({ room: DEFAULT_ROOM, seed: 5 });
+    const speeds = new Set<number>();
+    for (let i = 0; i < 60_000; i++) {
+      run.advanceSteps(1);
+      const { behaviour, speedMetresPerSecond } = run.current();
+      speeds.add(speedMetresPerSecond);
+      expect(speedMetresPerSecond).toBe(behaviour === "walking" ? 0.02 : 0);
+    }
+    expect(speeds).toEqual(new Set([0, 0.02]));
+  });
+
   it("gives the same hazard at the same arousal however long the bout has lasted", () => {
     const { samples, firedTransitions } = recordOf(23, 7200);
     const timeInBout = (timeSeconds: number): number => {

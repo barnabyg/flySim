@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import type { Position, RoomSetup, RunSample } from "../engine";
-import { createFlyModel } from "./flyModel";
+import { createFlyModel, type FlyModel } from "./flyModel";
 
 /** Fine floor markings that would only be noise from the monitoring camera's distance. */
 export const CLOSE_UP_ONLY_LAYER = 2;
@@ -70,7 +70,7 @@ function createRoomMesh(room: RoomSetup): THREE.Object3D {
 
 export interface RoomScene {
   readonly scene: THREE.Scene;
-  readonly fly: THREE.Object3D;
+  readonly fly: FlyModel;
   updateFly(sample: RunSample): void;
 }
 
@@ -84,15 +84,16 @@ export function createRoomScene(room: RoomSetup): RoomScene {
   scene.add(createRoomMesh(room));
 
   const fly = createFlyModel();
-  scene.add(fly);
+  scene.add(fly.object);
 
   return {
     scene,
     fly,
     updateFly: (sample) => {
-      fly.position.copy(toScene(sample.position));
+      fly.object.position.copy(toScene(sample.position));
       // The scene's y-up axes reverse the sense of a rotation about the vertical.
-      fly.rotation.y = -sample.heading;
+      fly.object.rotation.y = -sample.heading;
+      fly.animate(sample);
     },
   };
 }

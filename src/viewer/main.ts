@@ -68,7 +68,7 @@ simulation.onFrame((sample, fired) => {
 const views = createViews({
   renderer,
   scene: roomScene.scene,
-  fly: roomScene.fly,
+  model: roomScene.fly,
   room,
   view,
   inset: requireElement("#inset", HTMLElement),
@@ -86,7 +86,7 @@ window.flySim = {
   current: () => simulation.latest(),
   record: () => simulation.record(),
   flyScenePosition: () => {
-    const { x, y, z } = roomScene.fly.position;
+    const { x, y, z } = roomScene.fly.object.position;
     return { x, y, z };
   },
   flashes: () => driverPanel.flashes,

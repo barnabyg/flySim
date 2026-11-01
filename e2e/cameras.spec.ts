@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { countPixels, currentTime, openApp, runRecord } from "./helpers";
+import { countPixels, currentSample, currentTime, openApp, runRecord } from "./helpers";
 
 async function regionOf(page: Page, selector: string) {
   const box = await page.locator(selector).boundingBox();
@@ -48,17 +48,79 @@ test("orbiting the main camera moves it without any effect on the run", async ({
   await Promise.all([orbited.close(), untouched.close()]);
 });
 
-test("the fly is never scaled up beyond true scale", async ({ page }) => {
+test("the fly is drawn at true scale", async ({ page }) => {
   await openApp(page);
   for (let i = 0; i < 3; i++) {
     const { flyLengthInScene } = await page.evaluate(() => window.flySim.view());
     // An adult male is about 2.5 mm long.
-    expect(flyLengthInScene).toBeLessThanOrEqual(0.0025 + 1e-6);
+    expect(flyLengthInScene).toBeCloseTo(0.0025, 5);
     await page.waitForTimeout(300);
   }
   await page.locator("#inset").click();
   const { flyLengthInScene } = await page.evaluate(() => window.flySim.view());
-  expect(flyLengthInScene).toBeLessThanOrEqual(0.0025 + 1e-6);
+  expect(flyLengthInScene).toBeCloseTo(0.0025, 5);
+});
+
+test("the fly's legs move while it walks, and it is still during Immobility", async ({ page }) => {
+  await openApp(page);
+  await page.locator("#speed").fill("0");
+
+  const frame = () =>
+    page.evaluate(() => {
+      const sample = window.flySim.current();
+      return {
+        behaviour: sample?.behaviour,
+        time: sample?.timeSeconds,
+        feet: window.flySim.view().flyFeet,
+      };
+    });
+  /** Watches for a little real time at 1× and reports whether the feet changed. */
+  const watch = async (behaviour: string): Promise<boolean> => {
+    const before = await frame();
+    await page.waitForTimeout(250);
+    const after = await frame();
+    if (before.behaviour !== behaviour || after.behaviour !== behaviour) {
+      throw new Error(`not ${behaviour} throughout`);
+    }
+    expect(after.time).toBeGreaterThan(before.time ?? Infinity);
+    return JSON.stringify(before.feet) !== JSON.stringify(after.feet);
+  };
+  const waitFor = async (behaviour: string): Promise<void> => {
+    await page.locator("#speed").fill("6");
+    await expect
+      .poll(async () => (await frame()).behaviour, { timeout: 30_000, intervals: [20] })
+      .toBe(behaviour);
+    await page.locator("#speed").fill("0");
+    await page.waitForTimeout(100);
+  };
+
+  await expect(async () => {
+    await waitFor("walking");
+    expect(await watch("walking")).toBe(true);
+  }).toPass({ timeout: 40_000 });
+  await expect(async () => {
+    await waitFor("immobility");
+    expect(await watch("immobility")).toBe(false);
+  }).toPass({ timeout: 40_000 });
+});
+
+test("the fly stands on six feet during Immobility", async ({ page }) => {
+  await openApp(page);
+  await expect(async () => {
+    await expect
+      .poll(() => currentSample(page).then((sample) => sample?.behaviour), { intervals: [20] })
+      .toBe("immobility");
+    await page.locator("#pause").click();
+    await page.waitForTimeout(200);
+    // The fly may have started walking between seeing Immobility and pausing.
+    if ((await currentSample(page))?.behaviour !== "immobility") {
+      await page.locator("#pause").click();
+      throw new Error("paused outside Immobility");
+    }
+  }).toPass({ timeout: 40_000 });
+  const { flyFeet } = await page.evaluate(() => window.flySim.view());
+  expect(flyFeet).toHaveLength(6);
+  for (const foot of flyFeet) expect(foot.y).toBeCloseTo(0, 6);
 });
 
 test("a subtle ring marks the small fly in the wide view, but not in the close-up", async ({
@@ -116,7 +178,7 @@ test("the close-up and main view can be swapped and swapped back", async ({ page
 
   await page.locator("#inset").click();
   expect(await mainCamera()).toBe("close-up");
-  // The marker is now large in the main view.
+  // The fly is now large in the main view.
   await expect.poll(() => countPixels(page, belowInset, "dark")).toBeGreaterThan(200);
 
   await page.locator("#inset").click();
