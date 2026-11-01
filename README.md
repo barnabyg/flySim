@@ -12,7 +12,7 @@ From the repo root, with Node 24 or later:
 npm start
 ```
 
-This installs dependencies if needed, starts the app and opens it in your browser.
+This installs dependencies if needed, starts the app and opens it in your browser. On Windows, you can double-click `run.bat` instead.
 
 ## What you can do
 
