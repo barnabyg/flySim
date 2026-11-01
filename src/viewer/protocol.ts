@@ -1,7 +1,14 @@
 import type { FiredTransition, RunRecord, RunSample, RoomSetup } from "../engine";
 
 export type ToSimulation =
-  | { readonly type: "start"; readonly seed: number; readonly room: RoomSetup }
+  | {
+      readonly type: "start";
+      readonly seed: number;
+      readonly room: RoomSetup;
+      readonly speed: number;
+    }
+  | { readonly type: "set-speed"; readonly speed: number }
+  | { readonly type: "set-paused"; readonly paused: boolean }
   | { readonly type: "request-record"; readonly requestId: number };
 
 export type FromSimulation =

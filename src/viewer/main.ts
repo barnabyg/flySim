@@ -2,8 +2,10 @@ import * as THREE from "three";
 import { DEFAULT_ROOM, type RunRecord, type RunSample } from "../engine";
 import { createDriverPanel, type FlashedTransition } from "./driverPanel";
 import { createMonitoringCamera, frameRoom } from "./monitoringCamera";
+import { createRibbon } from "./ribbon";
 import { createRoomScene } from "./roomScene";
 import { startSimulation } from "./simulationClient";
+import { INITIAL_SPEED, createTimeControls } from "./timeControls";
 
 /** Lets browser tests and the console observe a run. It can't change one. */
 export interface FlySimApi {
@@ -43,11 +45,24 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 
 const roomScene = createRoomScene(room);
 const monitoringCamera = createMonitoringCamera();
-const simulation = startSimulation(seed, room);
+const simulation = startSimulation(seed, room, INITIAL_SPEED);
 
 const driverPanel = createDriverPanel(requireElement("#drivers", HTMLElement));
+const ribbon = createRibbon(requireElement("#ribbon", HTMLCanvasElement));
+ribbon.setSpeed(INITIAL_SPEED);
+const timeControls = createTimeControls(requireElement("#controls", HTMLElement), {
+  onSpeedChange: (speed) => {
+    simulation.setSpeed(speed);
+    ribbon.setSpeed(speed);
+  },
+  onPausedChange: (paused) => {
+    simulation.setPaused(paused);
+  },
+});
 simulation.onFrame((sample, fired) => {
   driverPanel.update(sample, fired);
+  ribbon.update(sample, fired);
+  timeControls.showTime(sample.timeSeconds);
 });
 
 function resize(): void {
@@ -64,6 +79,7 @@ renderer.setAnimationLoop(() => {
   const sample = simulation.latest();
   if (sample) roomScene.updateFly(sample);
   renderer.render(roomScene.scene, monitoringCamera);
+  ribbon.draw();
 });
 
 window.flySim = {

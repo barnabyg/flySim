@@ -27,6 +27,7 @@ body {
   display: grid;
   grid-template:
     "view drivers" minmax(0, 1fr)
+    "timeline timeline" 44px
     / minmax(0, 1fr) 240px;
   height: 100%;
 }
@@ -148,4 +149,61 @@ body {
   width: 10px;
   height: 10px;
   border-radius: 2px;
+}
+
+#timeline {
+  grid-area: timeline;
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  padding: 6px 12px;
+  background: var(--panel);
+  border-top: 1px solid var(--line);
+}
+
+#controls {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+}
+
+#pause {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  color: var(--text);
+  background: var(--background);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.speed-icon {
+  display: flex;
+  color: var(--text-dim);
+}
+
+#speed {
+  width: 110px;
+}
+
+#speed-readout {
+  width: 44px;
+  font-variant-numeric: tabular-nums;
+}
+
+#clock {
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+#ribbon {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  background: var(--background);
+  border-radius: 3px;
 }
