@@ -312,32 +312,35 @@ describe("Simulation Run", () => {
       takeOffFromWalkingSpontaneousRate: 0.2,
     };
 
-    it("starts and ends every flight on a surface and stays inside the Room", () => {
+    it.each([
+      ["the default Room", DEFAULT_ROOM],
+      ["a differently sized Room", { widthMetres: 0.3, depthMetres: 0.5, heightMetres: 0.2 }],
+    ])("starts and ends every flight on a surface and stays inside %s", (_, room) => {
       const takeOffs = new Set<Surface>();
       const landings = new Set<Surface>();
       const problems = new Set<string>();
       for (let seed = 0; seed < 5; seed++) {
-        const run = createSimulationRun({ room: DEFAULT_ROOM, seed, parameters: FLYING_OFTEN });
+        const run = createSimulationRun({ room: room, seed, parameters: FLYING_OFTEN });
         let previous = run.current();
         for (let i = 0; i < 40_000; i++) {
           run.advanceSteps(1);
           const sample = run.current();
           if (sample.behaviour === "flying") {
             if (sample.surface !== null) problems.add("on a surface while flying");
-            if (!isInsideRoom(sample.position, DEFAULT_ROOM)) problems.add("flew out of the Room");
+            if (!isInsideRoom(sample.position, room)) problems.add("flew out of the Room");
             if (sample.speedMetresPerSecond === 0) {
               // On reaching a surface, it already faces the way it will stand on it.
               const reached = (Object.keys(NORMALS) as Surface[]).find(
                 (surface) => dot(sample.up, NORMALS[surface]) === 1,
               );
               if (!reached) problems.add("reached a surface facing no surface");
-              const problem = surfaceProblem({ ...sample, surface: reached ?? null }, DEFAULT_ROOM);
+              const problem = surfaceProblem({ ...sample, surface: reached ?? null }, room);
               if (problem) problems.add(`on arrival: ${problem}`);
-            } else if (distanceToNearestSurface(sample.position, DEFAULT_ROOM) < HALF_BODY_METRES) {
+            } else if (distanceToNearestSurface(sample.position, room) < HALF_BODY_METRES) {
               problems.add("in the air, too close to a surface for its body to clear it");
             }
           } else {
-            const problem = surfaceProblem(sample, DEFAULT_ROOM);
+            const problem = surfaceProblem(sample, room);
             if (problem) problems.add(problem);
           }
           if (previous.surface && sample.behaviour === "flying") takeOffs.add(previous.surface);
