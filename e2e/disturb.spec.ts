@@ -79,6 +79,39 @@ test("pressing Disturb while paused takes effect when time resumes", async ({ pa
     .toBe(true);
 });
 
+test("a startle's bar in the wake row shows how much Sleep Depth blunted it", async ({ page }) => {
+  await page.goto("/?seed=4&speed=1000");
+  await expect.poll(() => currentSample(page).then(Boolean), { timeout: 30_000 }).toBe(true);
+  // Disturbing as soon as the page sees sleep, and reading the bar in the same task afterwards.
+  const { width, wakeStartleRate } = await page.evaluate(
+    () =>
+      new Promise<{ width: number; wakeStartleRate: number }>((resolve) => {
+        let disturbed = false;
+        const watch = (): void => {
+          const sample = window.flySim.current();
+          if (!disturbed && sample?.behaviour === "sleeping") {
+            document.querySelector<HTMLElement>("#disturb")?.click();
+            disturbed = true;
+          }
+          const segment = document.querySelector<HTMLElement>(
+            '[data-transition="sleeping-to-immobility"] [data-driver="startle"]',
+          );
+          const width = parseFloat(segment?.style.width ?? "0");
+          if (width > 0) {
+            void window.flySim.record().then((record) => {
+              resolve({ width, wakeStartleRate: record.parameters.wakeStartleRate });
+            });
+          } else requestAnimationFrame(watch);
+        };
+        watch();
+      }),
+  );
+
+  expect(wakeStartleRate).toBe(0.3);
+  // At full strength in the lightest sleep it just fills the bar, so anything deeper shows short.
+  expect(width).toBeLessThanOrEqual(100);
+});
+
 test("restarting with the same seed gives the run without any Disturb presses", async ({
   page,
 }) => {

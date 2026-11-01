@@ -201,7 +201,9 @@ export function createDriverPanel(container: HTMLElement): DriverPanel {
             contribution = Math.max(contribution, heldValue(row, now));
           }
           const segment = row.segments.get(driver);
-          if (segment) segment.style.width = `${(100 * contribution) / row.fullHazard}%`;
+          // On every row's own scale, a startle would peg the sleep rows' bars at any depth.
+          const full = driver === "startle" ? BAR_FULL_HAZARD : row.fullHazard;
+          if (segment) segment.style.width = `${(100 * contribution) / full}%`;
         }
         row.strip.style.opacity = String(state?.fireProbabilityNextMinute ?? 0);
       }
