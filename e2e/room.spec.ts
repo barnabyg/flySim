@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { currentSample, distinctColours, openApp, runRecord } from "./helpers";
+import { distinctColours, openApp, runRecord } from "./helpers";
 
 test("opening the app shows the Room running with the fly moving on its floor", async ({
   page,
@@ -31,7 +31,5 @@ test("opening the app shows the Room running with the fly moving on its floor", 
     )
     .toBeGreaterThan(0);
 
-  const sample = await currentSample(page);
-  expect(sample?.position.z).toBe(0);
   expect(errors).toEqual([]);
 });

@@ -17,7 +17,12 @@ const RING_LAYER = 1;
 const RING_RADIUS_PIXELS = 11;
 /** Above this drawn length, the fly can be found without help. */
 const RING_MAX_FLY_PIXELS = 24;
-const CLOSE_UP_OFFSET = new THREE.Vector3(0.007, 0.006, 0.009);
+/** Where the close-up sits along the fly's surface, before moving out from the surface. */
+const CLOSE_UP_ALONG_SURFACE = new THREE.Vector3(0.007, 0, 0.009);
+const CLOSE_UP_ACROSS_ROOM = new THREE.Vector3(0, 0.007, 0.009);
+const CLOSE_UP_OUT_FROM_SURFACE_METRES = 0.006;
+/** How much of the way the close-up swings to a new viewpoint in each frame. */
+const CLOSE_UP_SWING = 0.12;
 
 export type CameraName = "monitoring" | "close-up";
 
@@ -167,12 +172,30 @@ export function createViews(options: {
     renderer.render(scene, camera);
   }
 
-  function flyCentre(): THREE.Vector3 {
-    return new THREE.Vector3(0, FLY_CENTRE_HEIGHT_METRES, 0).add(fly.position);
+  function flyUp(): THREE.Vector3 {
+    return new THREE.Vector3(0, 1, 0).applyQuaternion(fly.quaternion);
   }
 
+  function flyCentre(): THREE.Vector3 {
+    return flyUp().multiplyScalar(FLY_CENTRE_HEIGHT_METRES).add(fly.position);
+  }
+
+  /**
+   * A viewpoint out from the fly's surface and to one side, which keeps the close-up
+   * looking into the Room on every surface and never straight along the vertical.
+   */
+  function closeUpViewpoint(): THREE.Vector3 {
+    const up = flyUp();
+    const along = Math.abs(up.y) > 0.5 ? CLOSE_UP_ALONG_SURFACE : CLOSE_UP_ACROSS_ROOM;
+    const tangent = along.clone().addScaledVector(up, -along.dot(up));
+    return tangent.addScaledVector(up, CLOSE_UP_OUT_FROM_SURFACE_METRES);
+  }
+
+  let closeUpOffset = closeUpViewpoint();
+
   function trackFly(): void {
-    closeUpCamera.position.copy(fly.position).add(CLOSE_UP_OFFSET);
+    closeUpOffset = closeUpOffset.lerp(closeUpViewpoint(), CLOSE_UP_SWING);
+    closeUpCamera.position.copy(fly.position).add(closeUpOffset);
     closeUpCamera.lookAt(flyCentre());
     closeUpCamera.updateMatrixWorld();
   }

@@ -1,10 +1,23 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_PARAMETERS,
   DEFAULT_ROOM,
   STEPS_PER_SECOND,
   createSimulationRun,
+  type Position,
+  type RoomSetup,
   type RunRecord,
+  type RunSample,
+  type Surface,
 } from "../../src/engine";
+
+/** Starts walking at once and rarely stops, so the fly covers plenty of ground. */
+const WALKING_MOSTLY = {
+  ...DEFAULT_PARAMETERS,
+  startWalkingSpontaneousRate: 10,
+  stopWalkingSpontaneousRate: 0.001,
+  stopWalkingLowArousalRate: 0,
+};
 
 function recordOf(seed: number, simulatedSeconds: number): RunRecord {
   const run = createSimulationRun({ room: DEFAULT_ROOM, seed });
@@ -32,18 +45,116 @@ describe("Simulation Run", () => {
     expect(inPieces.record()).toEqual(inOneGo.record());
   });
 
-  it("keeps the fly on the Room's floor and inside its walls", () => {
-    const room = { widthMetres: 0.05, depthMetres: 0.03, heightMetres: 0.6 };
-    const run = createSimulationRun({ room, seed: 3 });
-    run.advanceSeconds(3600);
+  describe("walking on the Room's surfaces", () => {
+    const SMALL_ROOM = { widthMetres: 0.05, depthMetres: 0.03, heightMetres: 0.04 };
+    const NORMALS: Readonly<Record<Surface, Position>> = {
+      floor: { x: 0, y: 0, z: 1 },
+      ceiling: { x: 0, y: 0, z: -1 },
+      "west-wall": { x: 1, y: 0, z: 0 },
+      "east-wall": { x: -1, y: 0, z: 0 },
+      "south-wall": { x: 0, y: 1, z: 0 },
+      "north-wall": { x: 0, y: -1, z: 0 },
+    };
+    const dot = (a: Position, b: Position): number => a.x * b.x + a.y * b.y + a.z * b.z;
 
-    for (const { position } of run.record().samples) {
-      expect(position.z).toBe(0);
-      expect(position.x).toBeGreaterThan(0);
-      expect(position.x).toBeLessThan(room.widthMetres);
-      expect(position.y).toBeGreaterThan(0);
-      expect(position.y).toBeLessThan(room.depthMetres);
+    /** What's wrong with the fly's place on its surface. A cheap check, for use on every step. */
+    function surfaceProblem(sample: RunSample, room: RoomSetup): string | undefined {
+      const { position, surface, up, forward } = sample;
+      const distanceFromPlane: Readonly<Record<Surface, number>> = {
+        floor: position.z,
+        ceiling: room.heightMetres - position.z,
+        "west-wall": position.x,
+        "east-wall": room.widthMetres - position.x,
+        "south-wall": position.y,
+        "north-wall": room.depthMetres - position.y,
+      };
+      if (distanceFromPlane[surface] !== 0) return `off the ${surface}`;
+      if (
+        Math.min(position.x, position.y, position.z) < 0 ||
+        position.x > room.widthMetres ||
+        position.y > room.depthMetres ||
+        position.z > room.heightMetres
+      ) {
+        return "outside the Room";
+      }
+      // Its feet are towards the surface and it faces along it, whichever surface it's on.
+      const normal = NORMALS[surface];
+      if (dot(up, normal) !== 1) return `wrong way up on the ${surface}`;
+      if (Math.abs(dot(forward, up)) > 1e-9) return "not facing along the surface";
+      if (Math.abs(dot(forward, forward) - 1) > 1e-9) return "not a unit direction";
+      return undefined;
     }
+
+    it("stays on a Room surface, correctly oriented, through long runs with many seeds", () => {
+      const visited = new Set<Surface>();
+      const problems = new Set<string>();
+      for (let seed = 0; seed < 10; seed++) {
+        const run = createSimulationRun({ room: SMALL_ROOM, seed, parameters: WALKING_MOSTLY });
+        for (let i = 0; i < 40_000; i++) {
+          run.advanceSteps(1);
+          const sample = run.current();
+          const problem = surfaceProblem(sample, SMALL_ROOM);
+          if (problem) problems.add(problem);
+          visited.add(sample.surface);
+        }
+      }
+      expect([...problems]).toEqual([]);
+      expect(visited).toEqual(new Set(Object.keys(NORMALS)));
+    });
+
+    it("crosses an edge with a short move that never leaves the Room", () => {
+      const run = createSimulationRun({
+        room: SMALL_ROOM,
+        seed: 2,
+        parameters: WALKING_MOSTLY,
+      });
+      let previous = run.current();
+      let crossings = 0;
+      for (let i = 0; i < 100_000; i++) {
+        run.advanceSteps(1);
+        const sample = run.current();
+        if (sample.surface !== previous.surface) {
+          crossings += 1;
+          const hop = Math.hypot(
+            sample.position.x - previous.position.x,
+            sample.position.y - previous.position.y,
+            sample.position.z - previous.position.z,
+          );
+          // Round the edge from 2 mm away on one surface to 2 mm away on the other.
+          expect(hop).toBeLessThan(0.0035);
+        }
+        previous = sample;
+      }
+      expect(crossings).toBeGreaterThan(10);
+    });
+
+    it("records the time spent on each surface", () => {
+      const run = createSimulationRun({ room: SMALL_ROOM, seed: 4, parameters: WALKING_MOSTLY });
+      const expected = new Map<Surface, number>();
+      for (let i = 0; i < 20_000; i++) {
+        run.advanceSteps(1);
+        const { surface } = run.current();
+        expected.set(surface, (expected.get(surface) ?? 0) + 1);
+      }
+      const { timeOnSurfaceSeconds } = run.record();
+
+      expect(expected.size).toBeGreaterThan(1);
+      for (const surface of Object.keys(NORMALS) as Surface[]) {
+        expect(timeOnSurfaceSeconds[surface]).toBeCloseTo(
+          (expected.get(surface) ?? 0) / STEPS_PER_SECOND,
+          9,
+        );
+      }
+    });
+
+    it("rejects a Room too small for the fly", () => {
+      expect(() =>
+        createSimulationRun({
+          room: { widthMetres: 0.003, depthMetres: 1, heightMetres: 1 },
+          seed: 1,
+        }),
+      ).toThrow(/Room/);
+    });
   });
 
   it("alternates between Immobility and walking with no input", () => {
@@ -81,14 +192,13 @@ describe("Simulation Run", () => {
 
   it("reports the walking speed only while the fly is walking", () => {
     const run = createSimulationRun({ room: DEFAULT_ROOM, seed: 5 });
-    const speeds = new Set<number>();
+    const speedsByBehaviour = new Set<string>();
     for (let i = 0; i < 60_000; i++) {
       run.advanceSteps(1);
       const { behaviour, speedMetresPerSecond } = run.current();
-      speeds.add(speedMetresPerSecond);
-      expect(speedMetresPerSecond).toBe(behaviour === "walking" ? 0.02 : 0);
+      speedsByBehaviour.add(`${behaviour} ${speedMetresPerSecond}`);
     }
-    expect(speeds).toEqual(new Set([0, 0.02]));
+    expect(speedsByBehaviour).toEqual(new Set(["immobility 0", "walking 0.02"]));
   });
 
   it("gives the same hazard at the same arousal however long the bout has lasted", () => {

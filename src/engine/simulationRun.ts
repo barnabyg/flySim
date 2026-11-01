@@ -9,9 +9,10 @@ import {
   type TransitionDefinition,
   type TransitionId,
 } from "./model";
+import { SURFACES, createMovement, type Position, type RoomSetup, type Surface } from "./movement";
 import { createRandomStream } from "./random";
 
-export const MODEL_VERSION = "0.1.0";
+export const MODEL_VERSION = "0.2.0";
 
 /** The simulation always advances in fixed steps of this rate. */
 export const STEPS_PER_SECOND = 50;
@@ -19,18 +20,9 @@ export const STEPS_PER_SECOND = 50;
 const STEP_SECONDS = 1 / STEPS_PER_SECOND;
 const SQRT_STEP_SECONDS = Math.sqrt(STEP_SECONDS);
 
-/** The fly's half-length, which keeps its body inside the Room. */
-const BODY_MARGIN_METRES = 0.00125;
-
 const DRIVER_NOISE_STREAM = 1;
 const MOVEMENT_STREAM = 2;
 const DEFAULT_TRIGGER_STREAM = 3;
-
-export interface RoomSetup {
-  readonly widthMetres: number;
-  readonly depthMetres: number;
-  readonly heightMetres: number;
-}
 
 export const DEFAULT_ROOM: RoomSetup = { widthMetres: 1, depthMetres: 1, heightMetres: 0.6 };
 
@@ -47,12 +39,6 @@ export interface SimulationSetup {
   readonly maxRecordedSamples?: number;
 }
 
-export interface Position {
-  readonly x: number;
-  readonly y: number;
-  readonly z: number;
-}
-
 export interface TransitionState {
   readonly transition: TransitionId;
   /** Per second. */
@@ -67,9 +53,13 @@ export interface RunSample {
   readonly step: number;
   readonly timeSeconds: number;
   readonly behaviour: Behaviour;
+  /** Where its feet meet the surface it is on. */
   readonly position: Position;
-  /** Radians anticlockwise from the +x axis. */
-  readonly heading: number;
+  readonly surface: Surface;
+  /** The way the fly faces, a unit vector along its surface. */
+  readonly forward: Position;
+  /** From its feet towards its back, a unit vector out of its surface. */
+  readonly up: Position;
   /** How fast the fly is really moving, for anything that needs to show its movement. */
   readonly speedMetresPerSecond: number;
   readonly arousal: number;
@@ -94,6 +84,8 @@ export interface RunRecord {
   /** One per simulated second, starting at step 0 unless older ones were dropped. */
   readonly samples: readonly RunSample[];
   readonly firedTransitions: readonly FiredTransition[];
+  /** Covers the whole run, even when older samples were dropped. */
+  readonly timeOnSurfaceSeconds: Readonly<Record<Surface, number>>;
 }
 
 /** The engine's single public interface. */
@@ -129,9 +121,8 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   let step = 0;
   let behaviour: Behaviour = "immobility";
   let arousal = parameters.initialArousal;
-  let x = room.widthMetres * (0.25 + 0.5 * movementNoise.uniform());
-  let y = room.depthMetres * (0.25 + 0.5 * movementNoise.uniform());
-  let heading = 2 * Math.PI * movementNoise.uniform();
+  const movement = createMovement(room, movementNoise);
+  const stepsOnSurface = new Map<Surface, number>();
   let pending = drawTriggerLevels();
 
   function drawTriggerLevels(): PendingTransition[] {
@@ -184,19 +175,10 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   }
 
   function walk(): void {
-    heading += parameters.walkingTurnNoise * SQRT_STEP_SECONDS * movementNoise.normal();
-    let dx = parameters.walkingSpeedMetresPerSecond * STEP_SECONDS * Math.cos(heading);
-    let dy = parameters.walkingSpeedMetresPerSecond * STEP_SECONDS * Math.sin(heading);
-    if (x + dx < BODY_MARGIN_METRES || x + dx > room.widthMetres - BODY_MARGIN_METRES) {
-      dx = -dx;
-      heading = Math.atan2(dy, dx);
-    }
-    if (y + dy < BODY_MARGIN_METRES || y + dy > room.depthMetres - BODY_MARGIN_METRES) {
-      dy = -dy;
-      heading = Math.atan2(dy, dx);
-    }
-    x += dx;
-    y += dy;
+    movement.walk(
+      parameters.walkingSpeedMetresPerSecond * STEP_SECONDS,
+      parameters.walkingTurnNoise * SQRT_STEP_SECONDS * movementNoise.normal(),
+    );
   }
 
   function current(): RunSample {
@@ -204,8 +186,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       step,
       timeSeconds: step * STEP_SECONDS,
       behaviour,
-      position: { x, y, z: 0 },
-      heading,
+      ...movement.pose(),
       speedMetresPerSecond: behaviour === "walking" ? parameters.walkingSpeedMetresPerSecond : 0,
       arousal,
       transitions: pending.map((item) => transitionState(item.definition.id)),
@@ -223,6 +204,8 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       fireDueTransition();
       updateArousal();
       if (behaviour === "walking") walk();
+      const { surface } = movement.pose();
+      stepsOnSurface.set(surface, (stepsOnSurface.get(surface) ?? 0) + 1);
       step += 1;
       if (step % STEPS_PER_SECOND === 0) recordSample();
     }
@@ -245,6 +228,9 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       stepsPerSecond: STEPS_PER_SECOND,
       samples: [...samples],
       firedTransitions: [...firedTransitions],
+      timeOnSurfaceSeconds: Object.fromEntries(
+        SURFACES.map((surface) => [surface, (stepsOnSurface.get(surface) ?? 0) * STEP_SECONDS]),
+      ) as Record<Surface, number>,
     }),
   };
 }
