@@ -24,8 +24,9 @@ const RING_MAX_FLY_PIXELS = 24;
 const CLOSE_UP_ALONG_SURFACE = new THREE.Vector3(0.007, 0, 0.009);
 const CLOSE_UP_ACROSS_ROOM = new THREE.Vector3(0, 0.007, 0.009);
 const CLOSE_UP_OUT_FROM_SURFACE_METRES = 0.006;
-/** How much of the way the close-up swings to a new viewpoint in each frame. */
-const CLOSE_UP_SWING = 0.12;
+const CLOSE_UP_SWING_SECONDS = 0.15;
+/** Mid-swing, the close-up still stays this far out from the fly's surface. */
+const CLOSE_UP_MIN_OUT_FROM_SURFACE_METRES = 0.003;
 
 export type CameraName = "monitoring" | "close-up";
 
@@ -213,10 +214,20 @@ export function createViews(options: {
     return tangent.addScaledVector(up, CLOSE_UP_OUT_FROM_SURFACE_METRES);
   }
 
-  let closeUpOffset = closeUpViewpoint();
+  const closeUpOffset = closeUpViewpoint();
+  let lastTrackedAt = performance.now();
 
   function trackFly(): void {
-    closeUpOffset = closeUpOffset.lerp(closeUpViewpoint(), CLOSE_UP_SWING);
+    const now = performance.now();
+    const swing = 1 - Math.exp(-(now - lastTrackedAt) / 1000 / CLOSE_UP_SWING_SECONDS);
+    lastTrackedAt = now;
+    closeUpOffset.lerp(closeUpViewpoint(), swing);
+    // Swinging between opposite surfaces mustn't take the camera behind the fly's feet.
+    const up = flyUp();
+    const out = closeUpOffset.dot(up);
+    if (out < CLOSE_UP_MIN_OUT_FROM_SURFACE_METRES) {
+      closeUpOffset.addScaledVector(up, CLOSE_UP_MIN_OUT_FROM_SURFACE_METRES - out);
+    }
     closeUpCamera.position.copy(fly.position).add(closeUpOffset);
     closeUpCamera.lookAt(flyCentre());
     closeUpCamera.updateMatrixWorld();

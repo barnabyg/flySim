@@ -40,8 +40,8 @@ export interface Senses {
 }
 
 /**
- * Model values for Phase 1. They are roughly chosen to give watchable behaviour
- * and are not validated: every relationship here is Provisional.
+ * Model values for Phase 1. They are roughly tuned so that about 10 simulated minutes
+ * shows every behaviour. They are not validated: every relationship here is Provisional.
  */
 export interface ModelParameters {
   /** Arousal relaxes towards this level during Immobility. */
@@ -97,10 +97,10 @@ export const DEFAULT_PARAMETERS: ModelParameters = {
   stopGroomingSpontaneousRate: 0.04,
   walkAfterGroomingSpontaneousRate: 0.005,
   walkAfterGroomingArousalRate: 0.03,
-  takeOffFromImmobilitySpontaneousRate: 0.0003,
-  takeOffFromImmobilityArousalRate: 0.006,
-  takeOffFromWalkingSpontaneousRate: 0.002,
-  takeOffFromWalkingArousalRate: 0.03,
+  takeOffFromImmobilitySpontaneousRate: 0.003,
+  takeOffFromImmobilityArousalRate: 0.02,
+  takeOffFromWalkingSpontaneousRate: 0.012,
+  takeOffFromWalkingArousalRate: 0.06,
   landingContactRate: 100,
   walkingSpeedMetresPerSecond: 0.02,
   walkingTurnNoise: 0.8,

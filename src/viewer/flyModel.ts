@@ -136,9 +136,9 @@ function createWingBlur(side: number): THREE.Mesh {
   const blur = new THREE.Mesh(
     geometry,
     new THREE.MeshBasicMaterial({
-      color: 0xd8dce0,
+      color: 0x8a9098,
       transparent: true,
-      opacity: 0.22,
+      opacity: 0.5,
       side: THREE.DoubleSide,
       depthWrite: false,
     }),

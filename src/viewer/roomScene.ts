@@ -116,7 +116,9 @@ export function createRoomScene(room: RoomSetup): RoomScene {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x14161a);
   scene.add(new THREE.HemisphereLight(0xffffff, 0x888888, 2));
-  const overhead = new THREE.PointLight(0xffffff, 1.5, 0, 1);
+  // Brightness falls with distance, so a smaller Room needs a weaker light to look the same.
+  const size = Math.max(room.widthMetres, room.depthMetres, room.heightMetres);
+  const overhead = new THREE.PointLight(0xffffff, 1.5 * size, 0, 1);
   overhead.position.set(room.widthMetres / 2, room.heightMetres * 0.95, room.depthMetres / 2);
   scene.add(overhead);
   scene.add(createRoomMesh(room));

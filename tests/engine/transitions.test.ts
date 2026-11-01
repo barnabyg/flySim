@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  BEHAVIOURS,
   DEFAULT_PARAMETERS,
   DEFAULT_ROOM,
   DRIVERS,
@@ -43,6 +44,18 @@ describe("Transition Hazards", () => {
     );
 
     expect(arousalContributions.size).toBeGreaterThan(1000);
+  });
+});
+
+describe("default tuning", () => {
+  it("shows every behaviour within about 10 simulated minutes in nearly every run", () => {
+    const seeds = Array.from({ length: 100 }, (_, seed) => seed);
+    const showingAll = seeds.filter((seed) => {
+      const { timeInBehaviourSeconds } = recordOf(seed, 600);
+      return BEHAVIOURS.every((behaviour) => timeInBehaviourSeconds[behaviour] > 0);
+    });
+
+    expect(showingAll.length).toBeGreaterThanOrEqual(95);
   });
 });
 
