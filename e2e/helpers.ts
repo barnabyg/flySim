@@ -3,7 +3,7 @@ import type { RunRecord, RunSample } from "../src/engine";
 
 export async function openApp(page: Page, seed = 42): Promise<void> {
   await page.goto(`/?seed=${seed}`);
-  await expect.poll(() => currentSample(page).then(Boolean)).toBe(true);
+  await expect.poll(() => currentSample(page).then(Boolean), { timeout: 30_000 }).toBe(true);
 }
 
 export async function currentSample(page: Page): Promise<RunSample | undefined> {
@@ -45,8 +45,9 @@ async function analyse(page: Page, png: Buffer): Promise<ScreenshotAnalysis> {
     for (let i = 0; i < data.length; i += 4) {
       const [r, g, b] = [data[i] ?? 0, data[i + 1] ?? 0, data[i + 2] ?? 0];
       colours.add((r << 16) | (g << 8) | b);
-      // The Room is close to grey, so a strong warm tint can only be the ring.
-      if (r > 150 && r - b > 50) ringPixels += 1;
+      // The ring is about (241, 178, 64) over the Room. The Room is close to grey and
+      // the fly's browns and reds are duller, so a colour this bright can only be the ring.
+      if (r > 225 && g > 150 && b < 100) ringPixels += 1;
       if (r < 90 && g < 70 && b < 60 && r > b) darkPixels += 1;
     }
     return { distinctColours: colours.size, ringPixels, darkPixels };

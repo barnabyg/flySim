@@ -1,4 +1,5 @@
 import {
+  BEHAVIOURS,
   DEFAULT_PARAMETERS,
   DRIVERS,
   TRANSITIONS,
@@ -9,9 +10,16 @@ import {
   type TransitionDefinition,
   type TransitionId,
 } from "./model";
+import {
+  SURFACES,
+  createMovement,
+  type MovementPose,
+  type RoomSetup,
+  type Surface,
+} from "./movement";
 import { createRandomStream } from "./random";
 
-export const MODEL_VERSION = "0.1.0";
+export const MODEL_VERSION = "0.2.0";
 
 /** The simulation always advances in fixed steps of this rate. */
 export const STEPS_PER_SECOND = 50;
@@ -19,18 +27,9 @@ export const STEPS_PER_SECOND = 50;
 const STEP_SECONDS = 1 / STEPS_PER_SECOND;
 const SQRT_STEP_SECONDS = Math.sqrt(STEP_SECONDS);
 
-/** The fly's half-length, which keeps its body inside the Room. */
-const BODY_MARGIN_METRES = 0.00125;
-
 const DRIVER_NOISE_STREAM = 1;
 const MOVEMENT_STREAM = 2;
 const DEFAULT_TRIGGER_STREAM = 3;
-
-export interface RoomSetup {
-  readonly widthMetres: number;
-  readonly depthMetres: number;
-  readonly heightMetres: number;
-}
 
 export const DEFAULT_ROOM: RoomSetup = { widthMetres: 1, depthMetres: 1, heightMetres: 0.6 };
 
@@ -47,12 +46,6 @@ export interface SimulationSetup {
   readonly maxRecordedSamples?: number;
 }
 
-export interface Position {
-  readonly x: number;
-  readonly y: number;
-  readonly z: number;
-}
-
 export interface TransitionState {
   readonly transition: TransitionId;
   /** Per second. */
@@ -63,13 +56,12 @@ export interface TransitionState {
   readonly fireProbabilityNextMinute: number;
 }
 
-export interface RunSample {
+export interface RunSample extends MovementPose {
   readonly step: number;
   readonly timeSeconds: number;
   readonly behaviour: Behaviour;
-  readonly position: Position;
-  /** Radians anticlockwise from the +x axis. */
-  readonly heading: number;
+  /** How fast the fly is really moving, for anything that needs to show its movement. */
+  readonly speedMetresPerSecond: number;
   readonly arousal: number;
   /** The transitions available from the current behaviour. */
   readonly transitions: readonly TransitionState[];
@@ -92,6 +84,10 @@ export interface RunRecord {
   /** One per simulated second, starting at step 0 unless older ones were dropped. */
   readonly samples: readonly RunSample[];
   readonly firedTransitions: readonly FiredTransition[];
+  /** Covers the whole run, even when older samples were dropped. */
+  readonly timeOnSurfaceSeconds: Readonly<Record<Surface, number>>;
+  /** Covers the whole run, even when older samples were dropped. */
+  readonly timeInBehaviourSeconds: Readonly<Record<Behaviour, number>>;
 }
 
 /** The engine's single public interface. */
@@ -127,9 +123,9 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   let step = 0;
   let behaviour: Behaviour = "immobility";
   let arousal = parameters.initialArousal;
-  let x = room.widthMetres * (0.25 + 0.5 * movementNoise.uniform());
-  let y = room.depthMetres * (0.25 + 0.5 * movementNoise.uniform());
-  let heading = 2 * Math.PI * movementNoise.uniform();
+  const movement = createMovement(room, movementNoise);
+  const stepsOnSurface = new Map<Surface, number>();
+  const stepsInBehaviour = new Map<Behaviour, number>();
   let pending = drawTriggerLevels();
 
   function drawTriggerLevels(): PendingTransition[] {
@@ -141,7 +137,12 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   }
 
   function transitionState(transition: TransitionId): TransitionState {
-    const contributions = driverContributions(transition, arousal, parameters);
+    const contributions = driverContributions(
+      transition,
+      arousal,
+      { touchingSurface: movement.hasArrived() },
+      parameters,
+    );
     const hazard = DRIVERS.reduce((sum, driver) => sum + contributions[driver], 0);
     return {
       transition,
@@ -165,15 +166,41 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
           triggerLevel: item.triggerLevel,
         });
         behaviour = item.definition.to;
+        if (item.definition.to === "flying") movement.takeOff();
+        if (item.definition.from === "flying") movement.land();
         pending = drawTriggerLevels();
         return;
       }
     }
   }
 
+  function arousalTarget(): number {
+    switch (behaviour) {
+      case "immobility":
+        return parameters.arousalTargetImmobile;
+      case "grooming":
+        return parameters.arousalTargetGrooming;
+      case "walking":
+        return parameters.arousalTargetWalking;
+      case "flying":
+        return parameters.arousalTargetFlying;
+    }
+  }
+
+  function currentSpeed(): number {
+    switch (behaviour) {
+      case "immobility":
+      case "grooming":
+        return 0;
+      case "walking":
+        return parameters.walkingSpeedMetresPerSecond;
+      case "flying":
+        return movement.hasArrived() ? 0 : parameters.flightSpeedMetresPerSecond;
+    }
+  }
+
   function updateArousal(): void {
-    const target =
-      behaviour === "walking" ? parameters.arousalTargetWalking : parameters.arousalTargetImmobile;
+    const target = arousalTarget();
     const next =
       arousal +
       ((target - arousal) / parameters.arousalTimeConstantSeconds) * STEP_SECONDS +
@@ -182,19 +209,10 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   }
 
   function walk(): void {
-    heading += parameters.walkingTurnNoise * SQRT_STEP_SECONDS * movementNoise.normal();
-    let dx = parameters.walkingSpeedMetresPerSecond * STEP_SECONDS * Math.cos(heading);
-    let dy = parameters.walkingSpeedMetresPerSecond * STEP_SECONDS * Math.sin(heading);
-    if (x + dx < BODY_MARGIN_METRES || x + dx > room.widthMetres - BODY_MARGIN_METRES) {
-      dx = -dx;
-      heading = Math.atan2(dy, dx);
-    }
-    if (y + dy < BODY_MARGIN_METRES || y + dy > room.depthMetres - BODY_MARGIN_METRES) {
-      dy = -dy;
-      heading = Math.atan2(dy, dx);
-    }
-    x += dx;
-    y += dy;
+    movement.walk(
+      parameters.walkingSpeedMetresPerSecond * STEP_SECONDS,
+      parameters.walkingTurnNoise * SQRT_STEP_SECONDS * movementNoise.normal(),
+    );
   }
 
   function current(): RunSample {
@@ -202,8 +220,8 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       step,
       timeSeconds: step * STEP_SECONDS,
       behaviour,
-      position: { x, y, z: 0 },
-      heading,
+      ...movement.pose(),
+      speedMetresPerSecond: currentSpeed(),
       arousal,
       transitions: pending.map((item) => transitionState(item.definition.id)),
     };
@@ -220,6 +238,11 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       fireDueTransition();
       updateArousal();
       if (behaviour === "walking") walk();
+      if (behaviour === "flying")
+        movement.fly(parameters.flightSpeedMetresPerSecond * STEP_SECONDS);
+      const { surface } = movement.pose();
+      if (surface) stepsOnSurface.set(surface, (stepsOnSurface.get(surface) ?? 0) + 1);
+      stepsInBehaviour.set(behaviour, (stepsInBehaviour.get(behaviour) ?? 0) + 1);
       step += 1;
       if (step % STEPS_PER_SECOND === 0) recordSample();
     }
@@ -242,6 +265,12 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       stepsPerSecond: STEPS_PER_SECOND,
       samples: [...samples],
       firedTransitions: [...firedTransitions],
+      timeOnSurfaceSeconds: Object.fromEntries(
+        SURFACES.map((surface) => [surface, (stepsOnSurface.get(surface) ?? 0) * STEP_SECONDS]),
+      ) as Record<Surface, number>,
+      timeInBehaviourSeconds: Object.fromEntries(
+        BEHAVIOURS.map((each) => [each, (stepsInBehaviour.get(each) ?? 0) * STEP_SECONDS]),
+      ) as Record<Behaviour, number>,
     }),
   };
 }

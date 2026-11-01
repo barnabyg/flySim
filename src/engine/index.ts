@@ -8,14 +8,13 @@ export {
   type ModelParameters,
   type TransitionId,
 } from "./model";
+export { SURFACES, type Position, type RoomSetup, type Surface } from "./movement";
 export {
   DEFAULT_ROOM,
   MODEL_VERSION,
   STEPS_PER_SECOND,
   createSimulationRun,
   type FiredTransition,
-  type Position,
-  type RoomSetup,
   type RunRecord,
   type RunSample,
   type SimulationRun,

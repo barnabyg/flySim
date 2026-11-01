@@ -1,10 +1,12 @@
 import * as THREE from "three";
-import { DEFAULT_ROOM, type RunRecord, type RunSample } from "../engine";
+import type { RunRecord, RunSample } from "../engine";
 import { createDriverPanel, type FlashedTransition } from "./driverPanel";
 import { createRibbon } from "./ribbon";
 import { createRoomScene } from "./roomScene";
+import { createRunControls } from "./runControls";
+import { randomSeed, settingsFromUrl, urlForSettings, type RunSettings } from "./runSettings";
 import { startSimulation } from "./simulationClient";
-import { INITIAL_SPEED, createTimeControls } from "./timeControls";
+import { INITIAL_SPEED, SPEEDS, createTimeControls } from "./timeControls";
 import { createViews, type ViewState } from "./views";
 
 /** Lets browser tests and the console observe a run. It can't change one. */
@@ -29,14 +31,13 @@ function requireElement<T extends Element>(selector: string, type: new () => T):
   return element;
 }
 
-function seedFromUrl(): number {
-  const parameter = new URLSearchParams(location.search).get("seed");
-  const parsed = parameter === null ? NaN : Number(parameter);
-  return Number.isInteger(parsed) ? parsed : Math.floor(Math.random() * 2 ** 31);
-}
+const settings = settingsFromUrl(location.search, SPEEDS, INITIAL_SPEED);
+const { room, seed } = settings;
+let speed = settings.speed;
 
-const room = DEFAULT_ROOM;
-const seed = seedFromUrl();
+function restartWith(changes: Partial<RunSettings>): void {
+  location.assign(urlForSettings({ ...settings, speed, ...changes }));
+}
 
 const view = requireElement("#view", HTMLElement);
 const canvas = requireElement("#scene", HTMLCanvasElement);
@@ -45,18 +46,30 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 
 const roomScene = createRoomScene(room);
-const simulation = startSimulation(seed, room, INITIAL_SPEED);
+const simulation = startSimulation(seed, room, speed);
 
 const driverPanel = createDriverPanel(requireElement("#drivers", HTMLElement));
 const ribbon = createRibbon(requireElement("#ribbon", HTMLCanvasElement));
-ribbon.setSpeed(INITIAL_SPEED);
-const timeControls = createTimeControls(requireElement("#controls", HTMLElement), {
-  onSpeedChange: (speed) => {
-    simulation.setSpeed(speed);
-    ribbon.setSpeed(speed);
+ribbon.setSpeed(speed);
+const timeControls = createTimeControls(requireElement("#controls", HTMLElement), speed, {
+  onSpeedChange: (newSpeed) => {
+    speed = newSpeed;
+    simulation.setSpeed(newSpeed);
+    ribbon.setSpeed(newSpeed);
   },
   onPausedChange: (paused) => {
     simulation.setPaused(paused);
+  },
+});
+createRunControls(requireElement("#run-controls", HTMLElement), seed, room, {
+  onRestart: () => {
+    restartWith({});
+  },
+  onNewSeed: () => {
+    restartWith({ seed: randomSeed() });
+  },
+  onRoomChange: (newRoom) => {
+    restartWith({ room: newRoom });
   },
 });
 simulation.onFrame((sample, fired) => {
@@ -68,7 +81,7 @@ simulation.onFrame((sample, fired) => {
 const views = createViews({
   renderer,
   scene: roomScene.scene,
-  fly: roomScene.fly,
+  model: roomScene.fly,
   room,
   view,
   inset: requireElement("#inset", HTMLElement),
@@ -86,7 +99,7 @@ window.flySim = {
   current: () => simulation.latest(),
   record: () => simulation.record(),
   flyScenePosition: () => {
-    const { x, y, z } = roomScene.fly.position;
+    const { x, y, z } = roomScene.fly.object.position;
     return { x, y, z };
   },
   flashes: () => driverPanel.flashes,

@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { RoomSetup } from "../engine";
-import { FLY_LENGTH_METRES } from "./flyModel";
+import { FLY_CENTRE_HEIGHT_METRES, FLY_LENGTH_METRES, type FlyModel } from "./flyModel";
 import {
   FIELD_OF_VIEW_DEGREES,
   createMonitoringCamera,
@@ -15,10 +15,18 @@ import { CLOSE_UP_ONLY_LAYER } from "./roomScene";
 /** Only the monitoring camera sees this layer, so the close-up can never show the ring. */
 const RING_LAYER = 1;
 const RING_RADIUS_PIXELS = 11;
+/** A true-scale shadow would be under a pixel wide, so like the ring it has a fixed drawn size. */
+const SHADOW_RADIUS_PIXELS = 6;
+const SHADOW_HEIGHT_METRES = 0.0002;
 /** Above this drawn length, the fly can be found without help. */
 const RING_MAX_FLY_PIXELS = 24;
-const FLY_CENTRE_HEIGHT_METRES = 0.0004;
-const CLOSE_UP_OFFSET = new THREE.Vector3(0.007, 0.006, 0.009);
+/** Where the close-up sits along the fly's surface, before moving out from the surface. */
+const CLOSE_UP_ALONG_SURFACE = new THREE.Vector3(0.007, 0, 0.009);
+const CLOSE_UP_ACROSS_ROOM = new THREE.Vector3(0, 0.007, 0.009);
+const CLOSE_UP_OUT_FROM_SURFACE_METRES = 0.006;
+const CLOSE_UP_SWING_SECONDS = 0.15;
+/** Mid-swing, the close-up still stays this far out from the fly's surface. */
+const CLOSE_UP_MIN_OUT_FROM_SURFACE_METRES = 0.003;
 
 export type CameraName = "monitoring" | "close-up";
 
@@ -30,6 +38,10 @@ export interface ViewState {
   readonly flyLengthInScene: number;
   readonly flyInCloseUp: { x: number; y: number };
   readonly closeUpDistance: number;
+  /** Where each foot is, in the scene. */
+  readonly flyFeet: readonly { x: number; y: number; z: number }[];
+  readonly flyPose: ReturnType<FlyModel["pose"]>;
+  readonly shadow: { x: number; y: number; z: number; visible: boolean };
 }
 
 export interface Views {
@@ -59,10 +71,41 @@ function createRing(): THREE.Mesh {
   return ring;
 }
 
-/** Measures the fly as drawn, from its vertices, so any scaling would show up here. */
-function drawnFlyLength(fly: THREE.Object3D): number {
-  const size = new THREE.Box3().setFromObject(fly, true).getSize(new THREE.Vector3());
-  return Math.max(size.x, size.y, size.z);
+function createShadow(): THREE.Mesh {
+  const shadow = new THREE.Mesh(
+    new THREE.CircleGeometry(1, 24),
+    new THREE.MeshBasicMaterial({
+      color: 0x000000,
+      transparent: true,
+      opacity: 0.55,
+      depthWrite: false,
+    }),
+  );
+  shadow.layers.set(RING_LAYER);
+  shadow.rotation.x = -Math.PI / 2;
+  return shadow;
+}
+
+/**
+ * Measures the body as drawn, from its vertices and along its own axis, so any scaling
+ * would show up here. Legs and wings reach beyond the body, as they do on a real fly.
+ */
+function drawnBodyLength(model: FlyModel): number {
+  model.object.updateWorldMatrix(true, true);
+  const axis = new THREE.Vector3(1, 0, 0).applyQuaternion(model.object.quaternion);
+  const vertex = new THREE.Vector3();
+  let least = Infinity;
+  let most = -Infinity;
+  model.body.traverse((part) => {
+    if (!(part instanceof THREE.Mesh)) return;
+    const positions = (part as THREE.Mesh).geometry.getAttribute("position");
+    for (let i = 0; i < positions.count; i++) {
+      vertex.fromBufferAttribute(positions, i).applyMatrix4(part.matrixWorld);
+      least = Math.min(least, vertex.dot(axis));
+      most = Math.max(most, vertex.dot(axis));
+    }
+  });
+  return most - least;
 }
 
 /**
@@ -72,12 +115,13 @@ function drawnFlyLength(fly: THREE.Object3D): number {
 export function createViews(options: {
   readonly renderer: THREE.WebGLRenderer;
   readonly scene: THREE.Scene;
-  readonly fly: THREE.Object3D;
+  readonly model: FlyModel;
   readonly room: RoomSetup;
   readonly view: HTMLElement;
   readonly inset: HTMLElement;
 }): Views {
-  const { renderer, scene, fly, room, view, inset } = options;
+  const { renderer, scene, model, room, view, inset } = options;
+  const fly = model.object;
 
   const monitoringCamera = createMonitoringCamera();
   monitoringCamera.layers.enable(RING_LAYER);
@@ -87,6 +131,8 @@ export function createViews(options: {
 
   const ring = createRing();
   scene.add(ring);
+  const shadow = createShadow();
+  scene.add(shadow);
 
   const controls = new OrbitControls(monitoringCamera, renderer.domElement);
   controls.target.copy(roomCentre(room));
@@ -149,21 +195,61 @@ export function createViews(options: {
     renderer.render(scene, camera);
   }
 
-  function flyCentre(): THREE.Vector3 {
-    return new THREE.Vector3(0, FLY_CENTRE_HEIGHT_METRES, 0).add(fly.position);
+  function flyUp(): THREE.Vector3 {
+    return new THREE.Vector3(0, 1, 0).applyQuaternion(fly.quaternion);
   }
 
+  function flyCentre(): THREE.Vector3 {
+    return flyUp().multiplyScalar(FLY_CENTRE_HEIGHT_METRES).add(fly.position);
+  }
+
+  /**
+   * A viewpoint out from the fly's surface and to one side, which keeps the close-up
+   * looking into the Room on every surface and never straight along the vertical.
+   */
+  function closeUpViewpoint(): THREE.Vector3 {
+    const up = flyUp();
+    const along = Math.abs(up.y) > 0.5 ? CLOSE_UP_ALONG_SURFACE : CLOSE_UP_ACROSS_ROOM;
+    const tangent = along.clone().addScaledVector(up, -along.dot(up));
+    return tangent.addScaledVector(up, CLOSE_UP_OUT_FROM_SURFACE_METRES);
+  }
+
+  const closeUpOffset = closeUpViewpoint();
+  let lastTrackedAt = performance.now();
+
   function trackFly(): void {
-    closeUpCamera.position.copy(fly.position).add(CLOSE_UP_OFFSET);
+    const now = performance.now();
+    const swing = 1 - Math.exp(-(now - lastTrackedAt) / 1000 / CLOSE_UP_SWING_SECONDS);
+    lastTrackedAt = now;
+    closeUpOffset.lerp(closeUpViewpoint(), swing);
+    // Swinging between opposite surfaces mustn't take the camera behind the fly's feet.
+    const up = flyUp();
+    const out = closeUpOffset.dot(up);
+    if (out < CLOSE_UP_MIN_OUT_FROM_SURFACE_METRES) {
+      closeUpOffset.addScaledVector(up, CLOSE_UP_MIN_OUT_FROM_SURFACE_METRES - out);
+    }
+    closeUpCamera.position.copy(fly.position).add(closeUpOffset);
     closeUpCamera.lookAt(flyCentre());
     closeUpCamera.updateMatrixWorld();
   }
 
+  function metresPerPixelAt(point: THREE.Vector3, viewportHeightPixels: number): number {
+    const distance = monitoringCamera.position.distanceTo(point);
+    const halfFieldOfView = THREE.MathUtils.degToRad(monitoringCamera.fov / 2);
+    return (2 * distance * Math.tan(halfFieldOfView)) / viewportHeightPixels;
+  }
+
+  /** Shows height: a shadow on the floor below the fly whenever it is off the floor. */
+  function placeShadow(viewportHeightPixels: number): void {
+    shadow.visible = fly.position.y > 0;
+    shadow.position.set(fly.position.x, SHADOW_HEIGHT_METRES, fly.position.z);
+    const metresPerPixel = metresPerPixelAt(shadow.position, viewportHeightPixels);
+    shadow.scale.setScalar(SHADOW_RADIUS_PIXELS * metresPerPixel);
+  }
+
   /** Keeps the ring a fixed size on screen and facing the camera, and hides it when not needed. */
   function placeRing(viewportHeightPixels: number): void {
-    const distance = monitoringCamera.position.distanceTo(fly.position);
-    const halfFieldOfView = THREE.MathUtils.degToRad(monitoringCamera.fov / 2);
-    const metresPerPixel = (2 * distance * Math.tan(halfFieldOfView)) / viewportHeightPixels;
+    const metresPerPixel = metresPerPixelAt(fly.position, viewportHeightPixels);
     const flyLengthPixels = FLY_LENGTH_METRES / metresPerPixel;
     ring.visible = flyLengthPixels < RING_MAX_FLY_PIXELS;
     ring.position.copy(fly.position);
@@ -177,6 +263,7 @@ export function createViews(options: {
       const full: Viewport = { x: 0, y: 0, width: view.clientWidth, height: view.clientHeight };
       const small = insetViewport();
       placeRing(swapped ? small.height : full.height);
+      placeShadow(swapped ? small.height : full.height);
 
       renderer.setScissorTest(true);
       renderCamera(swapped ? closeUpCamera : monitoringCamera, full);
@@ -193,9 +280,20 @@ export function createViews(options: {
           const projected = corner.project(mainCamera);
           return { x: projected.x, y: projected.y };
         }),
-        flyLengthInScene: drawnFlyLength(fly),
+        flyLengthInScene: drawnBodyLength(model),
         flyInCloseUp: { x: flyProjected.x, y: flyProjected.y },
         closeUpDistance: closeUpCamera.position.distanceTo(fly.position),
+        flyPose: model.pose(),
+        shadow: {
+          x: shadow.position.x,
+          y: shadow.position.y,
+          z: shadow.position.z,
+          visible: shadow.visible,
+        },
+        flyFeet: model.feet.map((foot) => {
+          const world = foot.getWorldPosition(new THREE.Vector3());
+          return { x: world.x, y: world.y, z: world.z };
+        }),
       };
     },
   };

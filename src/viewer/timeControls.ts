@@ -1,4 +1,4 @@
-const SPEEDS = [1, 2, 5, 10, 20, 30, 60, 120, 300, 600, 1000] as const;
+export const SPEEDS: readonly number[] = [1, 2, 5, 10, 20, 30, 60, 120, 300, 600, 1000];
 export const INITIAL_SPEED = 60;
 
 const PAUSE_ICON =
@@ -25,14 +25,15 @@ export interface TimeControlHandlers {
 
 export function createTimeControls(
   container: HTMLElement,
+  initialSpeed: number,
   handlers: TimeControlHandlers,
 ): TimeControls {
-  const defaultIndex = SPEEDS.indexOf(INITIAL_SPEED);
+  const initialIndex = SPEEDS.indexOf(initialSpeed);
   container.innerHTML = `
     <button id="pause" type="button"></button>
     <span class="speed-icon" title="Time speed">${SPEED_ICON}</span>
-    <input id="speed" type="range" min="0" max="${SPEEDS.length - 1}" step="1" value="${defaultIndex}" aria-label="Time speed" />
-    <output id="speed-readout">${INITIAL_SPEED}×</output>
+    <input id="speed" type="range" min="0" max="${SPEEDS.length - 1}" step="1" value="${initialIndex}" aria-label="Time speed" />
+    <output id="speed-readout">${initialSpeed}×</output>
     <output id="clock" title="Simulated time">${formatClock(0)}</output>`;
 
   const pause = container.querySelector<HTMLButtonElement>("#pause");
