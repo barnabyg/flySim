@@ -14,6 +14,7 @@ let run: SimulationRun | undefined;
 let lastTickTime = 0;
 let stepsOwed = 0;
 let firedSent = 0;
+let interventionsSent = 0;
 
 function send(message: FromSimulation): void {
   postMessage(message);
@@ -46,8 +47,10 @@ function sendFrame(): void {
     type: "frame",
     sample: run.current(),
     fired: run.firedTransitions.slice(firedSent),
+    interventions: run.interventions.slice(interventionsSent),
   });
   firedSent = run.firedTransitions.length;
+  interventionsSent = run.interventions.length;
 }
 
 onmessage = (event: MessageEvent<ToSimulation>) => {
@@ -58,6 +61,7 @@ onmessage = (event: MessageEvent<ToSimulation>) => {
       run = createSimulationRun({
         room: message.room,
         seed: message.seed,
+        lightSchedule: message.lightSchedule,
         maxRecordedSamples: MAX_RECORDED_SAMPLES,
       });
       lastTickTime = performance.now();
@@ -69,6 +73,11 @@ onmessage = (event: MessageEvent<ToSimulation>) => {
     case "set-paused":
       paused = message.paused;
       stepsOwed = 0;
+      sendFrame();
+      break;
+    case "intervene":
+      run?.intervene(message.interventionType);
+      // Even while paused, so that the experimenter sees the press register at once.
       sendFrame();
       break;
     case "request-record":

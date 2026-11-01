@@ -32,7 +32,7 @@ function requireElement<T extends Element>(selector: string, type: new () => T):
 }
 
 const settings = settingsFromUrl(location.search, SPEEDS, INITIAL_SPEED);
-const { room, seed } = settings;
+const { room, seed, lightSchedule } = settings;
 let speed = settings.speed;
 
 function restartWith(changes: Partial<RunSettings>): void {
@@ -46,22 +46,30 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 
 const roomScene = createRoomScene(room);
-const simulation = startSimulation(seed, room, speed);
+const simulation = startSimulation(seed, room, speed, lightSchedule);
 
 const driverPanel = createDriverPanel(requireElement("#drivers", HTMLElement));
 const ribbon = createRibbon(requireElement("#ribbon", HTMLCanvasElement));
 ribbon.setSpeed(speed);
-const timeControls = createTimeControls(requireElement("#controls", HTMLElement), speed, {
-  onSpeedChange: (newSpeed) => {
-    speed = newSpeed;
-    simulation.setSpeed(newSpeed);
-    ribbon.setSpeed(newSpeed);
+const timeControls = createTimeControls(
+  requireElement("#controls", HTMLElement),
+  speed,
+  lightSchedule,
+  {
+    onSpeedChange: (newSpeed) => {
+      speed = newSpeed;
+      simulation.setSpeed(newSpeed);
+      ribbon.setSpeed(newSpeed);
+    },
+    onPausedChange: (paused) => {
+      simulation.setPaused(paused);
+    },
   },
-  onPausedChange: (paused) => {
-    simulation.setPaused(paused);
-  },
-});
+);
 createRunControls(requireElement("#run-controls", HTMLElement), seed, room, {
+  onDisturb: () => {
+    simulation.intervene("disturb");
+  },
   onRestart: () => {
     restartWith({});
   },
@@ -72,10 +80,10 @@ createRunControls(requireElement("#run-controls", HTMLElement), seed, room, {
     restartWith({ room: newRoom });
   },
 });
-simulation.onFrame((sample, fired) => {
+simulation.onFrame((sample, fired, interventions) => {
   driverPanel.update(sample, fired);
-  ribbon.update(sample, fired);
-  timeControls.showTime(sample.timeSeconds);
+  ribbon.update(sample, fired, interventions);
+  timeControls.showTime(sample.timeSeconds, sample.timeOfDayHours);
 });
 
 const views = createViews({
@@ -89,7 +97,10 @@ const views = createViews({
 
 renderer.setAnimationLoop(() => {
   const sample = simulation.latest();
-  if (sample) roomScene.updateFly(sample);
+  if (sample) {
+    roomScene.updateFly(sample);
+    roomScene.updateLighting(sample.lightLevel);
+  }
   views.render();
   ribbon.draw();
 });

@@ -18,6 +18,7 @@ test("each available transition's bar and red strip match the current state", as
         );
       return {
         state,
+        fullHazard: Number(row?.dataset["fullHazard"]),
         available: row?.dataset["available"],
         spontaneousWidth: widthOf("spontaneous"),
         arousalWidth: widthOf("arousal"),
@@ -29,12 +30,15 @@ test("each available transition's bar and red strip match the current state", as
     widths.add(frame.arousalWidth.toFixed(3));
     expect(frame.available).toBe("true");
     expect(frame.strip).toBeCloseTo(frame.state.fireProbabilityNextMinute, 6);
-    // A full bar is a hazard of 0.3 per second, so each segment's width measures its contribution.
+    // Each row states the hazard that fills its bar, so a segment's width measures its contribution.
     expect(frame.spontaneousWidth).toBeCloseTo(
-      (100 * frame.state.contributions.spontaneous) / 0.3,
+      (100 * frame.state.contributions.spontaneous) / frame.fullHazard,
       3,
     );
-    expect(frame.arousalWidth).toBeCloseTo((100 * frame.state.contributions.arousal) / 0.3, 3);
+    expect(frame.arousalWidth).toBeCloseTo(
+      (100 * frame.state.contributions.arousal) / frame.fullHazard,
+      3,
+    );
     await page.waitForTimeout(500);
   }
 

@@ -1,19 +1,39 @@
-import type { FiredTransition, RoomSetup, RunRecord, RunSample } from "../engine";
+import type {
+  FiredTransition,
+  Intervention,
+  InterventionType,
+  LightSchedule,
+  RoomSetup,
+  RunRecord,
+  RunSample,
+} from "../engine";
 import type { FromSimulation, ToSimulation } from "./protocol";
+
+export type FrameListener = (
+  sample: RunSample,
+  fired: readonly FiredTransition[],
+  interventions: readonly Intervention[],
+) => void;
 
 export interface SimulationClient {
   /** The latest state received, or undefined until the first frame arrives. */
   latest(): RunSample | undefined;
-  onFrame(listener: (sample: RunSample, fired: readonly FiredTransition[]) => void): void;
+  onFrame(listener: FrameListener): void;
   setSpeed(speed: number): void;
   setPaused(paused: boolean): void;
+  intervene(type: InterventionType): void;
   record(): Promise<RunRecord>;
 }
 
 /** The viewer's only link to the engine, which runs off the rendering thread. */
-export function startSimulation(seed: number, room: RoomSetup, speed: number): SimulationClient {
+export function startSimulation(
+  seed: number,
+  room: RoomSetup,
+  speed: number,
+  lightSchedule: LightSchedule,
+): SimulationClient {
   const worker = new Worker(new URL("./simulationWorker.ts", import.meta.url), { type: "module" });
-  const listeners: ((sample: RunSample, fired: readonly FiredTransition[]) => void)[] = [];
+  const listeners: FrameListener[] = [];
   const pendingRecords = new Map<number, (record: RunRecord) => void>();
   let latest: RunSample | undefined;
   let nextRequestId = 0;
@@ -27,7 +47,9 @@ export function startSimulation(seed: number, room: RoomSetup, speed: number): S
     switch (message.type) {
       case "frame":
         latest = message.sample;
-        for (const listener of listeners) listener(message.sample, message.fired);
+        for (const listener of listeners) {
+          listener(message.sample, message.fired, message.interventions);
+        }
         break;
       case "record":
         pendingRecords.get(message.requestId)?.(message.record);
@@ -36,7 +58,7 @@ export function startSimulation(seed: number, room: RoomSetup, speed: number): S
     }
   };
 
-  send({ type: "start", seed, room, speed });
+  send({ type: "start", seed, room, speed, lightSchedule });
 
   return {
     latest: () => latest,
@@ -48,6 +70,9 @@ export function startSimulation(seed: number, room: RoomSetup, speed: number): S
     },
     setPaused: (paused) => {
       send({ type: "set-paused", paused });
+    },
+    intervene: (interventionType) => {
+      send({ type: "intervene", interventionType });
     },
     record: () =>
       new Promise((resolve) => {

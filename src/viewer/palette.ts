@@ -5,12 +5,29 @@ export const BEHAVIOUR_COLOURS: Readonly<Record<Behaviour, string>> = {
   grooming: "#6fbf4a",
   walking: "#e0a030",
   flying: "#d0508c",
+  sleeping: "#8f78e6",
 };
+
+/** Sleep's colour on the ribbon, from lightest to deepest sleep. */
+export const SLEEP_DEPTH_COLOURS: readonly string[] = ["#b9a9f4", "#8f78e6", "#6a50c8", "#4a30a0"];
+
+export function sleepDepthColour(depth: number): string {
+  const last = SLEEP_DEPTH_COLOURS.length - 1;
+  const index = Math.min(last, Math.floor(depth * SLEEP_DEPTH_COLOURS.length));
+  return SLEEP_DEPTH_COLOURS[index] ?? BEHAVIOUR_COLOURS.sleeping;
+}
+
+/** The day and night parts of anything showing the Room's light. */
+export const DAY_COLOUR = "#e8d98a";
+export const NIGHT_COLOUR = "#2a3048";
 
 export const DRIVER_COLOURS: Readonly<Record<DriverId, string>> = {
   spontaneous: "#9aa1ae",
   arousal: "#3fc1a0",
   contact: "#b58cf0",
+  sleepPressure: "#5b6ee1",
+  circadian: "#e8d24a",
+  startle: "#ff7a1a",
 };
 
 export const BEHAVIOUR_NAMES: Readonly<Record<Behaviour, string>> = {
@@ -18,12 +35,16 @@ export const BEHAVIOUR_NAMES: Readonly<Record<Behaviour, string>> = {
   grooming: "Grooming",
   walking: "Walking",
   flying: "Flying",
+  sleeping: "Sleeping",
 };
 
 export const DRIVER_NAMES: Readonly<Record<DriverId, string>> = {
   spontaneous: "Spontaneous",
   arousal: "Arousal",
   contact: "Surface contact",
+  sleepPressure: "Sleep pressure",
+  circadian: "Circadian Clock",
+  startle: "Startle",
 };
 
 const BEHAVIOUR_ICON_PATHS: Readonly<Record<Behaviour, string>> = {
@@ -34,6 +55,8 @@ const BEHAVIOUR_ICON_PATHS: Readonly<Record<Behaviour, string>> = {
     '<path d="M2 11 L6 5 L10 11 L14 5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>',
   flying:
     '<path d="M8 12 C5 4 2 5 1 7 M8 12 C11 4 14 5 15 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  sleeping:
+    '<path d="M10.500 2 A6.500 6.500 0 1 0 14 11 A5.500 5.500 0 0 1 10.500 2 Z" fill="currentColor"/>',
 };
 
 export function behaviourIcon(behaviour: Behaviour): string {

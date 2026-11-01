@@ -7,20 +7,41 @@ import {
   type TransitionId,
   type TransitionState,
 } from "../engine";
-import { BEHAVIOUR_NAMES, DRIVER_COLOURS, DRIVER_NAMES, behaviourIcon } from "./palette";
+import {
+  BEHAVIOUR_NAMES,
+  DRIVER_COLOURS,
+  DRIVER_NAMES,
+  behaviourIcon,
+  sleepDepthColour,
+} from "./palette";
 
 /**
  * The hazard, per second, that fills a bar. Bars are linear, so a segment's length
  * measures that Driver's contribution directly, and a constant Driver stays constant.
  */
 const BAR_FULL_HAZARD = 0.3;
+/** Sleep's transitions run far slower than the rest, and would barely show on the same scale. */
+const SLEEP_BAR_FULL_HAZARDS: Partial<Readonly<Record<TransitionId, number>>> = {
+  "immobility-to-sleeping": 0.03,
+  "sleeping-to-immobility": 0.005,
+};
 const FLASH_MILLISECONDS = 700;
+/**
+ * A startle lasts only a moment at high speed, so its segment holds its peak this long,
+ * as a flash does, before fading. Only the segment holds: the red strip stays on the hazard.
+ */
+const STARTLE_HOLD_MILLISECONDS = 700;
+const STARTLE_FADE_MILLISECONDS = 500;
 
 interface TransitionRow {
   readonly element: HTMLElement;
+  /** The hazard, per second, that fills this row's bar. */
+  readonly fullHazard: number;
   readonly segments: ReadonlyMap<DriverId, HTMLElement>;
   readonly strip: HTMLElement;
   readonly flash: HTMLElement;
+  /** The strongest startle contribution still being held, and when it was reached. */
+  heldStartle: { contribution: number; atMilliseconds: number };
 }
 
 export interface FlashedTransition {
@@ -41,6 +62,8 @@ function createRow(id: TransitionId): TransitionRow {
   const element = document.createElement("div");
   element.className = "transition";
   element.dataset["transition"] = id;
+  const fullHazard = SLEEP_BAR_FULL_HAZARDS[id] ?? BAR_FULL_HAZARD;
+  element.dataset["fullHazard"] = String(fullHazard);
   element.setAttribute(
     "aria-label",
     `${BEHAVIOUR_NAMES[definition.from]} to ${BEHAVIOUR_NAMES[definition.to]}`,
@@ -71,21 +94,45 @@ function createRow(id: TransitionId): TransitionRow {
 
   return {
     element,
+    fullHazard,
     segments,
     strip,
     flash,
+    heldStartle: { contribution: 0, atMilliseconds: 0 },
   };
 }
 
-function tooltipHtml(state: TransitionState | undefined): string {
+function heldValue(row: TransitionRow, nowMilliseconds: number): number {
+  const { contribution, atMilliseconds } = row.heldStartle;
+  const fading = nowMilliseconds - atMilliseconds - STARTLE_HOLD_MILLISECONDS;
+  return contribution * Math.min(1, Math.max(0, 1 - fading / STARTLE_FADE_MILLISECONDS));
+}
+
+/** Raises what a row is holding, if this contribution is stronger than what's left of it. */
+function holdStartle(row: TransitionRow, contribution: number, nowMilliseconds: number): void {
+  if (contribution > 0 && contribution >= heldValue(row, nowMilliseconds)) {
+    row.heldStartle = { contribution, atMilliseconds: nowMilliseconds };
+  }
+}
+
+/** In significant figures, as sleep's hazards are thousands of times below a startle's. */
+function perSecond(rate: number): string {
+  return `${rate.toPrecision(3)}/s`;
+}
+
+function tooltipHtml(state: TransitionState | undefined, sleepDepth: number | null): string {
   if (!state) return `<div class="tooltip-row">—</div>`;
   const drivers = DRIVERS.map(
     (driver) =>
-      `<div class="tooltip-row"><span class="swatch" style="background:${DRIVER_COLOURS[driver]}"></span>${DRIVER_NAMES[driver]}<b>${state.contributions[driver].toFixed(4)}/s</b></div>`,
+      `<div class="tooltip-row"><span class="swatch" style="background:${DRIVER_COLOURS[driver]}"></span>${DRIVER_NAMES[driver]}<b>${perSecond(state.contributions[driver])}</b></div>`,
   ).join("");
   return `${drivers}
-    <div class="tooltip-row">Total<b>${state.hazard.toFixed(4)}/s</b></div>
-    <div class="tooltip-row"><span class="swatch" style="background:var(--red)"></span>Next minute<b>${(state.fireProbabilityNextMinute * 100).toFixed(1)}%</b></div>`;
+    <div class="tooltip-row">Total<b>${perSecond(state.hazard)}</b></div>
+    <div class="tooltip-row"><span class="swatch" style="background:var(--red)"></span>Next minute<b>${(state.fireProbabilityNextMinute * 100).toFixed(1)}%</b></div>${
+      sleepDepth === null
+        ? ""
+        : `<div class="tooltip-row"><span class="swatch" style="background:${sleepDepthColour(sleepDepth)}"></span>Sleep Depth<b>${sleepDepth.toFixed(2)}</b></div>`
+    }`;
 }
 
 /** Shows why the fly might act: a bar per transition, its red strip and its firing flash. */
@@ -113,6 +160,7 @@ export function createDriverPanel(container: HTMLElement): DriverPanel {
     if (row) tooltip.style.top = `${row.element.offsetTop + row.element.offsetHeight + 4}px`;
     tooltip.innerHTML = tooltipHtml(
       latest?.transitions.find((state) => state.transition === hovered),
+      latest?.sleepDepth ?? null,
     );
   }
 
@@ -142,13 +190,25 @@ export function createDriverPanel(container: HTMLElement): DriverPanel {
     flashes,
     update: (sample, fired) => {
       latest = sample;
+      const now = performance.now();
+      // A firing ends its row's availability, so this is the last it will see of the startle.
+      for (const { transition, contributions } of fired) {
+        const row = rows.get(transition);
+        if (row) holdStartle(row, contributions.startle, now);
+      }
       for (const [id, row] of rows) {
         const state = sample.transitions.find((item) => item.transition === id);
         row.element.dataset["available"] = String(state !== undefined);
         for (const driver of DRIVERS) {
-          const contribution = state?.contributions[driver] ?? 0;
+          let contribution = state?.contributions[driver] ?? 0;
+          if (driver === "startle") {
+            holdStartle(row, contribution, now);
+            contribution = Math.max(contribution, heldValue(row, now));
+          }
           const segment = row.segments.get(driver);
-          if (segment) segment.style.width = `${(100 * contribution) / BAR_FULL_HAZARD}%`;
+          // On every row's own scale, a startle would peg the sleep rows' bars at any depth.
+          const full = driver === "startle" ? BAR_FULL_HAZARD : row.fullHazard;
+          if (segment) segment.style.width = `${(100 * contribution) / full}%`;
         }
         row.strip.style.opacity = String(state?.fireProbabilityNextMinute ?? 0);
       }
