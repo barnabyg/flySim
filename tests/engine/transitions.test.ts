@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
-  BEHAVIOURS,
   DEFAULT_PARAMETERS,
   DEFAULT_ROOM,
   DRIVERS,
   createSimulationRun,
+  type Behaviour,
   type ModelParameters,
   type RunRecord,
 } from "../../src/engine";
@@ -48,11 +48,12 @@ describe("Transition Hazards", () => {
 });
 
 describe("default tuning", () => {
-  it("shows every behaviour within about 10 simulated minutes in nearly every run", () => {
+  it("shows every awake behaviour within about 10 simulated minutes in nearly every run", () => {
+    const awake: readonly Behaviour[] = ["immobility", "grooming", "walking", "flying"];
     const seeds = Array.from({ length: 100 }, (_, seed) => seed);
     const showingAll = seeds.filter((seed) => {
       const { timeInBehaviourSeconds } = recordOf(seed, 600);
-      return BEHAVIOURS.every((behaviour) => timeInBehaviourSeconds[behaviour] > 0);
+      return awake.every((behaviour) => timeInBehaviourSeconds[behaviour] > 0);
     });
 
     expect(showingAll.length).toBeGreaterThanOrEqual(95);

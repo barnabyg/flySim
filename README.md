@@ -2,7 +2,7 @@
 
 A browser-based simulator for watching one adult male fruit fly live in a Room and seeing why it starts, continues and stops each behaviour. See [GLOSSARY.md](GLOSSARY.md) for domain terms and [docs/adr](docs/adr) for decisions.
 
-Model values are roughly tuned so that the behaviour is worth watching: over about 10 simulated minutes, a default run nearly always shows Immobility, grooming, walking and flight. They are Provisional and not validated, including flight speed and frequency.
+Model values are roughly tuned so that the behaviour is worth watching: over about 10 simulated minutes, a default run nearly always shows Immobility, grooming, walking and flight, and over longer runs the fly sleeps. They are Provisional and not validated, including flight speed and frequency, and all sleep values.
 
 ## Run it
 

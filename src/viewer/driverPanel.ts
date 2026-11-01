@@ -14,10 +14,17 @@ import { BEHAVIOUR_NAMES, DRIVER_COLOURS, DRIVER_NAMES, behaviourIcon } from "./
  * measures that Driver's contribution directly, and a constant Driver stays constant.
  */
 const BAR_FULL_HAZARD = 0.3;
+/** Sleep's transitions run far slower than the rest, and would barely show on the same scale. */
+const SLEEP_BAR_FULL_HAZARDS: Partial<Readonly<Record<TransitionId, number>>> = {
+  "immobility-to-sleeping": 0.03,
+  "sleeping-to-immobility": 0.005,
+};
 const FLASH_MILLISECONDS = 700;
 
 interface TransitionRow {
   readonly element: HTMLElement;
+  /** The hazard, per second, that fills this row's bar. */
+  readonly fullHazard: number;
   readonly segments: ReadonlyMap<DriverId, HTMLElement>;
   readonly strip: HTMLElement;
   readonly flash: HTMLElement;
@@ -41,6 +48,8 @@ function createRow(id: TransitionId): TransitionRow {
   const element = document.createElement("div");
   element.className = "transition";
   element.dataset["transition"] = id;
+  const fullHazard = SLEEP_BAR_FULL_HAZARDS[id] ?? BAR_FULL_HAZARD;
+  element.dataset["fullHazard"] = String(fullHazard);
   element.setAttribute(
     "aria-label",
     `${BEHAVIOUR_NAMES[definition.from]} to ${BEHAVIOUR_NAMES[definition.to]}`,
@@ -71,6 +80,7 @@ function createRow(id: TransitionId): TransitionRow {
 
   return {
     element,
+    fullHazard,
     segments,
     strip,
     flash,
@@ -148,7 +158,7 @@ export function createDriverPanel(container: HTMLElement): DriverPanel {
         for (const driver of DRIVERS) {
           const contribution = state?.contributions[driver] ?? 0;
           const segment = row.segments.get(driver);
-          if (segment) segment.style.width = `${(100 * contribution) / BAR_FULL_HAZARD}%`;
+          if (segment) segment.style.width = `${(100 * contribution) / row.fullHazard}%`;
         }
         row.strip.style.opacity = String(state?.fireProbabilityNextMinute ?? 0);
       }

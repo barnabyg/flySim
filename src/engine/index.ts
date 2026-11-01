@@ -7,6 +7,7 @@ export {
   type DriverId,
   type ModelParameters,
   type TransitionId,
+  type VigilanceState,
 } from "./model";
 export { SURFACES, type Position, type RoomSetup, type Surface } from "./movement";
 export {

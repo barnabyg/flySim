@@ -4,11 +4,13 @@ import {
   DRIVERS,
   TRANSITIONS,
   driverContributions,
+  vigilanceStateOf,
   type Behaviour,
   type DriverId,
   type ModelParameters,
   type TransitionDefinition,
   type TransitionId,
+  type VigilanceState,
 } from "./model";
 import {
   SURFACES,
@@ -19,7 +21,7 @@ import {
 } from "./movement";
 import { createRandomStream } from "./random";
 
-export const MODEL_VERSION = "0.2.0";
+export const MODEL_VERSION = "0.3.0";
 
 /** The simulation always advances in fixed steps of this rate. */
 export const STEPS_PER_SECOND = 50;
@@ -60,9 +62,13 @@ export interface RunSample extends MovementPose {
   readonly step: number;
   readonly timeSeconds: number;
   readonly behaviour: Behaviour;
+  /** The fly's true state, which a lab can't read directly. */
+  readonly vigilanceState: VigilanceState;
   /** How fast the fly is really moving, for anything that needs to show its movement. */
   readonly speedMetresPerSecond: number;
   readonly arousal: number;
+  /** A slow state variable, not a rest timer. It rises while awake and falls while asleep. */
+  readonly sleepPressure: number;
   /** The transitions available from the current behaviour. */
   readonly transitions: readonly TransitionState[];
 }
@@ -73,6 +79,9 @@ export interface FiredTransition extends TransitionState {
   readonly from: Behaviour;
   readonly to: Behaviour;
   readonly triggerLevel: number;
+  /** The true Vigilance State the transition led to. */
+  readonly vigilanceState: VigilanceState;
+  readonly sleepPressure: number;
 }
 
 export interface RunRecord {
@@ -123,6 +132,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   let step = 0;
   let behaviour: Behaviour = "immobility";
   let arousal = parameters.initialArousal;
+  let sleepPressure = parameters.initialSleepPressure;
   const movement = createMovement(room, movementNoise);
   const stepsOnSurface = new Map<Surface, number>();
   const stepsInBehaviour = new Map<Behaviour, number>();
@@ -139,7 +149,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   function transitionState(transition: TransitionId): TransitionState {
     const contributions = driverContributions(
       transition,
-      arousal,
+      { arousal, sleepPressure },
       { touchingSurface: movement.hasArrived() },
       parameters,
     );
@@ -164,6 +174,8 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
           from: item.definition.from,
           to: item.definition.to,
           triggerLevel: item.triggerLevel,
+          vigilanceState: vigilanceStateOf(item.definition.to),
+          sleepPressure,
         });
         behaviour = item.definition.to;
         if (item.definition.to === "flying") movement.takeOff();
@@ -184,6 +196,8 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
         return parameters.arousalTargetWalking;
       case "flying":
         return parameters.arousalTargetFlying;
+      case "sleeping":
+        return parameters.arousalTargetSleeping;
     }
   }
 
@@ -191,6 +205,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
     switch (behaviour) {
       case "immobility":
       case "grooming":
+      case "sleeping":
         return 0;
       case "walking":
         return parameters.walkingSpeedMetresPerSecond;
@@ -208,6 +223,13 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
     arousal = Math.min(1, Math.abs(next));
   }
 
+  function updateSleepPressure(): void {
+    sleepPressure +=
+      vigilanceStateOf(behaviour) === "asleep"
+        ? (-sleepPressure / parameters.sleepPressureFallTimeConstantSeconds) * STEP_SECONDS
+        : ((1 - sleepPressure) / parameters.sleepPressureRiseTimeConstantSeconds) * STEP_SECONDS;
+  }
+
   function walk(): void {
     movement.walk(
       parameters.walkingSpeedMetresPerSecond * STEP_SECONDS,
@@ -220,9 +242,11 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       step,
       timeSeconds: step * STEP_SECONDS,
       behaviour,
+      vigilanceState: vigilanceStateOf(behaviour),
       ...movement.pose(),
       speedMetresPerSecond: currentSpeed(),
       arousal,
+      sleepPressure,
       transitions: pending.map((item) => transitionState(item.definition.id)),
     };
   }
@@ -237,10 +261,11 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
     for (let i = 0; i < steps; i++) {
       fireDueTransition();
       updateArousal();
+      updateSleepPressure();
       if (behaviour === "walking") walk();
       if (behaviour === "flying")
         movement.fly(parameters.flightSpeedMetresPerSecond * STEP_SECONDS);
-      const { surface } = movement.pose();
+      const surface = movement.surface();
       if (surface) stepsOnSurface.set(surface, (stepsOnSurface.get(surface) ?? 0) + 1);
       stepsInBehaviour.set(behaviour, (stepsInBehaviour.get(behaviour) ?? 0) + 1);
       step += 1;

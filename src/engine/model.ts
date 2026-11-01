@@ -1,6 +1,8 @@
-export type Behaviour = "immobility" | "grooming" | "walking" | "flying";
+export type Behaviour = "immobility" | "grooming" | "walking" | "flying" | "sleeping";
 
-export type DriverId = "spontaneous" | "arousal" | "contact";
+export type VigilanceState = "awake" | "asleep";
+
+export type DriverId = "spontaneous" | "arousal" | "contact" | "sleepPressure";
 
 export type TransitionId =
   | "immobility-to-walking"
@@ -10,7 +12,9 @@ export type TransitionId =
   | "grooming-to-walking"
   | "walking-to-immobility"
   | "walking-to-flying"
-  | "flying-to-immobility";
+  | "flying-to-immobility"
+  | "immobility-to-sleeping"
+  | "sleeping-to-immobility";
 
 export interface TransitionDefinition {
   readonly id: TransitionId;
@@ -18,9 +22,15 @@ export interface TransitionDefinition {
   readonly to: Behaviour;
 }
 
-export const BEHAVIOURS: readonly Behaviour[] = ["immobility", "grooming", "walking", "flying"];
+export const BEHAVIOURS: readonly Behaviour[] = [
+  "immobility",
+  "grooming",
+  "walking",
+  "flying",
+  "sleeping",
+];
 
-export const DRIVERS: readonly DriverId[] = ["spontaneous", "arousal", "contact"];
+export const DRIVERS: readonly DriverId[] = ["spontaneous", "arousal", "contact", "sleepPressure"];
 
 export const TRANSITIONS: readonly TransitionDefinition[] = [
   { id: "immobility-to-walking", from: "immobility", to: "walking" },
@@ -31,7 +41,14 @@ export const TRANSITIONS: readonly TransitionDefinition[] = [
   { id: "walking-to-immobility", from: "walking", to: "immobility" },
   { id: "walking-to-flying", from: "walking", to: "flying" },
   { id: "flying-to-immobility", from: "flying", to: "immobility" },
+  { id: "immobility-to-sleeping", from: "immobility", to: "sleeping" },
+  { id: "sleeping-to-immobility", from: "sleeping", to: "immobility" },
 ];
+
+/** Sleep is a behaviour, and the fly's true Vigilance State is derived from it. */
+export function vigilanceStateOf(behaviour: Behaviour): VigilanceState {
+  return behaviour === "sleeping" ? "asleep" : "awake";
+}
 
 /** What the fly can currently sense, the only route from the world to its hazards. */
 export interface Senses {
@@ -39,9 +56,16 @@ export interface Senses {
   readonly touchingSurface: boolean;
 }
 
+/** The fly's hidden state that Drivers read. */
+export interface InternalState {
+  readonly arousal: number;
+  readonly sleepPressure: number;
+}
+
 /**
- * Model values for Phase 1. They are roughly tuned so that about 10 simulated minutes
- * shows every behaviour. They are not validated: every relationship here is Provisional.
+ * Model values for Phases 1 and 2. They are roughly tuned so that about 10 simulated minutes
+ * shows all four awake behaviours and a longer run shows sleep. They are not validated:
+ * every relationship here is Provisional.
  */
 export interface ModelParameters {
   /** Arousal relaxes towards this level during Immobility. */
@@ -52,6 +76,8 @@ export interface ModelParameters {
   readonly arousalTargetWalking: number;
   /** Arousal relaxes towards this level in flight. */
   readonly arousalTargetFlying: number;
+  /** Arousal relaxes towards this level during sleep. */
+  readonly arousalTargetSleeping: number;
   readonly arousalTimeConstantSeconds: number;
   /** Size of arousal's random drift, per square root of a second. */
   readonly arousalNoise: number;
@@ -73,6 +99,16 @@ export interface ModelParameters {
   readonly takeOffFromWalkingArousalRate: number;
   /** Contact ends a flight almost at once, so a fly doesn't linger at a surface. */
   readonly landingContactRate: number;
+  /** Sleep pressure relaxes towards 1 at this pace while awake. */
+  readonly sleepPressureRiseTimeConstantSeconds: number;
+  /** Sleep pressure relaxes towards 0 at this pace while asleep. */
+  readonly sleepPressureFallTimeConstantSeconds: number;
+  readonly initialSleepPressure: number;
+  /** Scaled by sleep pressure, and by how far low arousal has let the fly settle. */
+  readonly fallAsleepSleepPressureRate: number;
+  readonly wakeSpontaneousRate: number;
+  /** Scaled by how far sleep has discharged sleep pressure. */
+  readonly wakeLowSleepPressureRate: number;
   readonly walkingSpeedMetresPerSecond: number;
   /** Size of the heading's random drift, in radians per square root of a second. */
   readonly walkingTurnNoise: number;
@@ -85,6 +121,7 @@ export const DEFAULT_PARAMETERS: ModelParameters = {
   arousalTargetGrooming: 0.3,
   arousalTargetWalking: 0.75,
   arousalTargetFlying: 0.9,
+  arousalTargetSleeping: 0.02,
   arousalTimeConstantSeconds: 120,
   arousalNoise: 0.015,
   initialArousal: 0.5,
@@ -102,9 +139,22 @@ export const DEFAULT_PARAMETERS: ModelParameters = {
   takeOffFromWalkingSpontaneousRate: 0.012,
   takeOffFromWalkingArousalRate: 0.06,
   landingContactRate: 100,
+  sleepPressureRiseTimeConstantSeconds: 28_800,
+  sleepPressureFallTimeConstantSeconds: 10_800,
+  initialSleepPressure: 0.1,
+  fallAsleepSleepPressureRate: 0.03,
+  wakeSpontaneousRate: 0.0003,
+  wakeLowSleepPressureRate: 0.002,
   walkingSpeedMetresPerSecond: 0.02,
   walkingTurnNoise: 0.8,
   flightSpeedMetresPerSecond: 1,
+};
+
+const NO_CONTRIBUTIONS: Readonly<Record<DriverId, number>> = {
+  spontaneous: 0,
+  arousal: 0,
+  contact: 0,
+  sleepPressure: 0,
 };
 
 /**
@@ -114,58 +164,67 @@ export const DEFAULT_PARAMETERS: ModelParameters = {
  */
 export function driverContributions(
   transition: TransitionId,
-  arousal: number,
+  state: InternalState,
   senses: Senses,
   parameters: ModelParameters,
 ): Record<DriverId, number> {
+  const { arousal, sleepPressure } = state;
   switch (transition) {
     case "immobility-to-walking":
       return {
+        ...NO_CONTRIBUTIONS,
         spontaneous: parameters.startWalkingSpontaneousRate,
         arousal: parameters.startWalkingArousalRate * arousal * arousal,
-        contact: 0,
       };
     case "immobility-to-grooming":
       return {
+        ...NO_CONTRIBUTIONS,
         spontaneous: parameters.startGroomingSpontaneousRate,
         arousal: parameters.startGroomingArousalRate * arousal,
-        contact: 0,
       };
     case "grooming-to-immobility":
-      return {
-        spontaneous: parameters.stopGroomingSpontaneousRate,
-        arousal: 0,
-        contact: 0,
-      };
+      return { ...NO_CONTRIBUTIONS, spontaneous: parameters.stopGroomingSpontaneousRate };
     case "grooming-to-walking":
       return {
+        ...NO_CONTRIBUTIONS,
         spontaneous: parameters.walkAfterGroomingSpontaneousRate,
         arousal: parameters.walkAfterGroomingArousalRate * arousal,
-        contact: 0,
       };
     case "immobility-to-flying":
       return {
+        ...NO_CONTRIBUTIONS,
         spontaneous: parameters.takeOffFromImmobilitySpontaneousRate,
         arousal: parameters.takeOffFromImmobilityArousalRate * arousal * arousal,
-        contact: 0,
       };
     case "walking-to-immobility":
       return {
+        ...NO_CONTRIBUTIONS,
         spontaneous: parameters.stopWalkingSpontaneousRate,
         arousal: parameters.stopWalkingLowArousalRate * (1 - arousal),
-        contact: 0,
       };
     case "walking-to-flying":
       return {
+        ...NO_CONTRIBUTIONS,
         spontaneous: parameters.takeOffFromWalkingSpontaneousRate,
         arousal: parameters.takeOffFromWalkingArousalRate * arousal * arousal,
-        contact: 0,
       };
     case "flying-to-immobility":
       return {
-        spontaneous: 0,
-        arousal: 0,
+        ...NO_CONTRIBUTIONS,
         contact: senses.touchingSurface ? parameters.landingContactRate : 0,
+      };
+    case "immobility-to-sleeping": {
+      const settled = (1 - arousal) * (1 - arousal);
+      return {
+        ...NO_CONTRIBUTIONS,
+        sleepPressure: parameters.fallAsleepSleepPressureRate * sleepPressure * settled,
+      };
+    }
+    case "sleeping-to-immobility":
+      return {
+        ...NO_CONTRIBUTIONS,
+        spontaneous: parameters.wakeSpontaneousRate,
+        sleepPressure: parameters.wakeLowSleepPressureRate * (1 - sleepPressure),
       };
   }
 }

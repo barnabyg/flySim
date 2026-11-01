@@ -74,6 +74,8 @@ export interface Movement {
   /** Whether a flight has reached the surface it was heading for. */
   hasArrived(): boolean;
   land(): void;
+  /** The surface it stands on, or null in flight. Cheaper than a whole pose. */
+  surface(): Surface | null;
   pose(): MovementPose;
 }
 
@@ -354,6 +356,7 @@ export function createMovement(room: RoomSetup, random: RandomStream): Movement 
       // A single step can pass a corner, which crosses two edges in turn.
       while (crossAnyEdge());
     },
+    surface: () => (flight ? null : surface),
     pose: () => ({
       position: { ...position },
       surface: flight ? null : surface,
