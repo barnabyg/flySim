@@ -59,6 +59,8 @@ export interface TransitionState {
   readonly hazard: number;
   /** Add up to the hazard. */
   readonly contributions: Readonly<Record<DriverId, number>>;
+  /** The red strip's value, calculated from the current hazard alone. */
+  readonly fireProbabilityNextMinute: number;
 }
 
 export interface RunSample {
@@ -139,7 +141,12 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   function transitionState(transition: TransitionId): TransitionState {
     const contributions = driverContributions(transition, arousal, parameters);
     const hazard = DRIVERS.reduce((sum, driver) => sum + contributions[driver], 0);
-    return { transition, hazard, contributions };
+    return {
+      transition,
+      hazard,
+      contributions,
+      fireProbabilityNextMinute: 1 - Math.exp(-hazard * 60),
+    };
   }
 
   function fireDueTransition(): void {

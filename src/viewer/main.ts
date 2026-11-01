@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { DEFAULT_ROOM, type RunRecord, type RunSample } from "../engine";
+import { createDriverPanel, type FlashedTransition } from "./driverPanel";
 import { createMonitoringCamera, frameRoom } from "./monitoringCamera";
 import { createRoomScene } from "./roomScene";
 import { startSimulation } from "./simulationClient";
@@ -10,6 +11,7 @@ export interface FlySimApi {
   current(): RunSample | undefined;
   record(): Promise<RunRecord>;
   flyScenePosition(): { x: number; y: number; z: number };
+  flashes(): readonly FlashedTransition[];
 }
 
 declare global {
@@ -43,6 +45,11 @@ const roomScene = createRoomScene(room);
 const monitoringCamera = createMonitoringCamera();
 const simulation = startSimulation(seed, room);
 
+const driverPanel = createDriverPanel(requireElement("#drivers", HTMLElement));
+simulation.onFrame((sample, fired) => {
+  driverPanel.update(sample, fired);
+});
+
 function resize(): void {
   const { clientWidth: width, clientHeight: height } = view;
   renderer.setSize(width, height, false);
@@ -67,4 +74,5 @@ window.flySim = {
     const { x, y, z } = roomScene.fly.position;
     return { x, y, z };
   },
+  flashes: () => driverPanel.flashes,
 };

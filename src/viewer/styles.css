@@ -5,6 +5,7 @@
   --line: #333842;
   --text: #d7dbe2;
   --text-dim: #8b92a0;
+  --red: #ff2b2b;
 }
 
 * {
@@ -25,8 +26,8 @@ body {
 #app {
   display: grid;
   grid-template:
-    "view" minmax(0, 1fr)
-    / minmax(0, 1fr);
+    "view drivers" minmax(0, 1fr)
+    / minmax(0, 1fr) 240px;
   height: 100%;
 }
 
@@ -41,4 +42,110 @@ body {
   display: block;
   width: 100%;
   height: 100%;
+}
+
+#drivers {
+  grid-area: drivers;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  background: var(--panel);
+  border-left: 1px solid var(--line);
+}
+
+.transition {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 6px;
+  cursor: default;
+}
+
+.transition[data-available="false"] .transition-icons {
+  opacity: 0.35;
+}
+
+.transition-icons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.arrow {
+  color: var(--text-dim);
+}
+
+.transition-meters {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.bar {
+  display: flex;
+  height: 14px;
+  background: var(--background);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.strip-track {
+  height: 6px;
+  background: var(--background);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.strip {
+  height: 100%;
+  background: var(--red);
+  opacity: 0;
+}
+
+.flash {
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+  background: rgb(255 255 255 / 45%);
+  box-shadow: 0 0 14px 3px rgb(255 255 255 / 70%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.tooltip {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  z-index: 1;
+  padding: 8px;
+  background: var(--background);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  pointer-events: none;
+}
+
+.tooltip[hidden] {
+  display: none;
+}
+
+.tooltip-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tooltip-row b {
+  margin-left: auto;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
 }
