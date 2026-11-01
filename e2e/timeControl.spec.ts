@@ -159,4 +159,10 @@ test("controls use icons with minimal text", async ({ page }) => {
   await expect(page.locator("#pause")).toHaveAccessibleName("Pause");
   await page.locator("#pause").click();
   await expect(page.locator("#pause")).toHaveAccessibleName("Resume");
+
+  // The simulated time is a number, so it only shows on hover.
+  await page.mouse.move(5, 5);
+  await expect(page.locator("#clock")).toBeHidden();
+  await page.locator("#ribbon").hover();
+  await expect(page.locator("#clock")).toBeVisible();
 });

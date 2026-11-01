@@ -196,8 +196,13 @@ body {
 }
 
 #clock {
+  visibility: hidden;
   color: var(--text-dim);
   font-variant-numeric: tabular-nums;
+}
+
+#timeline:hover #clock {
+  visibility: visible;
 }
 
 #ribbon {
