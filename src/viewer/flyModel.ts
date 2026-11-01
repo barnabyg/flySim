@@ -106,6 +106,11 @@ function createBody(): THREE.Object3D {
   return body;
 }
 
+/** Where a wing joins the thorax. */
+function placeAtWingRoot(wing: THREE.Mesh, side: number): void {
+  wing.position.set(0.35 * MILLIMETRE, 0.98 * MILLIMETRE, side * 0.14 * MILLIMETRE);
+}
+
 function createWing(side: number): THREE.Mesh {
   const length = 2.1 * MILLIMETRE;
   const shape = new THREE.Shape();
@@ -122,7 +127,7 @@ function createWing(side: number): THREE.Mesh {
       depthWrite: false,
     }),
   );
-  wing.position.set(0.35 * MILLIMETRE, 0.98 * MILLIMETRE, side * 0.14 * MILLIMETRE);
+  placeAtWingRoot(wing, side);
   wing.rotation.y = side * 0.1;
   wing.rotation.z = 0.05;
   return wing;
@@ -143,7 +148,7 @@ function createWingBlur(side: number): THREE.Mesh {
       depthWrite: false,
     }),
   );
-  blur.position.set(0.35 * MILLIMETRE, 0.98 * MILLIMETRE, side * 0.14 * MILLIMETRE);
+  placeAtWingRoot(blur, side);
   return blur;
 }
 

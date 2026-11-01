@@ -2,7 +2,7 @@ import * as THREE from "three";
 import type { Position, RoomSetup, RunSample } from "../engine";
 import { createFlyModel, type FlyModel } from "./flyModel";
 
-/** Fine floor markings that would only be noise from the monitoring camera's distance. */
+/** Fine markings that would only be noise from the monitoring camera's distance. */
 export const CLOSE_UP_ONLY_LAYER = 2;
 
 const MARKING_HEIGHT_METRES = 0.00005;

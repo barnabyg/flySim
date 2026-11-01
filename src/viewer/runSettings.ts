@@ -1,9 +1,7 @@
 import { DEFAULT_ROOM, type RoomSetup } from "../engine";
 
-const MIN_ROOM_METRES = 0.1;
-const MAX_ROOM_METRES = 5;
-
-export const ROOM_LIMITS = { min: MIN_ROOM_METRES, max: MAX_ROOM_METRES };
+export const MIN_ROOM_METRES = 0.1;
+export const MAX_ROOM_METRES = 5;
 
 /** What a run starts with. The URL holds it, so a restart is a fresh page load. */
 export interface RunSettings {
@@ -16,8 +14,13 @@ export function randomSeed(): number {
   return Math.floor(Math.random() * 2 ** 31);
 }
 
+/** NaN when absent, as Number(null) would otherwise read as 0. */
+function numberFrom(parameter: string | null): number {
+  return parameter === null ? NaN : Number(parameter);
+}
+
 function roomSize(parameter: string | null, fallback: number): number {
-  const parsed = parameter === null ? NaN : Number(parameter);
+  const parsed = numberFrom(parameter);
   if (!Number.isFinite(parsed)) return fallback;
   return Math.min(MAX_ROOM_METRES, Math.max(MIN_ROOM_METRES, parsed));
 }
@@ -28,8 +31,8 @@ export function settingsFromUrl(
   defaultSpeed: number,
 ): RunSettings {
   const parameters = new URLSearchParams(search);
-  const seed = Number(parameters.get("seed") ?? NaN);
-  const speed = Number(parameters.get("speed") ?? NaN);
+  const seed = numberFrom(parameters.get("seed"));
+  const speed = numberFrom(parameters.get("speed"));
   return {
     seed: Number.isInteger(seed) ? seed : randomSeed(),
     room: {

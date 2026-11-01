@@ -1,5 +1,5 @@
 import type { RoomSetup } from "../engine";
-import { ROOM_LIMITS } from "./runSettings";
+import { MAX_ROOM_METRES, MIN_ROOM_METRES } from "./runSettings";
 
 const RESTART_ICON =
   '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.5-3.5M12 1v4H8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -15,7 +15,7 @@ export interface RunControlHandlers {
 }
 
 function roomInput(id: string, label: string, value: number): string {
-  return `<label>${label}<input id="${id}" type="number" step="0.05" min="${ROOM_LIMITS.min}" max="${ROOM_LIMITS.max}" value="${value}" /></label>`;
+  return `<label>${label}<input id="${id}" type="number" step="0.05" min="${MIN_ROOM_METRES}" max="${MAX_ROOM_METRES}" value="${value}" /></label>`;
 }
 
 /** Starts a new run: the same one again, a different one, or one in a differently sized Room. */

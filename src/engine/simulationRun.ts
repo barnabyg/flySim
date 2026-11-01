@@ -10,7 +10,13 @@ import {
   type TransitionDefinition,
   type TransitionId,
 } from "./model";
-import { SURFACES, createMovement, type Position, type RoomSetup, type Surface } from "./movement";
+import {
+  SURFACES,
+  createMovement,
+  type MovementPose,
+  type RoomSetup,
+  type Surface,
+} from "./movement";
 import { createRandomStream } from "./random";
 
 export const MODEL_VERSION = "0.2.0";
@@ -50,18 +56,10 @@ export interface TransitionState {
   readonly fireProbabilityNextMinute: number;
 }
 
-export interface RunSample {
+export interface RunSample extends MovementPose {
   readonly step: number;
   readonly timeSeconds: number;
   readonly behaviour: Behaviour;
-  /** Where its feet meet the surface it is on, or are in the air in flight. */
-  readonly position: Position;
-  /** The surface it stands on, or null from take-off until it lands. */
-  readonly surface: Surface | null;
-  /** The way the fly faces, a unit vector along its surface, or level in flight. */
-  readonly forward: Position;
-  /** From its feet towards its back, a unit vector out of its surface, or straight up in flight. */
-  readonly up: Position;
   /** How fast the fly is really moving, for anything that needs to show its movement. */
   readonly speedMetresPerSecond: number;
   readonly arousal: number;

@@ -55,6 +55,7 @@ function surfaceAt(axis: Axis, side: Side): Surface {
 }
 
 export interface MovementPose {
+  /** Where its feet meet the surface it is on, or are in the air in flight. */
   readonly position: Position;
   /** The surface it stands on, or null from take-off until it lands. */
   readonly surface: Surface | null;
