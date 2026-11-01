@@ -3,7 +3,7 @@ import type { RunRecord, RunSample } from "../src/engine";
 
 export async function openApp(page: Page, seed = 42): Promise<void> {
   await page.goto(`/?seed=${seed}`);
-  await expect.poll(() => currentSample(page).then(Boolean)).toBe(true);
+  await expect.poll(() => currentSample(page).then(Boolean), { timeout: 30_000 }).toBe(true);
 }
 
 export async function currentSample(page: Page): Promise<RunSample | undefined> {

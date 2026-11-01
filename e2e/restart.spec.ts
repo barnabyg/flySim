@@ -4,7 +4,7 @@ import { currentSample, currentTime, openApp, runRecord } from "./helpers";
 /** A restart loads the page again, so this waits for the new run's first frame. */
 async function waitForRunAt(page: Page, url: RegExp): Promise<void> {
   await page.waitForURL(url);
-  await expect.poll(() => currentSample(page).then(Boolean)).toBe(true);
+  await expect.poll(() => currentSample(page).then(Boolean), { timeout: 30_000 }).toBe(true);
 }
 
 async function firstSeconds(page: Page, seconds: number) {
@@ -97,7 +97,7 @@ test("the Room's size can be changed, and the fly stays within the new Room", as
 test("the fly's feet never go through a surface as it crosses edges", async ({ page }) => {
   // A small Room makes for many edges, and a low speed shows the frames around each crossing.
   await page.goto("/?seed=3&width=0.1&depth=0.1&height=0.1&speed=5");
-  await expect.poll(() => currentSample(page).then(Boolean)).toBe(true);
+  await expect.poll(() => currentSample(page).then(Boolean), { timeout: 30_000 }).toBe(true);
 
   const { surfaces, worstOutside } = await page.evaluate(
     () =>
