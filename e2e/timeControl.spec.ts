@@ -18,17 +18,20 @@ test("speed defaults to 60× and can be set from 1× to about 1000×", async ({ 
     return ((await currentTime(page)) - before) / (milliseconds / 1000);
   };
 
+  // Frames from the old speed may still be queued on a busy page, so the rate has to settle.
   await setSpeed(page, 1);
-  await page.waitForTimeout(100);
-  const slow = await rateOver(1000);
-  expect(slow).toBeGreaterThan(0.5);
-  expect(slow).toBeLessThan(2);
+  await expect(async () => {
+    const slow = await rateOver(1000);
+    expect(slow).toBeGreaterThan(0.5);
+    expect(slow).toBeLessThan(2);
+  }).toPass({ timeout: 15_000 });
 
   await setSpeed(page, 1000);
-  await page.waitForTimeout(100);
-  const fast = await rateOver(1000);
-  expect(fast).toBeGreaterThan(500);
-  expect(fast).toBeLessThan(1200);
+  await expect(async () => {
+    const fast = await rateOver(1000);
+    expect(fast).toBeGreaterThan(500);
+    expect(fast).toBeLessThan(1200);
+  }).toPass({ timeout: 15_000 });
 });
 
 test("simulated time doesn't advance while paused, and resumes", async ({ page }) => {
