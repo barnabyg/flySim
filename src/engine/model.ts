@@ -59,7 +59,7 @@ export const DEFAULT_PARAMETERS: ModelParameters = {
 /**
  * Each Driver's share of a Transition Hazard, per second. The contributions add
  * up to the hazard, so a bar of them shows directly what is pushing a transition.
- * The only inputs are current Drivers, so time spent in a bout can't affect a hazard.
+ * Only the current Drivers affect a hazard, so time spent in a bout can't.
  */
 export function driverContributions(
   transition: TransitionId,

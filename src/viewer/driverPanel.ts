@@ -18,7 +18,7 @@ const FLASH_MILLISECONDS = 700;
 
 interface TransitionRow {
   readonly element: HTMLElement;
-  readonly segments: Readonly<Record<DriverId, HTMLElement>>;
+  readonly segments: ReadonlyMap<DriverId, HTMLElement>;
   readonly strip: HTMLElement;
   readonly flash: HTMLElement;
 }
@@ -58,21 +58,20 @@ function createRow(id: TransitionId): TransitionRow {
   const flash = element.querySelector<HTMLElement>(".flash");
   if (!bar || !strip || !flash) throw new Error("Malformed transition row");
 
-  const createSegment = (driver: DriverId): HTMLElement => {
-    const segment = document.createElement("div");
-    segment.className = "segment";
-    segment.dataset["driver"] = driver;
-    segment.style.background = DRIVER_COLOURS[driver];
-    bar.append(segment);
-    return segment;
-  };
+  const segments = new Map(
+    DRIVERS.map((driver) => {
+      const segment = document.createElement("div");
+      segment.className = "segment";
+      segment.dataset["driver"] = driver;
+      segment.style.background = DRIVER_COLOURS[driver];
+      bar.append(segment);
+      return [driver, segment];
+    }),
+  );
 
   return {
     element,
-    segments: {
-      spontaneous: createSegment("spontaneous"),
-      arousal: createSegment("arousal"),
-    },
+    segments,
     strip,
     flash,
   };
@@ -148,7 +147,8 @@ export function createDriverPanel(container: HTMLElement): DriverPanel {
         row.element.dataset["available"] = String(state !== undefined);
         for (const driver of DRIVERS) {
           const contribution = state?.contributions[driver] ?? 0;
-          row.segments[driver].style.width = `${(100 * contribution) / BAR_FULL_HAZARD}%`;
+          const segment = row.segments.get(driver);
+          if (segment) segment.style.width = `${(100 * contribution) / BAR_FULL_HAZARD}%`;
         }
         row.strip.style.opacity = String(state?.fireProbabilityNextMinute ?? 0);
       }

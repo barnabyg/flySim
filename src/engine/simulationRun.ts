@@ -96,7 +96,6 @@ export interface RunRecord {
 
 /** The engine's single public interface. */
 export interface SimulationRun {
-  readonly step: number;
   advanceSteps(steps: number): void;
   advanceSeconds(seconds: number): void;
   /** The state at the current step. */
@@ -117,7 +116,10 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   const parameters = setup.parameters ?? DEFAULT_PARAMETERS;
   const driverNoise = createRandomStream(seed, DRIVER_NOISE_STREAM);
   const movementNoise = createRandomStream(seed, MOVEMENT_STREAM);
-  const triggerLevels = createRandomStream(seed, setup.triggerStream ?? DEFAULT_TRIGGER_STREAM);
+  const triggerLevelStream = createRandomStream(
+    seed,
+    setup.triggerStream ?? DEFAULT_TRIGGER_STREAM,
+  );
 
   const samples: RunSample[] = [];
   const firedTransitions: FiredTransition[] = [];
@@ -133,7 +135,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   function drawTriggerLevels(): PendingTransition[] {
     return TRANSITIONS.filter((definition) => definition.from === behaviour).map((definition) => ({
       definition,
-      triggerLevel: triggerLevels.exponential(),
+      triggerLevel: triggerLevelStream.exponential(),
       accumulatedHazard: 0,
     }));
   }
@@ -226,9 +228,6 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   recordSample();
 
   return {
-    get step() {
-      return step;
-    },
     advanceSteps,
     advanceSeconds: (seconds) => {
       advanceSteps(Math.round(seconds * STEPS_PER_SECOND));

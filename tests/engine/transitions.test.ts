@@ -38,11 +38,11 @@ describe("Transition Hazards", () => {
 
   it("changes Driver contributions as the run goes on", () => {
     const { samples } = recordOf(2, 3600);
-    const arousalShares = new Set(
+    const arousalContributions = new Set(
       samples.flatMap((sample) => sample.transitions.map((state) => state.contributions.arousal)),
     );
 
-    expect(arousalShares.size).toBeGreaterThan(1000);
+    expect(arousalContributions.size).toBeGreaterThan(1000);
   });
 });
 

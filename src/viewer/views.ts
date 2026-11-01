@@ -3,6 +3,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { RoomSetup } from "../engine";
 import { FLY_LENGTH_METRES } from "./flyModel";
 import {
+  FIELD_OF_VIEW_DEGREES,
   createMonitoringCamera,
   frameRoom,
   roomCentre,
@@ -81,7 +82,7 @@ export function createViews(options: {
   const monitoringCamera = createMonitoringCamera();
   monitoringCamera.layers.enable(RING_LAYER);
 
-  const closeUpCamera = new THREE.PerspectiveCamera(35, 1, 0.001, 5);
+  const closeUpCamera = new THREE.PerspectiveCamera(FIELD_OF_VIEW_DEGREES, 1, 0.001, 5);
   closeUpCamera.layers.enable(CLOSE_UP_ONLY_LAYER);
 
   const ring = createRing();
@@ -148,9 +149,13 @@ export function createViews(options: {
     renderer.render(scene, camera);
   }
 
+  function flyCentre(): THREE.Vector3 {
+    return new THREE.Vector3(0, FLY_CENTRE_HEIGHT_METRES, 0).add(fly.position);
+  }
+
   function trackFly(): void {
     closeUpCamera.position.copy(fly.position).add(CLOSE_UP_OFFSET);
-    closeUpCamera.lookAt(fly.position.x, fly.position.y + FLY_CENTRE_HEIGHT_METRES, fly.position.z);
+    closeUpCamera.lookAt(flyCentre());
     closeUpCamera.updateMatrixWorld();
   }
 
@@ -179,11 +184,7 @@ export function createViews(options: {
     },
     state: () => {
       const mainCamera = swapped ? closeUpCamera : monitoringCamera;
-      const flyProjected = new THREE.Vector3(
-        fly.position.x,
-        fly.position.y + FLY_CENTRE_HEIGHT_METRES,
-        fly.position.z,
-      ).project(closeUpCamera);
+      const flyProjected = flyCentre().project(closeUpCamera);
       const { x, y, z } = monitoringCamera.position;
       return {
         mainCamera: swapped ? "close-up" : "monitoring",

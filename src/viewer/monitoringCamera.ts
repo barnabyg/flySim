@@ -2,7 +2,7 @@ import * as THREE from "three";
 import type { RoomSetup } from "../engine";
 
 const VIEW_DIRECTION = new THREE.Vector3(0.75, 0.75, 1).normalize();
-const FIELD_OF_VIEW_DEGREES = 35;
+export const FIELD_OF_VIEW_DEGREES = 35;
 /** The share of the view the Room's corners may reach, leaving a small border. */
 const FRAME_FILL = 0.92;
 
@@ -55,17 +55,19 @@ export function frameRoom(
 ): void {
   const corners = roomCorners(room);
   const centre = roomCentre(room);
-  let near = 0.1;
-  let far = 50;
-  for (let i = 0; i < 30; i++) {
-    const distance = (near + far) / 2;
+  const placeAt = (distance: number): void => {
     camera.position.copy(centre).addScaledVector(VIEW_DIRECTION, distance);
     camera.lookAt(centre);
     camera.updateMatrixWorld();
-    if (fits(camera, corners, covered)) far = distance;
-    else near = distance;
+  };
+
+  let tooClose = 0.1;
+  let farEnough = 50;
+  for (let i = 0; i < 30; i++) {
+    const distance = (tooClose + farEnough) / 2;
+    placeAt(distance);
+    if (fits(camera, corners, covered)) farEnough = distance;
+    else tooClose = distance;
   }
-  camera.position.copy(centre).addScaledVector(VIEW_DIRECTION, far);
-  camera.lookAt(centre);
-  camera.updateMatrixWorld();
+  placeAt(farEnough);
 }
