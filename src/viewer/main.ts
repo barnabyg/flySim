@@ -67,6 +67,9 @@ const timeControls = createTimeControls(
   },
 );
 createRunControls(requireElement("#run-controls", HTMLElement), seed, room, {
+  onDisturb: () => {
+    simulation.intervene("disturb");
+  },
   onRestart: () => {
     restartWith({});
   },
@@ -77,9 +80,9 @@ createRunControls(requireElement("#run-controls", HTMLElement), seed, room, {
     restartWith({ room: newRoom });
   },
 });
-simulation.onFrame((sample, fired) => {
+simulation.onFrame((sample, fired, interventions) => {
   driverPanel.update(sample, fired);
-  ribbon.update(sample, fired);
+  ribbon.update(sample, fired, interventions);
   timeControls.showTime(sample.timeSeconds, sample.timeOfDayHours);
 });
 

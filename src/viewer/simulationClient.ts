@@ -1,12 +1,27 @@
-import type { FiredTransition, LightSchedule, RoomSetup, RunRecord, RunSample } from "../engine";
+import type {
+  FiredTransition,
+  Intervention,
+  InterventionType,
+  LightSchedule,
+  RoomSetup,
+  RunRecord,
+  RunSample,
+} from "../engine";
 import type { FromSimulation, ToSimulation } from "./protocol";
+
+export type FrameListener = (
+  sample: RunSample,
+  fired: readonly FiredTransition[],
+  interventions: readonly Intervention[],
+) => void;
 
 export interface SimulationClient {
   /** The latest state received, or undefined until the first frame arrives. */
   latest(): RunSample | undefined;
-  onFrame(listener: (sample: RunSample, fired: readonly FiredTransition[]) => void): void;
+  onFrame(listener: FrameListener): void;
   setSpeed(speed: number): void;
   setPaused(paused: boolean): void;
+  intervene(intervention: InterventionType): void;
   record(): Promise<RunRecord>;
 }
 
@@ -18,7 +33,7 @@ export function startSimulation(
   lightSchedule: LightSchedule,
 ): SimulationClient {
   const worker = new Worker(new URL("./simulationWorker.ts", import.meta.url), { type: "module" });
-  const listeners: ((sample: RunSample, fired: readonly FiredTransition[]) => void)[] = [];
+  const listeners: FrameListener[] = [];
   const pendingRecords = new Map<number, (record: RunRecord) => void>();
   let latest: RunSample | undefined;
   let nextRequestId = 0;
@@ -32,7 +47,9 @@ export function startSimulation(
     switch (message.type) {
       case "frame":
         latest = message.sample;
-        for (const listener of listeners) listener(message.sample, message.fired);
+        for (const listener of listeners) {
+          listener(message.sample, message.fired, message.interventions);
+        }
         break;
       case "record":
         pendingRecords.get(message.requestId)?.(message.record);
@@ -53,6 +70,9 @@ export function startSimulation(
     },
     setPaused: (paused) => {
       send({ type: "set-paused", paused });
+    },
+    intervene: (intervention) => {
+      send({ type: "intervene", intervention });
     },
     record: () =>
       new Promise((resolve) => {

@@ -26,6 +26,12 @@ const SLEEP_BAR_FULL_HAZARDS: Partial<Readonly<Record<TransitionId, number>>> = 
   "sleeping-to-immobility": 0.005,
 };
 const FLASH_MILLISECONDS = 700;
+/**
+ * A startle lasts only a moment at high speed, so its segment holds its peak this long,
+ * as a flash does, before fading. Only the segment holds: the red strip stays on the hazard.
+ */
+const STARTLE_HOLD_MILLISECONDS = 700;
+const STARTLE_FADE_MILLISECONDS = 500;
 
 interface TransitionRow {
   readonly element: HTMLElement;
@@ -34,6 +40,8 @@ interface TransitionRow {
   readonly segments: ReadonlyMap<DriverId, HTMLElement>;
   readonly strip: HTMLElement;
   readonly flash: HTMLElement;
+  /** The strongest startle contribution still being held, and when it was reached. */
+  heldStartle: { contribution: number; atMilliseconds: number };
 }
 
 export interface FlashedTransition {
@@ -90,7 +98,21 @@ function createRow(id: TransitionId): TransitionRow {
     segments,
     strip,
     flash,
+    heldStartle: { contribution: 0, atMilliseconds: 0 },
   };
+}
+
+function heldValue(row: TransitionRow, nowMilliseconds: number): number {
+  const { contribution, atMilliseconds } = row.heldStartle;
+  const fading = nowMilliseconds - atMilliseconds - STARTLE_HOLD_MILLISECONDS;
+  return contribution * Math.min(1, Math.max(0, 1 - fading / STARTLE_FADE_MILLISECONDS));
+}
+
+/** Raises what a row is holding, if this contribution is stronger than what's left of it. */
+function holdStartle(row: TransitionRow, contribution: number, nowMilliseconds: number): void {
+  if (contribution > 0 && contribution >= heldValue(row, nowMilliseconds)) {
+    row.heldStartle = { contribution, atMilliseconds: nowMilliseconds };
+  }
 }
 
 function tooltipHtml(state: TransitionState | undefined, sleepDepth: number | null): string {
@@ -163,11 +185,21 @@ export function createDriverPanel(container: HTMLElement): DriverPanel {
     flashes,
     update: (sample, fired) => {
       latest = sample;
+      const now = performance.now();
+      // A firing ends its row's availability, so this is the last it will see of the startle.
+      for (const { transition, contributions } of fired) {
+        const row = rows.get(transition);
+        if (row) holdStartle(row, contributions.startle, now);
+      }
       for (const [id, row] of rows) {
         const state = sample.transitions.find((item) => item.transition === id);
         row.element.dataset["available"] = String(state !== undefined);
         for (const driver of DRIVERS) {
-          const contribution = state?.contributions[driver] ?? 0;
+          let contribution = state?.contributions[driver] ?? 0;
+          if (driver === "startle") {
+            holdStartle(row, contribution, now);
+            contribution = Math.max(contribution, heldValue(row, now));
+          }
           const segment = row.segments.get(driver);
           if (segment) segment.style.width = `${(100 * contribution) / row.fullHazard}%`;
         }

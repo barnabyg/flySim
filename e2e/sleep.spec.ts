@@ -19,6 +19,28 @@ async function pauseWhileAsleep(page: Page): Promise<void> {
   }).toPass({ timeout: 50_000 });
 }
 
+test("a sleeping fly doesn't move in the animation", async ({ page }) => {
+  await page.goto("/?seed=4&speed=1000");
+  await expect.poll(() => currentSample(page).then(Boolean), { timeout: 30_000 }).toBe(true);
+  await pauseWhileAsleep(page);
+  // Only the renderer keeps going while paused, so any motion here would be its own invention.
+  const feet = () => page.evaluate(() => window.flySim.view().flyFeet);
+  const before = await feet();
+  await page.waitForTimeout(500);
+  expect(await feet()).toEqual(before);
+  expect((await page.evaluate(() => window.flySim.view().flyPose)).wings).toBe("rest");
+
+  // Time runs at the slowest speed, where any movement of a sleeping fly would show.
+  await page.locator("#speed").fill("0");
+  await page.locator("#pause").click();
+  await page.waitForTimeout(500);
+  const sample = await currentSample(page);
+  if (sample?.behaviour === "sleeping") {
+    expect(await feet()).toEqual(before);
+    expect(sample.speedMetresPerSecond).toBe(0);
+  }
+});
+
 test("the sleep rows name the circadian clock, and the ribbon shows the day and night", async ({
   page,
 }) => {

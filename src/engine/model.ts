@@ -2,7 +2,8 @@ export type Behaviour = "immobility" | "grooming" | "walking" | "flying" | "slee
 
 export type VigilanceState = "awake" | "asleep";
 
-export type DriverId = "spontaneous" | "arousal" | "contact" | "sleepPressure" | "circadian";
+export type DriverId =
+  "spontaneous" | "arousal" | "contact" | "sleepPressure" | "circadian" | "startle";
 
 export type TransitionId =
   | "immobility-to-walking"
@@ -36,6 +37,7 @@ export const DRIVERS: readonly DriverId[] = [
   "contact",
   "sleepPressure",
   "circadian",
+  "startle",
 ];
 
 export const TRANSITIONS: readonly TransitionDefinition[] = [
@@ -72,6 +74,8 @@ export interface InternalState {
   readonly sleepDepth: number | null;
   /** The internal clock's reading, from 0 up to 24, with 0 at its subjective lights-on. */
   readonly circadianPhaseHours: number;
+  /** What's left of the latest disturbance, from 1 when it happens down to 0. */
+  readonly startle: number;
 }
 
 /**
@@ -141,6 +145,14 @@ export interface ModelParameters {
   readonly siestaGateStrength: number;
   /** How much the clock pushes towards waking when its sleep gate is shut. */
   readonly wakeCircadianRate: number;
+  /** A startle fades at this pace, which lets it be told apart from what follows. */
+  readonly startleTimeConstantSeconds: number;
+  /** Rates at the full strength of a startle. */
+  readonly startWalkingStartleRate: number;
+  readonly walkAfterGroomingStartleRate: number;
+  readonly takeOffFromImmobilityStartleRate: number;
+  readonly takeOffFromWalkingStartleRate: number;
+  readonly wakeStartleRate: number;
   readonly walkingSpeedMetresPerSecond: number;
   /** Size of the heading's random drift, in radians per square root of a second. */
   readonly walkingTurnNoise: number;
@@ -188,6 +200,12 @@ export const DEFAULT_PARAMETERS: ModelParameters = {
   fallAsleepCircadianRate: 0.012,
   siestaGateStrength: 0.35,
   wakeCircadianRate: 0.0015,
+  startleTimeConstantSeconds: 8,
+  startWalkingStartleRate: 3,
+  walkAfterGroomingStartleRate: 2,
+  takeOffFromImmobilityStartleRate: 1,
+  takeOffFromWalkingStartleRate: 1,
+  wakeStartleRate: 0.3,
   walkingSpeedMetresPerSecond: 0.02,
   walkingTurnNoise: 0.8,
   flightSpeedMetresPerSecond: 1,
@@ -199,6 +217,7 @@ const NO_CONTRIBUTIONS: Readonly<Record<DriverId, number>> = {
   contact: 0,
   sleepPressure: 0,
   circadian: 0,
+  startle: 0,
 };
 
 /**
@@ -222,13 +241,14 @@ export function driverContributions(
   senses: Senses,
   parameters: ModelParameters,
 ): Record<DriverId, number> {
-  const { arousal, sleepPressure, sleepDepth, circadianPhaseHours } = state;
+  const { arousal, sleepPressure, sleepDepth, circadianPhaseHours, startle } = state;
   switch (transition) {
     case "immobility-to-walking":
       return {
         ...NO_CONTRIBUTIONS,
         spontaneous: parameters.startWalkingSpontaneousRate,
         arousal: parameters.startWalkingArousalRate * arousal * arousal,
+        startle: parameters.startWalkingStartleRate * startle,
       };
     case "immobility-to-grooming":
       return {
@@ -243,12 +263,14 @@ export function driverContributions(
         ...NO_CONTRIBUTIONS,
         spontaneous: parameters.walkAfterGroomingSpontaneousRate,
         arousal: parameters.walkAfterGroomingArousalRate * arousal,
+        startle: parameters.walkAfterGroomingStartleRate * startle,
       };
     case "immobility-to-flying":
       return {
         ...NO_CONTRIBUTIONS,
         spontaneous: parameters.takeOffFromImmobilitySpontaneousRate,
         arousal: parameters.takeOffFromImmobilityArousalRate * arousal * arousal,
+        startle: parameters.takeOffFromImmobilityStartleRate * startle,
       };
     case "walking-to-immobility":
       return {
@@ -261,6 +283,7 @@ export function driverContributions(
         ...NO_CONTRIBUTIONS,
         spontaneous: parameters.takeOffFromWalkingSpontaneousRate,
         arousal: parameters.takeOffFromWalkingArousalRate * arousal * arousal,
+        startle: parameters.takeOffFromWalkingStartleRate * startle,
       };
     case "flying-to-immobility":
       return {
@@ -287,6 +310,8 @@ export function driverContributions(
           parameters.wakeCircadianRate *
           (1 - sleepGate(circadianPhaseHours, parameters)) *
           easeOfWaking,
+        // Sleep Depth blunts an outside stimulus more than it blunts waking from within.
+        startle: parameters.wakeStartleRate * startle * easeOfWaking * easeOfWaking,
       };
     }
   }

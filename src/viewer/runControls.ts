@@ -8,7 +8,11 @@ const NEW_SEED_ICON =
 const ROOM_ICON =
   '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M2 5l6-3 6 3v6l-6 3-6-3zM2 5l6 3 6-3M8 8v6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>';
 
+const DISTURB_ICON =
+  '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M9.500 1L3 9h4l-1 6 7-8.500H9z" fill="currentColor"/></svg>';
+
 export interface RunControlHandlers {
+  onDisturb(): void;
   onRestart(): void;
   onNewSeed(): void;
   onRoomChange(room: RoomSetup): void;
@@ -26,6 +30,7 @@ export function createRunControls(
   handlers: RunControlHandlers,
 ): void {
   container.innerHTML = `
+    <button id="disturb" class="icon-button" type="button" aria-label="Disturb" title="Disturb">${DISTURB_ICON}</button>
     <button id="restart" class="icon-button" type="button" aria-label="Restart with the same seed" title="Restart with seed ${seed}">${RESTART_ICON}</button>
     <button id="new-seed" class="icon-button" type="button" aria-label="Restart with a new seed" title="Restart with a new seed">${NEW_SEED_ICON}</button>
     <details id="room-settings">
@@ -38,16 +43,20 @@ export function createRunControls(
       </form>
     </details>`;
 
+  const disturb = container.querySelector<HTMLButtonElement>("#disturb");
   const restart = container.querySelector<HTMLButtonElement>("#restart");
   const newSeed = container.querySelector<HTMLButtonElement>("#new-seed");
   const form = container.querySelector<HTMLFormElement>("#room-form");
   const width = container.querySelector<HTMLInputElement>("#room-width");
   const depth = container.querySelector<HTMLInputElement>("#room-depth");
   const height = container.querySelector<HTMLInputElement>("#room-height");
-  if (!restart || !newSeed || !form || !width || !depth || !height) {
+  if (!disturb || !restart || !newSeed || !form || !width || !depth || !height) {
     throw new Error("Malformed run controls");
   }
 
+  disturb.addEventListener("click", () => {
+    handlers.onDisturb();
+  });
   restart.addEventListener("click", () => {
     handlers.onRestart();
   });

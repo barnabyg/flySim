@@ -2,7 +2,7 @@
 
 A browser-based simulator for watching one adult male fruit fly live in a Room and seeing why it starts, continues and stops each behaviour. See [GLOSSARY.md](GLOSSARY.md) for domain terms and [docs/adr](docs/adr) for decisions.
 
-Model values are roughly tuned so that the behaviour is worth watching: over about 10 simulated minutes, a default run nearly always shows Immobility, grooming, walking and flight, and over longer runs the fly sleeps. They are Provisional and not validated, including flight speed and frequency, and all sleep values.
+Model values are roughly tuned so that the behaviour is worth watching: over about 10 simulated minutes, a default run nearly always shows Immobility, grooming, walking and flight, and over a day the fly sleeps in a morning, siesta, evening and night pattern. They are Provisional and not validated, including flight speed and frequency, and all sleep and startle values.
 
 ## Run it
 
@@ -17,9 +17,12 @@ This installs dependencies if needed, starts the app and opens it in your browse
 ## What you can do
 
 - **Watch:** the fly acts on its own. Bars show what is pushing each transition, the red strip shows its chance of firing within the next simulated minute, and a flash marks each firing. Hover over a bar for numbers.
-- **Time:** pause, resume or change the speed from 1× to 1000×. The ribbon at the bottom shows behaviour over the last 60 seconds of real time at the current speed.
+- **Time:** pause, resume or change the speed from 1× to 1000×. The ribbon at the bottom shows behaviour over the last 60 seconds of real time at the current speed, with a thin strip along its foot for day and night. The dial shows the time of day on a 24-hour face, with noon at the top, and hovering over the bottom bar gives the number.
+- **Sleep:** the ribbon shows true sleep in violet, darker when deeper, which a lab's camera can't see. In the Room a sleeping fly looks exactly like an awake immobile one.
+- **Disturb:** the lightning bolt disturbs the fly. An orange segment jumps up in the bars it pushes, and a white line marks the moment on the ribbon. Hover over a row for numbers, including Sleep Depth while the fly sleeps.
 - **Cameras:** drag the main view to orbit. The inset always tracks the fly, and clicking it swaps it with the main view. The fly is drawn at true scale, and the amber ring only marks where it is. A dark spot on the floor shows where the fly is above the floor. It is a marker of a fixed size, as a true-scale shadow would be too small to see.
-- **Restart:** the circular arrow repeats the run with the same seed, and the die starts one with a new seed. The cube sets the Room's size, from 0.1 to 5 m in each direction, and restarts with the same seed. Your time speed is kept. All of this is in the page's URL as `seed`, `width`, `depth`, `height` and `speed`, for example `?seed=123&width=0.3&depth=0.5&height=0.2&speed=10`.
+- **Restart:** the circular arrow repeats the run with the same seed, and the die starts one with a new seed. The cube sets the Room's size, from 0.1 to 5 m in each direction, and restarts with the same seed. Your time speed is kept. All of this is in the page's URL as `seed`, `width`, `depth`, `height` and `speed`, for example `?seed=123&width=0.3&depth=0.5&height=0.2&speed=10`. A restart gives the run without any Disturb presses. Replaying them comes in phase 4.
+- **Light schedule:** a run starts at lights-on, at 06:00, with 12 hours of light. `lightHours` in the URL changes the hours of light, for example `?lightHours=0.05` for lights-off after 3 simulated minutes.
 
 ## Test phase 1
 
@@ -38,6 +41,20 @@ Run `npm start` from the repo root, as above, and then:
 7. **Restart and Room size.** The circular arrow gives the same run again, and the die gives a different one. In the cube's form, set a Room of 0.3 × 0.5 × 0.2 m and press Restart: the view reframes to the new Room, and the fly stays inside it.
 
 Tell us whether it looks and feels right. How often the fly does each thing is a rough tuning, so that is useful feedback too.
+
+## Test phase 2
+
+Run `npm start` from the repo root, as above, and then:
+
+1. **A day has a shape.** Set the speed to 1000× and watch for a minute or two. Along the strip at the ribbon's foot, each pale stretch is a day and each dark stretch a night. Violet is sleep. You should see an active morning, violet building around midday, an active evening, and mostly unbroken violet at night. The pattern repeats each day but never exactly, and the ribbon spans about 17 simulated hours at this speed.
+2. **Day and night in the Room.** Still at 1000×, the Room dims when the dial's red hand enters its dark half at 18:00 and brightens at 06:00. The fly stays findable at night through the amber ring and the close-up.
+3. **Sleep looks like stillness.** Drop to 60× and wait for violet to grow at the ribbon's right-hand end. The fly is motionless, just as in blue Immobility. Only the ribbon and the bars show the difference: the row with a moon on its left is live, and hovering over it shows Sleep Depth.
+4. **Deep sleep is harder to leave.** Hover over the moon row for a few minutes of sleep. Sleep Depth rises from near zero as the bar shrinks, and the ribbon's violet darkens.
+5. **Disturb.** At 60×, press the lightning bolt in each of three states, and press the circular arrow to start again if you want to repeat one. Awake, the fly reacts at once. Lightly asleep (pale violet), it usually wakes. Deeply asleep (dark violet, most likely at night), it often sleeps on. Each press leaves a white line on the ribbon and an orange segment in the bars that holds for about a second.
+6. **Disturb while paused.** Pause and press the lightning bolt. The white line appears, and the bars jump only when you resume.
+7. **Reproducible.** The circular arrow repeats the run without your presses, and the fly does the same things at any speed.
+
+Sleep's timing is a rough tuning, so feedback on how it looks is useful.
 
 ## Verify it
 

@@ -18,6 +18,8 @@ export {
   STEPS_PER_SECOND,
   createSimulationRun,
   type FiredTransition,
+  type Intervention,
+  type InterventionType,
   type RunRecord,
   type RunSample,
   type SimulationRun,

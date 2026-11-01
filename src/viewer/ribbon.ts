@@ -1,4 +1,10 @@
-import { type Behaviour, type FiredTransition, type RunSample } from "../engine";
+import {
+  STEPS_PER_SECOND,
+  type Behaviour,
+  type FiredTransition,
+  type Intervention,
+  type RunSample,
+} from "../engine";
 import { BEHAVIOUR_COLOURS, SLEEP_DEPTH_COLOURS, sleepDepthColour } from "./palette";
 
 /** The ribbon always spans this many seconds of real time at the current speed. */
@@ -23,6 +29,8 @@ function colourOf(behaviour: Behaviour, sleepDepth: number | null): string {
 const LIGHT_STRIP_PIXELS = 2;
 const DAY_COLOUR = "#e8d98a";
 const NIGHT_COLOUR = "#2a3048";
+const MARK_COLOUR = "#ffffff";
+const MARK_PIXELS = 2;
 
 interface LightChange {
   readonly timeSeconds: number;
@@ -35,7 +43,11 @@ interface ColourChange {
 }
 
 export interface Ribbon {
-  update(sample: RunSample, fired: readonly FiredTransition[]): void;
+  update(
+    sample: RunSample,
+    fired: readonly FiredTransition[],
+    interventions: readonly Intervention[],
+  ): void;
   setSpeed(speed: number): void;
   draw(): void;
 }
@@ -52,6 +64,7 @@ export function createRibbon(canvas: HTMLCanvasElement): Ribbon {
 
   const changes: ColourChange[] = [];
   const lightChanges: LightChange[] = [];
+  const markTimes: number[] = [];
   let now = 0;
   let speed = 1;
 
@@ -116,10 +129,21 @@ export function createRibbon(canvas: HTMLCanvasElement): Ribbon {
       ctx.fillStyle = change.lightLevel > 0 ? DAY_COLOUR : NIGHT_COLOUR;
       ctx.fillRect(Math.max(0, start), height, end - Math.max(0, start), stripHeight);
     });
+
+    const markWidth = Math.round(MARK_PIXELS * devicePixelRatio);
+    const visibleMarks = markTimes.filter((time) => time >= windowStart);
+    canvas.dataset["marks"] = String(visibleMarks.length);
+    ctx.fillStyle = MARK_COLOUR;
+    for (const time of visibleMarks) {
+      // A mark made just now stays on the canvas rather than falling off its end.
+      const x = Math.min(width - markWidth, Math.round((time - windowStart) / secondsPerColumn));
+      ctx.fillRect(x, 0, markWidth, canvas.height);
+    }
   }
 
   return {
-    update: (sample, fired) => {
+    update: (sample, fired, interventions) => {
+      for (const { step } of interventions) markTimes.push(step / STEPS_PER_SECOND);
       if (changes.length === 0) {
         changes.push({
           timeSeconds: 0,
