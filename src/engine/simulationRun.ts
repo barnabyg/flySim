@@ -36,6 +36,7 @@ export const STEPS_PER_SECOND = 50;
 
 const STEP_SECONDS = 1 / STEPS_PER_SECOND;
 const SQRT_STEP_SECONDS = Math.sqrt(STEP_SECONDS);
+const STEP_HOURS = STEP_SECONDS / 3600;
 
 const DRIVER_NOISE_STREAM = 1;
 const MOVEMENT_STREAM = 2;
@@ -88,6 +89,11 @@ export interface RunSample extends MovementPose {
   readonly sleepPressure: number;
   /** How deeply the fly is asleep, from 0 to 1, or null while it is awake. */
   readonly sleepDepth: number | null;
+  /**
+   * The internal clock's reading, from 0 up to 24, with 0 at its subjective lights-on.
+   * It runs on its own and light reaches it only through the fly's senses.
+   */
+  readonly circadianPhaseHours: number;
   /** The transitions available from the current behaviour. */
   readonly transitions: readonly TransitionState[];
 }
@@ -159,6 +165,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   let arousal = parameters.initialArousal;
   let sleepPressure = parameters.initialSleepPressure;
   let sleepDepth: number | null = null;
+  let circadianPhaseHours = 0;
   const movement = createMovement(room, movementNoise);
   const stepsOnSurface = new Map<Surface, number>();
   const stepsInBehaviour = new Map<Behaviour, number>();
@@ -183,7 +190,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   function transitionState(transition: TransitionId): TransitionState {
     const contributions = driverContributions(
       transition,
-      { arousal, sleepPressure, sleepDepth },
+      { arousal, sleepPressure, sleepDepth, circadianPhaseHours },
       currentSenses(),
       parameters,
     );
@@ -278,6 +285,15 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
     sleepDepth = Math.min(1, Math.abs(next));
   }
 
+  /** Light pulls the clock towards midday, so a clock that has drifted gets drawn back. */
+  function updateCircadianClock(): void {
+    const pull = -Math.sin((2 * Math.PI * (circadianPhaseHours - 6)) / 24);
+    const clockHoursPerHour =
+      24 / parameters.circadianPeriodHours +
+      parameters.clockEntrainmentRate * currentSenses().lightLevel * pull;
+    circadianPhaseHours = (circadianPhaseHours + clockHoursPerHour * STEP_HOURS) % 24;
+  }
+
   function walk(): void {
     movement.walk(
       parameters.walkingSpeedMetresPerSecond * STEP_SECONDS,
@@ -299,6 +315,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       arousal,
       sleepPressure,
       sleepDepth,
+      circadianPhaseHours,
       transitions: pending.map((item) => transitionState(item.definition.id)),
     };
   }
@@ -315,6 +332,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       updateArousal();
       updateSleepPressure();
       updateSleepDepth();
+      updateCircadianClock();
       if (behaviour === "walking") walk();
       if (behaviour === "flying")
         movement.fly(parameters.flightSpeedMetresPerSecond * STEP_SECONDS);

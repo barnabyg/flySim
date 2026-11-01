@@ -2,7 +2,7 @@ export type Behaviour = "immobility" | "grooming" | "walking" | "flying" | "slee
 
 export type VigilanceState = "awake" | "asleep";
 
-export type DriverId = "spontaneous" | "arousal" | "contact" | "sleepPressure";
+export type DriverId = "spontaneous" | "arousal" | "contact" | "sleepPressure" | "circadian";
 
 export type TransitionId =
   | "immobility-to-walking"
@@ -30,7 +30,13 @@ export const BEHAVIOURS: readonly Behaviour[] = [
   "sleeping",
 ];
 
-export const DRIVERS: readonly DriverId[] = ["spontaneous", "arousal", "contact", "sleepPressure"];
+export const DRIVERS: readonly DriverId[] = [
+  "spontaneous",
+  "arousal",
+  "contact",
+  "sleepPressure",
+  "circadian",
+];
 
 export const TRANSITIONS: readonly TransitionDefinition[] = [
   { id: "immobility-to-walking", from: "immobility", to: "walking" },
@@ -64,6 +70,8 @@ export interface InternalState {
   readonly sleepPressure: number;
   /** Null while awake. */
   readonly sleepDepth: number | null;
+  /** The internal clock's reading, from 0 up to 24, with 0 at its subjective lights-on. */
+  readonly circadianPhaseHours: number;
 }
 
 /**
@@ -123,6 +131,16 @@ export interface ModelParameters {
   readonly sleepDepthNoise: number;
   /** The share of the wake hazard removed at full Sleep Depth. */
   readonly wakeSleepDepthReduction: number;
+  /** The internal clock's free-running day. */
+  readonly circadianPeriodHours: number;
+  /** How strongly light pulls the clock, in clock hours per hour at full light. */
+  readonly clockEntrainmentRate: number;
+  /** How much the clock opens the way to sleep at its strongest, in the middle of its night. */
+  readonly fallAsleepCircadianRate: number;
+  /** How much of its night-time strength the clock's sleep gate reaches at midday. */
+  readonly siestaGateStrength: number;
+  /** How much the clock pushes towards waking when its sleep gate is shut. */
+  readonly wakeCircadianRate: number;
   readonly walkingSpeedMetresPerSecond: number;
   /** Size of the heading's random drift, in radians per square root of a second. */
   readonly walkingTurnNoise: number;
@@ -154,17 +172,22 @@ export const DEFAULT_PARAMETERS: ModelParameters = {
   takeOffFromWalkingArousalRate: 0.06,
   landingContactRate: 100,
   sleepPressureRiseTimeConstantSeconds: 28_800,
-  sleepPressureFallTimeConstantSeconds: 10_800,
+  sleepPressureFallTimeConstantSeconds: 21_600,
   initialSleepPressure: 0.1,
-  fallAsleepSleepPressureRate: 0.03,
-  wakeSpontaneousRate: 0.0003,
-  wakeLowSleepPressureRate: 0.002,
+  fallAsleepSleepPressureRate: 0.002,
+  wakeSpontaneousRate: 0.0002,
+  wakeLowSleepPressureRate: 0.0004,
   sleepDepthAtOnset: 0.05,
   sleepDepthBaseTarget: 0.2,
   sleepDepthSleepPressureGain: 1,
   sleepDepthTimeConstantSeconds: 600,
   sleepDepthNoise: 0.008,
   wakeSleepDepthReduction: 0.85,
+  circadianPeriodHours: 24,
+  clockEntrainmentRate: 0.05,
+  fallAsleepCircadianRate: 0.012,
+  siestaGateStrength: 0.35,
+  wakeCircadianRate: 0.0015,
   walkingSpeedMetresPerSecond: 0.02,
   walkingTurnNoise: 0.8,
   flightSpeedMetresPerSecond: 1,
@@ -175,7 +198,18 @@ const NO_CONTRIBUTIONS: Readonly<Record<DriverId, number>> = {
   arousal: 0,
   contact: 0,
   sleepPressure: 0,
+  circadian: 0,
 };
+
+/**
+ * How open the clock holds the way to sleep, from 0 to 1. It has two peaks, the midday
+ * siesta and the night, with shut gates around subjective dawn and dusk. The night's
+ * gate is broad and the siesta's narrow, which leaves a morning and evening of activity.
+ */
+function sleepGate(circadianPhaseHours: number, parameters: ModelParameters): number {
+  const height = Math.sin((2 * Math.PI * circadianPhaseHours) / 24);
+  return height > 0 ? parameters.siestaGateStrength * height ** 4 : Math.sqrt(-height);
+}
 
 /**
  * Each Driver's share of a Transition Hazard, per second. The contributions add
@@ -188,7 +222,7 @@ export function driverContributions(
   senses: Senses,
   parameters: ModelParameters,
 ): Record<DriverId, number> {
-  const { arousal, sleepPressure, sleepDepth } = state;
+  const { arousal, sleepPressure, sleepDepth, circadianPhaseHours } = state;
   switch (transition) {
     case "immobility-to-walking":
       return {
@@ -238,6 +272,8 @@ export function driverContributions(
       return {
         ...NO_CONTRIBUTIONS,
         sleepPressure: parameters.fallAsleepSleepPressureRate * sleepPressure * settled,
+        circadian:
+          parameters.fallAsleepCircadianRate * sleepGate(circadianPhaseHours, parameters) * settled,
       };
     }
     case "sleeping-to-immobility": {
@@ -247,6 +283,10 @@ export function driverContributions(
         ...NO_CONTRIBUTIONS,
         spontaneous: parameters.wakeSpontaneousRate * easeOfWaking,
         sleepPressure: parameters.wakeLowSleepPressureRate * (1 - sleepPressure) * easeOfWaking,
+        circadian:
+          parameters.wakeCircadianRate *
+          (1 - sleepGate(circadianPhaseHours, parameters)) *
+          easeOfWaking,
       };
     }
   }

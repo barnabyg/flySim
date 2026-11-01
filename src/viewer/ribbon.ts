@@ -19,6 +19,16 @@ function colourOf(behaviour: Behaviour, sleepDepth: number | null): string {
     : BEHAVIOUR_COLOURS[behaviour];
 }
 
+/** A thin strip along the ribbon's foot shows the Room's light, so a day can be read at a glance. */
+const LIGHT_STRIP_PIXELS = 2;
+const DAY_COLOUR = "#e8d98a";
+const NIGHT_COLOUR = "#2a3048";
+
+interface LightChange {
+  readonly timeSeconds: number;
+  readonly lightLevel: number;
+}
+
 interface ColourChange {
   readonly timeSeconds: number;
   readonly colour: string;
@@ -41,6 +51,7 @@ export function createRibbon(canvas: HTMLCanvasElement): Ribbon {
   if (!context) throw new Error("No 2D context for the ribbon");
 
   const changes: ColourChange[] = [];
+  const lightChanges: LightChange[] = [];
   let now = 0;
   let speed = 1;
 
@@ -53,7 +64,9 @@ export function createRibbon(canvas: HTMLCanvasElement): Ribbon {
 
   function draw(ctx: CanvasRenderingContext2D): void {
     resizeToDisplay();
-    const { width, height } = canvas;
+    const { width } = canvas;
+    const stripHeight = Math.round(LIGHT_STRIP_PIXELS * devicePixelRatio);
+    const height = canvas.height - stripHeight;
     const windowSeconds = WINDOW_WALL_SECONDS * speed;
     const windowStart = now - windowSeconds;
     const secondsPerColumn = windowSeconds / width;
@@ -95,6 +108,14 @@ export function createRibbon(canvas: HTMLCanvasElement): Ribbon {
         }
       }
     }
+
+    lightChanges.forEach((change, index) => {
+      const start = (change.timeSeconds - windowStart) / secondsPerColumn;
+      const end = ((lightChanges[index + 1]?.timeSeconds ?? now) - windowStart) / secondsPerColumn;
+      if (end <= 0) return;
+      ctx.fillStyle = change.lightLevel > 0 ? DAY_COLOUR : NIGHT_COLOUR;
+      ctx.fillRect(Math.max(0, start), height, end - Math.max(0, start), stripHeight);
+    });
   }
 
   return {
@@ -111,6 +132,9 @@ export function createRibbon(canvas: HTMLCanvasElement): Ribbon {
       const colour = colourOf(sample.behaviour, sample.sleepDepth);
       if (sample.behaviour === "sleeping" && changes.at(-1)?.colour !== colour) {
         changes.push({ timeSeconds: sample.timeSeconds, colour });
+      }
+      if (lightChanges.at(-1)?.lightLevel !== sample.lightLevel) {
+        lightChanges.push({ timeSeconds: sample.timeSeconds, lightLevel: sample.lightLevel });
       }
       now = sample.timeSeconds;
     },

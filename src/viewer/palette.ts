@@ -22,6 +22,7 @@ export const DRIVER_COLOURS: Readonly<Record<DriverId, string>> = {
   arousal: "#3fc1a0",
   contact: "#b58cf0",
   sleepPressure: "#5b6ee1",
+  circadian: "#e8d24a",
 };
 
 export const BEHAVIOUR_NAMES: Readonly<Record<Behaviour, string>> = {
@@ -37,6 +38,7 @@ export const DRIVER_NAMES: Readonly<Record<DriverId, string>> = {
   arousal: "Arousal",
   contact: "Surface contact",
   sleepPressure: "Sleep pressure",
+  circadian: "Circadian clock",
 };
 
 const BEHAVIOUR_ICON_PATHS: Readonly<Record<Behaviour, string>> = {

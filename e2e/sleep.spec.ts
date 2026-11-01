@@ -19,6 +19,40 @@ async function pauseWhileAsleep(page: Page): Promise<void> {
   }).toPass({ timeout: 50_000 });
 }
 
+test("the sleep rows name the circadian clock, and the ribbon shows the day and night", async ({
+  page,
+}) => {
+  await page.goto("/?seed=4&speed=1000&lightHours=0.3");
+  await expect.poll(() => currentSample(page).then(Boolean), { timeout: 30_000 }).toBe(true);
+
+  const row = page.locator('[data-transition="immobility-to-sleeping"]');
+  await expect(row.locator('[data-driver="circadian"]')).toHaveCount(1);
+  await expect
+    .poll(async () => (await currentSample(page))?.timeSeconds, { timeout: 30_000 })
+    .toBeGreaterThan(1800);
+  await pauseWhileAsleep(page);
+  await page.locator('[data-transition="sleeping-to-immobility"]').hover();
+  await expect(page.locator(".tooltip")).toContainText("Circadian clock");
+
+  const strip = await page.evaluate(() => {
+    const canvas = document.querySelector<HTMLCanvasElement>("#ribbon");
+    const context = canvas?.getContext("2d");
+    if (!canvas || !context) throw new Error("No ribbon");
+    const { data } = context.getImageData(0, canvas.height - 1, canvas.width, 1);
+    const found = new Set<string>();
+    for (let i = 0; i < data.length; i += 4) {
+      found.add(
+        [data[i], data[i + 1], data[i + 2]]
+          .map((value) => (value ?? 0).toString(16).padStart(2, "0"))
+          .join(""),
+      );
+    }
+    return [...found];
+  });
+  expect(strip).toContain("e8d98a");
+  expect(strip).toContain("2a3048");
+});
+
 test("the ribbon and hover numbers tell light sleep from deep sleep", async ({ page }) => {
   await page.goto("/?seed=4&speed=1000");
   await expect.poll(() => currentSample(page).then(Boolean), { timeout: 30_000 }).toBe(true);

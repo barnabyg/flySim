@@ -77,6 +77,7 @@ describe("Sleep Depth", () => {
     const { samples } = recordOf(5, 24 * HOUR, {
       ...DEFAULT_PARAMETERS,
       wakeLowSleepPressureRate: 0,
+      wakeCircadianRate: 0,
     });
     const asleep = samples
       .filter((sample) => sample.behaviour === "sleeping")
@@ -122,6 +123,7 @@ describe("Sleep Depth", () => {
         fallAsleepSleepPressureRate: 1e6,
         wakeSpontaneousRate: 0,
         wakeLowSleepPressureRate: 0,
+        wakeCircadianRate: 0,
       };
       const run = createSimulationRun({ room: DEFAULT_ROOM, seed: 1, parameters });
       run.advanceSeconds(600);
@@ -200,6 +202,8 @@ describe("sleep", () => {
     const { samples, firedTransitions } = recordOf(1, 12 * HOUR, {
       ...DEFAULT_PARAMETERS,
       wakeSleepDepthReduction: 0,
+      fallAsleepCircadianRate: 0,
+      wakeCircadianRate: 0,
     });
     // Each record's bouts start at a firing, so the time since the last firing is time in bout.
     const timeInBout = (timeSeconds: number): number =>

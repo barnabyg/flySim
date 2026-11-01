@@ -25,6 +25,7 @@ const WALKING_MOSTLY = {
   startGroomingSpontaneousRate: 0,
   startGroomingArousalRate: 0,
   fallAsleepSleepPressureRate: 0,
+  fallAsleepCircadianRate: 0,
 };
 
 /** Only the original two transitions can fire, so nothing competes with them. */
@@ -37,6 +38,7 @@ const IMMOBILITY_AND_WALKING_ONLY = {
   startGroomingSpontaneousRate: 0,
   startGroomingArousalRate: 0,
   fallAsleepSleepPressureRate: 0,
+  fallAsleepCircadianRate: 0,
 };
 
 const SMALL_ROOM = { widthMetres: 0.05, depthMetres: 0.03, heightMetres: 0.04 };
@@ -218,7 +220,9 @@ describe("Simulation Run", () => {
   });
 
   it("reports the speed the fly is really moving at", () => {
-    const run = createSimulationRun({ room: DEFAULT_ROOM, seed: 5 });
+    // An hour after lights-on is too early for sleep at the default rates.
+    const parameters = { ...DEFAULT_PARAMETERS, fallAsleepSleepPressureRate: 0.1 };
+    const run = createSimulationRun({ room: DEFAULT_ROOM, seed: 5, parameters });
     const speedsByBehaviour = new Set<string>();
     for (let i = 0; i < 180_000; i++) {
       run.advanceSteps(1);
