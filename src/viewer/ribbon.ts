@@ -1,12 +1,27 @@
-import { BEHAVIOURS, type Behaviour, type FiredTransition, type RunSample } from "../engine";
-import { BEHAVIOUR_COLOURS } from "./palette";
+import { type Behaviour, type FiredTransition, type RunSample } from "../engine";
+import { BEHAVIOUR_COLOURS, SLEEP_DEPTH_COLOURS, sleepDepthColour } from "./palette";
 
 /** The ribbon always spans this many seconds of real time at the current speed. */
 const WINDOW_WALL_SECONDS = 60;
 
-interface BehaviourChange {
+/** The order colours stack in, with sleep shaded from light to deep. */
+const STACK: readonly string[] = [
+  BEHAVIOUR_COLOURS.immobility,
+  BEHAVIOUR_COLOURS.grooming,
+  BEHAVIOUR_COLOURS.walking,
+  BEHAVIOUR_COLOURS.flying,
+  ...SLEEP_DEPTH_COLOURS,
+];
+
+function colourOf(behaviour: Behaviour, sleepDepth: number | null): string {
+  return behaviour === "sleeping"
+    ? sleepDepthColour(sleepDepth ?? 0)
+    : BEHAVIOUR_COLOURS[behaviour];
+}
+
+interface ColourChange {
   readonly timeSeconds: number;
-  readonly behaviour: Behaviour;
+  readonly colour: string;
 }
 
 export interface Ribbon {
@@ -18,13 +33,14 @@ export interface Ribbon {
 /**
  * A strip of behaviour over time. Each pixel column is stacked by the share of its
  * time spent in each behaviour, so bouts too short to draw at high speeds are still
- * shown in the right proportions rather than being dropped or blended.
+ * shown in the right proportions rather than being dropped or blended. Sleep is
+ * shaded by Sleep Depth, which arrives with each frame.
  */
 export function createRibbon(canvas: HTMLCanvasElement): Ribbon {
   const context = canvas.getContext("2d");
   if (!context) throw new Error("No 2D context for the ribbon");
 
-  const changes: BehaviourChange[] = [];
+  const changes: ColourChange[] = [];
   let now = 0;
   let speed = 1;
 
@@ -51,7 +67,7 @@ export function createRibbon(canvas: HTMLCanvasElement): Ribbon {
       const columnEnd = columnStart + secondsPerColumn;
       if (columnEnd <= 0) continue;
 
-      const shares = new Map<Behaviour, number>();
+      const shares = new Map<string, number>();
       // Each change is in effect until the next, so scan on from the last column's position.
       while ((changes[changeIndex + 1]?.timeSeconds ?? Infinity) <= columnStart) changeIndex += 1;
       for (let i = changeIndex; i < changes.length; i++) {
@@ -60,20 +76,20 @@ export function createRibbon(canvas: HTMLCanvasElement): Ribbon {
         const spanEnd = Math.min(columnEnd, changes[i + 1]?.timeSeconds ?? now);
         const overlap = spanEnd - Math.max(columnStart, change.timeSeconds);
         if (overlap > 0) {
-          shares.set(change.behaviour, (shares.get(change.behaviour) ?? 0) + overlap);
+          shares.set(change.colour, (shares.get(change.colour) ?? 0) + overlap);
         }
       }
 
       const total = [...shares.values()].reduce((sum, share) => sum + share, 0);
       if (total === 0) continue;
-      // Rounds to whole pixels, so each behaviour keeps its exact colour.
+      // Rounds to whole pixels, so each band keeps its exact colour.
       let top = 0;
       let cumulative = 0;
-      for (const behaviour of BEHAVIOURS) {
-        cumulative += shares.get(behaviour) ?? 0;
+      for (const colour of STACK) {
+        cumulative += shares.get(colour) ?? 0;
         const bottom = Math.round((cumulative / total) * height);
         if (bottom > top) {
-          ctx.fillStyle = BEHAVIOUR_COLOURS[behaviour];
+          ctx.fillStyle = colour;
           ctx.fillRect(x, top, 1, bottom - top);
           top = bottom;
         }
@@ -84,9 +100,18 @@ export function createRibbon(canvas: HTMLCanvasElement): Ribbon {
   return {
     update: (sample, fired) => {
       if (changes.length === 0) {
-        changes.push({ timeSeconds: 0, behaviour: fired[0]?.from ?? sample.behaviour });
+        changes.push({
+          timeSeconds: 0,
+          colour: colourOf(fired[0]?.from ?? sample.behaviour, sample.sleepDepth),
+        });
       }
-      for (const { timeSeconds, to } of fired) changes.push({ timeSeconds, behaviour: to });
+      for (const { timeSeconds, to } of fired) {
+        changes.push({ timeSeconds, colour: colourOf(to, null) });
+      }
+      const colour = colourOf(sample.behaviour, sample.sleepDepth);
+      if (sample.behaviour === "sleeping" && changes.at(-1)?.colour !== colour) {
+        changes.push({ timeSeconds: sample.timeSeconds, colour });
+      }
       now = sample.timeSeconds;
     },
     setSpeed: (newSpeed) => {

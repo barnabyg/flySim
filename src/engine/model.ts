@@ -60,6 +60,8 @@ export interface Senses {
 export interface InternalState {
   readonly arousal: number;
   readonly sleepPressure: number;
+  /** Null while awake. */
+  readonly sleepDepth: number | null;
 }
 
 /**
@@ -109,6 +111,16 @@ export interface ModelParameters {
   readonly wakeSpontaneousRate: number;
   /** Scaled by how far sleep has discharged sleep pressure. */
   readonly wakeLowSleepPressureRate: number;
+  /** Sleep Depth on falling asleep, from where it relaxes towards its target. */
+  readonly sleepDepthAtOnset: number;
+  /** Sleep Depth relaxes towards this plus the gain times sleep pressure. */
+  readonly sleepDepthBaseTarget: number;
+  readonly sleepDepthSleepPressureGain: number;
+  readonly sleepDepthTimeConstantSeconds: number;
+  /** Size of Sleep Depth's random drift, per square root of a second. */
+  readonly sleepDepthNoise: number;
+  /** The share of the wake hazard removed at full Sleep Depth. */
+  readonly wakeSleepDepthReduction: number;
   readonly walkingSpeedMetresPerSecond: number;
   /** Size of the heading's random drift, in radians per square root of a second. */
   readonly walkingTurnNoise: number;
@@ -145,6 +157,12 @@ export const DEFAULT_PARAMETERS: ModelParameters = {
   fallAsleepSleepPressureRate: 0.03,
   wakeSpontaneousRate: 0.0003,
   wakeLowSleepPressureRate: 0.002,
+  sleepDepthAtOnset: 0.05,
+  sleepDepthBaseTarget: 0.2,
+  sleepDepthSleepPressureGain: 1,
+  sleepDepthTimeConstantSeconds: 600,
+  sleepDepthNoise: 0.008,
+  wakeSleepDepthReduction: 0.85,
   walkingSpeedMetresPerSecond: 0.02,
   walkingTurnNoise: 0.8,
   flightSpeedMetresPerSecond: 1,
@@ -168,7 +186,7 @@ export function driverContributions(
   senses: Senses,
   parameters: ModelParameters,
 ): Record<DriverId, number> {
-  const { arousal, sleepPressure } = state;
+  const { arousal, sleepPressure, sleepDepth } = state;
   switch (transition) {
     case "immobility-to-walking":
       return {
@@ -220,11 +238,14 @@ export function driverContributions(
         sleepPressure: parameters.fallAsleepSleepPressureRate * sleepPressure * settled,
       };
     }
-    case "sleeping-to-immobility":
+    case "sleeping-to-immobility": {
+      // Deeper sleep shrinks every Driver's push, which shrinks the whole bar.
+      const easeOfWaking = 1 - parameters.wakeSleepDepthReduction * (sleepDepth ?? 0);
       return {
         ...NO_CONTRIBUTIONS,
-        spontaneous: parameters.wakeSpontaneousRate,
-        sleepPressure: parameters.wakeLowSleepPressureRate * (1 - sleepPressure),
+        spontaneous: parameters.wakeSpontaneousRate * easeOfWaking,
+        sleepPressure: parameters.wakeLowSleepPressureRate * (1 - sleepPressure) * easeOfWaking,
       };
+    }
   }
 }

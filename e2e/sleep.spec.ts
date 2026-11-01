@@ -1,5 +1,55 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { currentSample } from "./helpers";
+
+/** Pauses a run at high speed with the fly asleep, trying again if it woke before the pause. */
+async function pauseWhileAsleep(page: Page): Promise<void> {
+  await expect(async () => {
+    await expect
+      .poll(async () => (await currentSample(page))?.behaviour, {
+        timeout: 45_000,
+        intervals: [20],
+      })
+      .toBe("sleeping");
+    await page.locator("#pause").click();
+    await page.waitForTimeout(200);
+    if ((await currentSample(page))?.behaviour !== "sleeping") {
+      await page.locator("#pause").click();
+      throw new Error("woke before the pause");
+    }
+  }).toPass({ timeout: 50_000 });
+}
+
+test("the ribbon and hover numbers tell light sleep from deep sleep", async ({ page }) => {
+  await page.goto("/?seed=4&speed=1000");
+  await expect.poll(() => currentSample(page).then(Boolean), { timeout: 30_000 }).toBe(true);
+  await expect
+    .poll(async () => (await currentSample(page))?.timeSeconds, { timeout: 45_000 })
+    .toBeGreaterThan(8 * 3600);
+  await pauseWhileAsleep(page);
+
+  const row = page.locator('[data-transition="sleeping-to-immobility"]');
+  await row.hover();
+  await expect(page.locator(".tooltip")).toContainText("Sleep Depth");
+  const depth = (await currentSample(page))?.sleepDepth ?? NaN;
+  await expect(page.locator(".tooltip")).toContainText(depth.toFixed(2));
+
+  const shades = await page.evaluate(() => {
+    const canvas = document.querySelector<HTMLCanvasElement>("#ribbon");
+    const context = canvas?.getContext("2d");
+    if (!canvas || !context) throw new Error("No ribbon");
+    const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
+    const found = new Set<string>();
+    for (let i = 0; i < data.length; i += 4) {
+      found.add(
+        [data[i], data[i + 1], data[i + 2]]
+          .map((value) => (value ?? 0).toString(16).padStart(2, "0"))
+          .join(""),
+      );
+    }
+    return ["b9a9f4", "8f78e6", "6a50c8", "4a30a0"].filter((shade) => found.has(shade));
+  });
+  expect(shades.length).toBeGreaterThanOrEqual(2);
+});
 
 test("the fly falls asleep, its row responds and the ribbon shows sleep in its own colour", async ({
   page,

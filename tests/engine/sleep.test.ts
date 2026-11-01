@@ -6,6 +6,7 @@ import {
   createSimulationRun,
   type ModelParameters,
   type RunRecord,
+  type RunSample,
   type Surface,
 } from "../../src/engine";
 
@@ -20,6 +21,118 @@ function recordOf(
   run.advanceSeconds(simulatedSeconds);
   return run.record();
 }
+
+/** The stretches of a record's samples for which the fly is asleep. */
+function sleepBouts(samples: readonly RunSample[]): RunSample[][] {
+  const bouts: RunSample[][] = [];
+  samples.forEach((sample, index) => {
+    if (sample.behaviour !== "sleeping") return;
+    if (samples[index - 1]?.behaviour !== "sleeping") bouts.push([]);
+    bouts.at(-1)?.push(sample);
+  });
+  return bouts;
+}
+
+describe("Sleep Depth", () => {
+  const long = recordOf(2, 24 * HOUR);
+  const bouts = sleepBouts(long.samples);
+  const longBouts = bouts.filter((bout) => bout.length > 900);
+
+  it("has a value only while the fly sleeps", () => {
+    expect(bouts.length).toBeGreaterThan(2);
+    for (const sample of long.samples) {
+      if (sample.behaviour === "sleeping") {
+        expect(sample.sleepDepth).toBeGreaterThanOrEqual(0);
+        expect(sample.sleepDepth).toBeLessThanOrEqual(1);
+      } else {
+        expect(sample.sleepDepth).toBeNull();
+      }
+    }
+    for (const fired of long.firedTransitions) {
+      if (fired.from === "sleeping") expect(fired.sleepDepth).toEqual(expect.any(Number));
+      else expect(fired.sleepDepth).toBeNull();
+    }
+  });
+
+  it("changes during a bout, and differs between bouts and seeds", () => {
+    const depthAt = (bout: readonly RunSample[], index: number): number =>
+      bout[index]?.sleepDepth ?? NaN;
+
+    expect(longBouts.length).toBeGreaterThan(1);
+    for (const bout of longBouts) {
+      const depths = bout.map((sample) => sample.sleepDepth ?? NaN);
+      expect(Math.max(...depths) - Math.min(...depths)).toBeGreaterThan(0.05);
+    }
+    // The same time into each bout gives a different depth.
+    const atFifteenMinutes = longBouts.map((bout) => depthAt(bout, 899));
+    expect(new Set(atFifteenMinutes).size).toBe(atFifteenMinutes.length);
+
+    const otherSeed = sleepBouts(recordOf(3, 12 * HOUR).samples).find((bout) => bout.length > 900);
+    expect(otherSeed).toBeDefined();
+    expect(depthAt(otherSeed ?? [], 899)).not.toBe(atFifteenMinutes[0]);
+  });
+
+  it("lowers the wake hazard as it rises", () => {
+    // With only the spontaneous Driver left, depth is the only thing that can move the hazard.
+    const { samples } = recordOf(5, 24 * HOUR, {
+      ...DEFAULT_PARAMETERS,
+      wakeLowSleepPressureRate: 0,
+    });
+    const asleep = samples
+      .filter((sample) => sample.behaviour === "sleeping")
+      .map((sample) => ({
+        depth: sample.sleepDepth ?? NaN,
+        hazard: sample.transitions[0]?.hazard ?? NaN,
+      }))
+      .sort((a, b) => a.depth - b.depth);
+
+    expect(asleep.length).toBeGreaterThan(1000);
+    expect((asleep.at(-1)?.depth ?? 0) - (asleep[0]?.depth ?? 0)).toBeGreaterThan(0.3);
+    asleep.forEach((item, index) => {
+      const next = asleep[index + 1];
+      if (next && next.depth > item.depth) expect(next.hazard).toBeLessThan(item.hazard);
+    });
+  });
+
+  it("shrinks the wake bar through its Drivers, whose contributions still add up", () => {
+    const states = long.samples.flatMap((sample) =>
+      sample.behaviour === "sleeping"
+        ? sample.transitions.map((state) => ({ state, depth: sample.sleepDepth ?? 0 }))
+        : [],
+    );
+
+    for (const { state, depth } of states) {
+      const total = DRIVERS.reduce((sum, driver) => sum + state.contributions[driver], 0);
+      expect(total).toBeCloseTo(state.hazard, 12);
+      expect(state.contributions.spontaneous).toBeCloseTo(
+        DEFAULT_PARAMETERS.wakeSpontaneousRate *
+          (1 - DEFAULT_PARAMETERS.wakeSleepDepthReduction * depth),
+        12,
+      );
+    }
+  });
+
+  it("evolves from sleep pressure and its own noise, not from time in the bout", () => {
+    const depthAfterTenMinutes = (initialSleepPressure: number, sleepDepthNoise: number) => {
+      const parameters = {
+        ...DEFAULT_PARAMETERS,
+        initialSleepPressure,
+        sleepDepthNoise,
+        // Falls asleep on the first steps, and doesn't wake during the measurement.
+        fallAsleepSleepPressureRate: 1e6,
+        wakeSpontaneousRate: 0,
+        wakeLowSleepPressureRate: 0,
+      };
+      const run = createSimulationRun({ room: DEFAULT_ROOM, seed: 1, parameters });
+      run.advanceSeconds(600);
+      return run.current().sleepDepth ?? NaN;
+    };
+
+    // The same time in the bout gives a different depth when the state differs.
+    expect(depthAfterTenMinutes(0.6, 0)).toBeGreaterThan(depthAfterTenMinutes(0.2, 0) + 0.1);
+    expect(depthAfterTenMinutes(0.2, 0.008)).not.toBe(depthAfterTenMinutes(0.2, 0));
+  });
+});
 
 describe("sleep", () => {
   const { samples, firedTransitions } = recordOf(1, 12 * HOUR);
@@ -83,6 +196,11 @@ describe("sleep", () => {
   });
 
   it("gives the same sleep hazards at the same state however long the bout has lasted", () => {
+    // Without Sleep Depth, the wake hazard depends on sleep pressure alone.
+    const { samples, firedTransitions } = recordOf(1, 12 * HOUR, {
+      ...DEFAULT_PARAMETERS,
+      wakeSleepDepthReduction: 0,
+    });
     // Each record's bouts start at a firing, so the time since the last firing is time in bout.
     const timeInBout = (timeSeconds: number): number =>
       timeSeconds -

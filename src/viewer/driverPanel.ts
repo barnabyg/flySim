@@ -7,7 +7,13 @@ import {
   type TransitionId,
   type TransitionState,
 } from "../engine";
-import { BEHAVIOUR_NAMES, DRIVER_COLOURS, DRIVER_NAMES, behaviourIcon } from "./palette";
+import {
+  BEHAVIOUR_NAMES,
+  DRIVER_COLOURS,
+  DRIVER_NAMES,
+  behaviourIcon,
+  sleepDepthColour,
+} from "./palette";
 
 /**
  * The hazard, per second, that fills a bar. Bars are linear, so a segment's length
@@ -87,7 +93,7 @@ function createRow(id: TransitionId): TransitionRow {
   };
 }
 
-function tooltipHtml(state: TransitionState | undefined): string {
+function tooltipHtml(state: TransitionState | undefined, sleepDepth: number | null): string {
   if (!state) return `<div class="tooltip-row">—</div>`;
   const drivers = DRIVERS.map(
     (driver) =>
@@ -95,7 +101,11 @@ function tooltipHtml(state: TransitionState | undefined): string {
   ).join("");
   return `${drivers}
     <div class="tooltip-row">Total<b>${state.hazard.toFixed(4)}/s</b></div>
-    <div class="tooltip-row"><span class="swatch" style="background:var(--red)"></span>Next minute<b>${(state.fireProbabilityNextMinute * 100).toFixed(1)}%</b></div>`;
+    <div class="tooltip-row"><span class="swatch" style="background:var(--red)"></span>Next minute<b>${(state.fireProbabilityNextMinute * 100).toFixed(1)}%</b></div>${
+      sleepDepth === null
+        ? ""
+        : `<div class="tooltip-row"><span class="swatch" style="background:${sleepDepthColour(sleepDepth)}"></span>Sleep Depth<b>${sleepDepth.toFixed(2)}</b></div>`
+    }`;
 }
 
 /** Shows why the fly might act: a bar per transition, its red strip and its firing flash. */
@@ -123,6 +133,7 @@ export function createDriverPanel(container: HTMLElement): DriverPanel {
     if (row) tooltip.style.top = `${row.element.offsetTop + row.element.offsetHeight + 4}px`;
     tooltip.innerHTML = tooltipHtml(
       latest?.transitions.find((state) => state.transition === hovered),
+      latest?.sleepDepth ?? null,
     );
   }
 

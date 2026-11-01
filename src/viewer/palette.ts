@@ -8,6 +8,15 @@ export const BEHAVIOUR_COLOURS: Readonly<Record<Behaviour, string>> = {
   sleeping: "#8f78e6",
 };
 
+/** Sleep's colour on the ribbon, from lightest to deepest sleep. */
+export const SLEEP_DEPTH_COLOURS: readonly string[] = ["#b9a9f4", "#8f78e6", "#6a50c8", "#4a30a0"];
+
+export function sleepDepthColour(depth: number): string {
+  const last = SLEEP_DEPTH_COLOURS.length - 1;
+  const index = Math.min(last, Math.floor(depth * SLEEP_DEPTH_COLOURS.length));
+  return SLEEP_DEPTH_COLOURS[index] ?? BEHAVIOUR_COLOURS.sleeping;
+}
+
 export const DRIVER_COLOURS: Readonly<Record<DriverId, string>> = {
   spontaneous: "#9aa1ae",
   arousal: "#3fc1a0",

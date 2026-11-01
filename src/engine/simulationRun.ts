@@ -32,6 +32,7 @@ const SQRT_STEP_SECONDS = Math.sqrt(STEP_SECONDS);
 const DRIVER_NOISE_STREAM = 1;
 const MOVEMENT_STREAM = 2;
 const DEFAULT_TRIGGER_STREAM = 3;
+const SLEEP_DEPTH_NOISE_STREAM = 4;
 
 export const DEFAULT_ROOM: RoomSetup = { widthMetres: 1, depthMetres: 1, heightMetres: 0.6 };
 
@@ -69,6 +70,8 @@ export interface RunSample extends MovementPose {
   readonly arousal: number;
   /** A slow state variable, not a rest timer. It rises while awake and falls while asleep. */
   readonly sleepPressure: number;
+  /** How deeply the fly is asleep, from 0 to 1, or null while it is awake. */
+  readonly sleepDepth: number | null;
   /** The transitions available from the current behaviour. */
   readonly transitions: readonly TransitionState[];
 }
@@ -82,6 +85,8 @@ export interface FiredTransition extends TransitionState {
   /** The true Vigilance State the transition led to. */
   readonly vigilanceState: VigilanceState;
   readonly sleepPressure: number;
+  /** Sleep Depth when the transition fired, or null if the fly was awake. */
+  readonly sleepDepth: number | null;
 }
 
 export interface RunRecord {
@@ -121,6 +126,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   const parameters = setup.parameters ?? DEFAULT_PARAMETERS;
   const driverNoise = createRandomStream(seed, DRIVER_NOISE_STREAM);
   const movementNoise = createRandomStream(seed, MOVEMENT_STREAM);
+  const sleepDepthNoise = createRandomStream(seed, SLEEP_DEPTH_NOISE_STREAM);
   const triggerLevelStream = createRandomStream(
     seed,
     setup.triggerStream ?? DEFAULT_TRIGGER_STREAM,
@@ -133,6 +139,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   let behaviour: Behaviour = "immobility";
   let arousal = parameters.initialArousal;
   let sleepPressure = parameters.initialSleepPressure;
+  let sleepDepth: number | null = null;
   const movement = createMovement(room, movementNoise);
   const stepsOnSurface = new Map<Surface, number>();
   const stepsInBehaviour = new Map<Behaviour, number>();
@@ -149,7 +156,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   function transitionState(transition: TransitionId): TransitionState {
     const contributions = driverContributions(
       transition,
-      { arousal, sleepPressure },
+      { arousal, sleepPressure, sleepDepth },
       { touchingSurface: movement.hasArrived() },
       parameters,
     );
@@ -176,8 +183,10 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
           triggerLevel: item.triggerLevel,
           vigilanceState: vigilanceStateOf(item.definition.to),
           sleepPressure,
+          sleepDepth,
         });
         behaviour = item.definition.to;
+        sleepDepth = behaviour === "sleeping" ? parameters.sleepDepthAtOnset : null;
         if (item.definition.to === "flying") movement.takeOff();
         if (item.definition.from === "flying") movement.land();
         pending = drawTriggerLevels();
@@ -230,6 +239,18 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
         : ((1 - sleepPressure) / parameters.sleepPressureRiseTimeConstantSeconds) * STEP_SECONDS;
   }
 
+  /** Follows sleep pressure and its own noise. Nothing here knows how long the bout has lasted. */
+  function updateSleepDepth(): void {
+    if (sleepDepth === null) return;
+    const target =
+      parameters.sleepDepthBaseTarget + parameters.sleepDepthSleepPressureGain * sleepPressure;
+    const next =
+      sleepDepth +
+      ((target - sleepDepth) / parameters.sleepDepthTimeConstantSeconds) * STEP_SECONDS +
+      parameters.sleepDepthNoise * SQRT_STEP_SECONDS * sleepDepthNoise.normal();
+    sleepDepth = Math.min(1, Math.abs(next));
+  }
+
   function walk(): void {
     movement.walk(
       parameters.walkingSpeedMetresPerSecond * STEP_SECONDS,
@@ -247,6 +268,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       speedMetresPerSecond: currentSpeed(),
       arousal,
       sleepPressure,
+      sleepDepth,
       transitions: pending.map((item) => transitionState(item.definition.id)),
     };
   }
@@ -262,6 +284,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       fireDueTransition();
       updateArousal();
       updateSleepPressure();
+      updateSleepDepth();
       if (behaviour === "walking") walk();
       if (behaviour === "flying")
         movement.fly(parameters.flightSpeedMetresPerSecond * STEP_SECONDS);
