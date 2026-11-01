@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fly Simulator</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/src/viewer/styles.css" />
+  </head>
+  <body>
+    <div id="app">
+      <main id="view">
+        <canvas id="scene"></canvas>
+        <button id="inset" type="button" aria-label="Show the close-up">
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+            <path
+              d="M1 5l3-3 3 3H5v4h4l-1.500 2H4V5zM15 11l-3 3-3-3h2V7H7l1.500-2H12v6z"
+              fill="currentColor"
+            />
+          </svg>
+        </button>
+      </main>
+      <aside id="drivers"></aside>
+      <footer id="timeline">
+        <div id="controls"></div>
+        <canvas id="ribbon" aria-label="Behaviour over time"></canvas>
+      </footer>
+    </div>
+    <script type="module" src="/src/viewer/main.ts"></script>
+  </body>
+</html>
