@@ -6,7 +6,7 @@ import { createFlyModel, type FlyModel } from "./flyModel";
 export const CLOSE_UP_ONLY_LAYER = 2;
 
 const MARKING_HEIGHT_METRES = 0.00005;
-const TURNING_SECONDS = 0.05;
+const AIR_TURNING_SECONDS = 0.05;
 
 /** Engine positions have z up, and the scene has y up. */
 function toScene(position: Position): THREE.Vector3 {
@@ -139,13 +139,14 @@ export function createRoomScene(room: RoomSetup): RoomScene {
       target.setFromRotationMatrix(
         basis.makeBasis(forward, up, new THREE.Vector3().crossVectors(forward, up)),
       );
-      // Rounds an edge over a short simulated time, and never while the fly should be still.
+      // Turns gradually in the air, where nothing is in the way. On a surface the body
+      // matches the surface exactly, as any turn there would take it through a neighbour.
       const elapsedSeconds = sample.timeSeconds - previousTimeSeconds;
       previousTimeSeconds = sample.timeSeconds;
-      const moving = sample.speedMetresPerSecond > 0;
+      const inAir = sample.surface === null;
       fly.object.quaternion.slerp(
         target,
-        moving ? 1 - Math.exp(-elapsedSeconds / TURNING_SECONDS) : 1,
+        inAir ? 1 - Math.exp(-elapsedSeconds / AIR_TURNING_SECONDS) : 1,
       );
       fly.animate(sample);
     },
