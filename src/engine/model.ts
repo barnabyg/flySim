@@ -1,10 +1,13 @@
-export type Behaviour = "immobility" | "walking" | "flying";
+export type Behaviour = "immobility" | "grooming" | "walking" | "flying";
 
 export type DriverId = "spontaneous" | "arousal" | "contact";
 
 export type TransitionId =
   | "immobility-to-walking"
+  | "immobility-to-grooming"
   | "immobility-to-flying"
+  | "grooming-to-immobility"
+  | "grooming-to-walking"
   | "walking-to-immobility"
   | "walking-to-flying"
   | "flying-to-immobility";
@@ -15,13 +18,16 @@ export interface TransitionDefinition {
   readonly to: Behaviour;
 }
 
-export const BEHAVIOURS: readonly Behaviour[] = ["immobility", "walking", "flying"];
+export const BEHAVIOURS: readonly Behaviour[] = ["immobility", "grooming", "walking", "flying"];
 
 export const DRIVERS: readonly DriverId[] = ["spontaneous", "arousal", "contact"];
 
 export const TRANSITIONS: readonly TransitionDefinition[] = [
   { id: "immobility-to-walking", from: "immobility", to: "walking" },
+  { id: "immobility-to-grooming", from: "immobility", to: "grooming" },
   { id: "immobility-to-flying", from: "immobility", to: "flying" },
+  { id: "grooming-to-immobility", from: "grooming", to: "immobility" },
+  { id: "grooming-to-walking", from: "grooming", to: "walking" },
   { id: "walking-to-immobility", from: "walking", to: "immobility" },
   { id: "walking-to-flying", from: "walking", to: "flying" },
   { id: "flying-to-immobility", from: "flying", to: "immobility" },
@@ -40,6 +46,8 @@ export interface Senses {
 export interface ModelParameters {
   /** Arousal relaxes towards this level during Immobility. */
   readonly arousalTargetImmobile: number;
+  /** Arousal relaxes towards this level while grooming. */
+  readonly arousalTargetGrooming: number;
   /** Arousal relaxes towards this level while walking. */
   readonly arousalTargetWalking: number;
   /** Arousal relaxes towards this level in flight. */
@@ -53,6 +61,12 @@ export interface ModelParameters {
   readonly startWalkingArousalRate: number;
   readonly stopWalkingSpontaneousRate: number;
   readonly stopWalkingLowArousalRate: number;
+  /** Grooming has no contamination model, so nothing about dirt drives these. */
+  readonly startGroomingSpontaneousRate: number;
+  readonly startGroomingArousalRate: number;
+  readonly stopGroomingSpontaneousRate: number;
+  readonly walkAfterGroomingSpontaneousRate: number;
+  readonly walkAfterGroomingArousalRate: number;
   readonly takeOffFromImmobilitySpontaneousRate: number;
   readonly takeOffFromImmobilityArousalRate: number;
   readonly takeOffFromWalkingSpontaneousRate: number;
@@ -68,6 +82,7 @@ export interface ModelParameters {
 
 export const DEFAULT_PARAMETERS: ModelParameters = {
   arousalTargetImmobile: 0.05,
+  arousalTargetGrooming: 0.3,
   arousalTargetWalking: 0.75,
   arousalTargetFlying: 0.9,
   arousalTimeConstantSeconds: 120,
@@ -77,6 +92,11 @@ export const DEFAULT_PARAMETERS: ModelParameters = {
   startWalkingArousalRate: 0.25,
   stopWalkingSpontaneousRate: 0.02,
   stopWalkingLowArousalRate: 0.06,
+  startGroomingSpontaneousRate: 0.004,
+  startGroomingArousalRate: 0.05,
+  stopGroomingSpontaneousRate: 0.04,
+  walkAfterGroomingSpontaneousRate: 0.005,
+  walkAfterGroomingArousalRate: 0.03,
   takeOffFromImmobilitySpontaneousRate: 0.0003,
   takeOffFromImmobilityArousalRate: 0.006,
   takeOffFromWalkingSpontaneousRate: 0.002,
@@ -103,6 +123,24 @@ export function driverContributions(
       return {
         spontaneous: parameters.startWalkingSpontaneousRate,
         arousal: parameters.startWalkingArousalRate * arousal * arousal,
+        contact: 0,
+      };
+    case "immobility-to-grooming":
+      return {
+        spontaneous: parameters.startGroomingSpontaneousRate,
+        arousal: parameters.startGroomingArousalRate * arousal,
+        contact: 0,
+      };
+    case "grooming-to-immobility":
+      return {
+        spontaneous: parameters.stopGroomingSpontaneousRate,
+        arousal: 0,
+        contact: 0,
+      };
+    case "grooming-to-walking":
+      return {
+        spontaneous: parameters.walkAfterGroomingSpontaneousRate,
+        arousal: parameters.walkAfterGroomingArousalRate * arousal,
         contact: 0,
       };
     case "immobility-to-flying":

@@ -1,4 +1,5 @@
 import {
+  BEHAVIOURS,
   DEFAULT_PARAMETERS,
   DRIVERS,
   TRANSITIONS,
@@ -87,6 +88,8 @@ export interface RunRecord {
   readonly firedTransitions: readonly FiredTransition[];
   /** Covers the whole run, even when older samples were dropped. */
   readonly timeOnSurfaceSeconds: Readonly<Record<Surface, number>>;
+  /** Covers the whole run, even when older samples were dropped. */
+  readonly timeInBehaviourSeconds: Readonly<Record<Behaviour, number>>;
 }
 
 /** The engine's single public interface. */
@@ -124,6 +127,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   let arousal = parameters.initialArousal;
   const movement = createMovement(room, movementNoise);
   const stepsOnSurface = new Map<Surface, number>();
+  const stepsInBehaviour = new Map<Behaviour, number>();
   let pending = drawTriggerLevels();
 
   function drawTriggerLevels(): PendingTransition[] {
@@ -176,6 +180,8 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
     switch (behaviour) {
       case "immobility":
         return parameters.arousalTargetImmobile;
+      case "grooming":
+        return parameters.arousalTargetGrooming;
       case "walking":
         return parameters.arousalTargetWalking;
       case "flying":
@@ -186,6 +192,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   function currentSpeed(): number {
     switch (behaviour) {
       case "immobility":
+      case "grooming":
         return 0;
       case "walking":
         return parameters.walkingSpeedMetresPerSecond;
@@ -237,6 +244,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
         movement.fly(parameters.flightSpeedMetresPerSecond * STEP_SECONDS);
       const { surface } = movement.pose();
       if (surface) stepsOnSurface.set(surface, (stepsOnSurface.get(surface) ?? 0) + 1);
+      stepsInBehaviour.set(behaviour, (stepsInBehaviour.get(behaviour) ?? 0) + 1);
       step += 1;
       if (step % STEPS_PER_SECOND === 0) recordSample();
     }
@@ -262,6 +270,9 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       timeOnSurfaceSeconds: Object.fromEntries(
         SURFACES.map((surface) => [surface, (stepsOnSurface.get(surface) ?? 0) * STEP_SECONDS]),
       ) as Record<Surface, number>,
+      timeInBehaviourSeconds: Object.fromEntries(
+        BEHAVIOURS.map((each) => [each, (stepsInBehaviour.get(each) ?? 0) * STEP_SECONDS]),
+      ) as Record<Behaviour, number>,
     }),
   };
 }

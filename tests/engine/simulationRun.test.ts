@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  BEHAVIOURS,
   DEFAULT_PARAMETERS,
   DEFAULT_ROOM,
   STEPS_PER_SECOND,
@@ -21,6 +22,8 @@ const WALKING_MOSTLY = {
   takeOffFromImmobilityArousalRate: 0,
   takeOffFromWalkingSpontaneousRate: 0,
   takeOffFromWalkingArousalRate: 0,
+  startGroomingSpontaneousRate: 0,
+  startGroomingArousalRate: 0,
 };
 
 /** Only the original two transitions can fire, so nothing competes with them. */
@@ -30,6 +33,8 @@ const IMMOBILITY_AND_WALKING_ONLY = {
   takeOffFromImmobilityArousalRate: 0,
   takeOffFromWalkingSpontaneousRate: 0,
   takeOffFromWalkingArousalRate: 0,
+  startGroomingSpontaneousRate: 0,
+  startGroomingArousalRate: 0,
 };
 
 const SMALL_ROOM = { widthMetres: 0.05, depthMetres: 0.03, heightMetres: 0.04 };
@@ -214,8 +219,84 @@ describe("Simulation Run", () => {
     }
     // A flying fly's speed drops to 0 when it reaches a surface, just before it lands.
     expect(speedsByBehaviour).toEqual(
-      new Set(["immobility 0", "walking 0.02", "flying 1", "flying 0"]),
+      new Set(["immobility 0", "grooming 0", "walking 0.02", "flying 1", "flying 0"]),
     );
+  });
+
+  describe("grooming", () => {
+    it("starts and ends on its own through Transition Hazards", () => {
+      const { firedTransitions } = recordOf(6, 3600);
+      const started = firedTransitions.filter((fired) => fired.to === "grooming");
+      const ended = firedTransitions.filter((fired) => fired.from === "grooming");
+
+      expect(started.length).toBeGreaterThan(0);
+      expect(ended.length).toBeGreaterThan(0);
+      for (const fired of [...started, ...ended]) expect(fired.hazard).toBeGreaterThan(0);
+    });
+
+    it("keeps the fly in place, on its surface", () => {
+      const run = createSimulationRun({ room: DEFAULT_ROOM, seed: 6 });
+      let previous = run.current();
+      let groomingSteps = 0;
+      let moved = 0;
+      for (let i = 0; i < 100_000; i++) {
+        run.advanceSteps(1);
+        const sample = run.current();
+        if (sample.behaviour === "grooming") {
+          groomingSteps += 1;
+          if (
+            sample.surface === null ||
+            JSON.stringify(sample.position) !== JSON.stringify(previous.position)
+          ) {
+            moved += 1;
+          }
+        }
+        previous = sample;
+      }
+      expect(groomingSteps).toBeGreaterThan(100);
+      expect(moved).toBe(0);
+    });
+
+    it("is recorded separately from Immobility", () => {
+      const run = createSimulationRun({ room: DEFAULT_ROOM, seed: 6 });
+      const steps = new Map<string, number>();
+      for (let i = 0; i < 90_000; i++) {
+        run.advanceSteps(1);
+        const { behaviour } = run.current();
+        steps.set(behaviour, (steps.get(behaviour) ?? 0) + 1);
+      }
+      const { timeInBehaviourSeconds } = run.record();
+
+      expect(timeInBehaviourSeconds.grooming).toBeGreaterThan(0);
+      expect(timeInBehaviourSeconds.immobility).toBeGreaterThan(0);
+      for (const behaviour of BEHAVIOURS) {
+        expect(timeInBehaviourSeconds[behaviour]).toBeCloseTo(
+          (steps.get(behaviour) ?? 0) / STEPS_PER_SECOND,
+          9,
+        );
+      }
+    });
+  });
+
+  it("shares firings between competing transitions in proportion to their hazards", () => {
+    // Constant hazards of 0.06 and 0.02 per second, so 3 in 4 firings should start walking.
+    const parameters = {
+      ...IMMOBILITY_AND_WALKING_ONLY,
+      startWalkingSpontaneousRate: 0.06,
+      startWalkingArousalRate: 0,
+      startGroomingSpontaneousRate: 0.02,
+    };
+    const fromImmobility = Array.from({ length: 20 }, (_, seed) => {
+      const run = createSimulationRun({ room: DEFAULT_ROOM, seed, parameters });
+      run.advanceSeconds(3600);
+      return run.firedTransitions.filter((fired) => fired.from === "immobility");
+    }).flat();
+    const walkingShare =
+      fromImmobility.filter((fired) => fired.to === "walking").length / fromImmobility.length;
+
+    expect(fromImmobility.length).toBeGreaterThan(500);
+    expect(walkingShare).toBeGreaterThan(0.7);
+    expect(walkingShare).toBeLessThan(0.8);
   });
 
   describe("flight", () => {

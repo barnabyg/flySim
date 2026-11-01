@@ -2,6 +2,7 @@ import type { Behaviour, DriverId } from "../engine";
 
 export const BEHAVIOUR_COLOURS: Readonly<Record<Behaviour, string>> = {
   immobility: "#4f7cac",
+  grooming: "#6fbf4a",
   walking: "#e0a030",
   flying: "#d0508c",
 };
@@ -14,6 +15,7 @@ export const DRIVER_COLOURS: Readonly<Record<DriverId, string>> = {
 
 export const BEHAVIOUR_NAMES: Readonly<Record<Behaviour, string>> = {
   immobility: "Immobility",
+  grooming: "Grooming",
   walking: "Walking",
   flying: "Flying",
 };
@@ -26,6 +28,8 @@ export const DRIVER_NAMES: Readonly<Record<DriverId, string>> = {
 
 const BEHAVIOUR_ICON_PATHS: Readonly<Record<Behaviour, string>> = {
   immobility: '<circle cx="8" cy="8" r="4.5" fill="currentColor"/>',
+  grooming:
+    '<path d="M3 13 L8 6 M13 13 L8 6 M5 3 L11 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
   walking:
     '<path d="M2 11 L6 5 L10 11 L14 5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>',
   flying:

@@ -26,6 +26,7 @@ const FOOT_LIFT = 0.25 * MILLIMETRE;
 /** How far a tucked foot in flight lies from the body's underside. */
 const TUCKED_FOOT_HEIGHT = 0.2 * MILLIMETRE;
 const TUCKED_FOOT_WIDTH = 0.55 * MILLIMETRE;
+const RUBS_PER_SECOND = 5;
 
 const LEG_COLOUR = 0x2a1c10;
 const BODY_COLOUR = 0x6b4a24;
@@ -50,6 +51,7 @@ interface Leg {
   readonly restingFoot: THREE.Vector3;
   /** 1 or -1 for the fly's two sides, along z. */
   readonly side: number;
+  readonly isFront: boolean;
   /** The start of this leg's gait cycle, as a share of the cycle. */
   readonly gaitOffset: number;
   readonly femur: THREE.Mesh;
@@ -191,17 +193,18 @@ function createLegs(parent: THREE.Object3D): Leg[] {
   const tarsusLength = Math.hypot(TARSUS_RUN, TARSUS_RISE);
   // Hips and resting feet in millimetres, for the fly's +z side, front to back.
   const layout = [
-    { hipX: 0.5, footX: 1.0, footZ: 0.95, gaitOffset: 0 },
-    { hipX: 0.2, footX: 0.1, footZ: 1.15, gaitOffset: 0.5 },
-    { hipX: -0.1, footX: -0.8, footZ: 1.0, gaitOffset: 0 },
+    { hipX: 0.5, footX: 1.0, footZ: 0.95, gaitOffset: 0, isFront: true },
+    { hipX: 0.2, footX: 0.1, footZ: 1.15, gaitOffset: 0.5, isFront: false },
+    { hipX: -0.1, footX: -0.8, footZ: 1.0, gaitOffset: 0, isFront: false },
   ];
 
   return [1, -1].flatMap((side) =>
-    layout.map(({ hipX, footX, footZ, gaitOffset }) => {
+    layout.map(({ hipX, footX, footZ, gaitOffset, isFront }) => {
       const leg: Leg = {
         hip: new THREE.Vector3(hipX, 0.38, side * 0.2).multiplyScalar(MILLIMETRE),
         restingFoot: new THREE.Vector3(footX, 0, side * footZ).multiplyScalar(MILLIMETRE),
         side,
+        isFront,
         // The two sides are half a cycle apart, which makes two alternating tripods.
         gaitOffset: side === 1 ? gaitOffset : (gaitOffset + 0.5) % 1,
         femur: createSegment(FEMUR_LENGTH, material),
@@ -232,6 +235,16 @@ function tuckedFoot(leg: Leg): THREE.Vector3 {
   );
 }
 
+/** A front foot held up under the head, sliding along the other front leg in time with it. */
+function rubbingFoot(leg: Leg, timeSeconds: number): THREE.Vector3 {
+  const stroke = Math.sin(2 * Math.PI * RUBS_PER_SECOND * timeSeconds);
+  return new THREE.Vector3(
+    (1.15 + leg.side * 0.08 * stroke) * MILLIMETRE,
+    0.22 * MILLIMETRE,
+    leg.side * 0.07 * MILLIMETRE,
+  );
+}
+
 /** A procedural fly built in code. Replacing it touches nothing outside this module's interface. */
 export function createFlyModel(): FlyModel {
   const object = new THREE.Group();
@@ -259,9 +272,12 @@ export function createFlyModel(): FlyModel {
     shownBehaviour = sample.behaviour;
     for (const wing of wings) wing.visible = !flying;
     for (const blur of wingBlurs) blur.visible = flying;
+    const grooming = sample.behaviour === "grooming";
     // When walking stops, all six feet go down where they are, and then nothing moves.
     for (const leg of legs) {
-      poseLeg(leg, flying ? tuckedFoot(leg) : gaitFoot(leg, stridePhase, walking));
+      if (flying) poseLeg(leg, tuckedFoot(leg));
+      else if (grooming && leg.isFront) poseLeg(leg, rubbingFoot(leg, sample.timeSeconds));
+      else poseLeg(leg, gaitFoot(leg, stridePhase, walking));
     }
   }
 

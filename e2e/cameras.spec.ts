@@ -61,7 +61,7 @@ test("the fly is drawn at true scale", async ({ page }) => {
   expect(flyLengthInScene).toBeCloseTo(0.0025, 5);
 });
 
-test("the fly's legs move while it walks, and it is still during Immobility", async ({ page }) => {
+test("the fly's legs match what it is doing", async ({ page }) => {
   await openApp(page);
   await page.locator("#speed").fill("0");
 
@@ -74,8 +74,8 @@ test("the fly's legs move while it walks, and it is still during Immobility", as
         feet: window.flySim.view().flyFeet,
       };
     });
-  /** Watches for a little real time at 1× and reports whether the feet changed. */
-  const watch = async (behaviour: string): Promise<boolean> => {
+  /** Watches for a little real time at 1× and reports how many feet moved. */
+  const feetMovedWhile = async (behaviour: string): Promise<number> => {
     const before = await frame();
     await page.waitForTimeout(250);
     const after = await frame();
@@ -83,7 +83,9 @@ test("the fly's legs move while it walks, and it is still during Immobility", as
       throw new Error(`not ${behaviour} throughout`);
     }
     expect(after.time).toBeGreaterThan(before.time ?? Infinity);
-    return JSON.stringify(before.feet) !== JSON.stringify(after.feet);
+    return before.feet.filter(
+      (foot, index) => JSON.stringify(foot) !== JSON.stringify(after.feet[index]),
+    ).length;
   };
   const waitFor = async (behaviour: string): Promise<void> => {
     await page.locator("#speed").fill("6");
@@ -96,11 +98,16 @@ test("the fly's legs move while it walks, and it is still during Immobility", as
 
   await expect(async () => {
     await waitFor("walking");
-    expect(await watch("walking")).toBe(true);
+    expect(await feetMovedWhile("walking")).toBe(6);
   }).toPass({ timeout: 40_000 });
   await expect(async () => {
     await waitFor("immobility");
-    expect(await watch("immobility")).toBe(false);
+    expect(await feetMovedWhile("immobility")).toBe(0);
+  }).toPass({ timeout: 40_000 });
+  // Grooming rubs only the two front legs together.
+  await expect(async () => {
+    await waitFor("grooming");
+    expect(await feetMovedWhile("grooming")).toBe(2);
   }).toPass({ timeout: 40_000 });
 });
 
