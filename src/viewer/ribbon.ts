@@ -85,7 +85,7 @@ export function createRibbon(canvas: HTMLCanvasElement): Ribbon {
     const secondsPerColumn = windowSeconds / width;
     canvas.dataset["windowStart"] = String(windowStart);
     canvas.dataset["windowEnd"] = String(now);
-    ctx.clearRect(0, 0, width, height);
+    ctx.clearRect(0, 0, width, canvas.height);
 
     let changeIndex = 0;
     for (let x = 0; x < width; x++) {
