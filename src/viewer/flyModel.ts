@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import type { RunSample } from "../engine";
+import type { Behaviour, RunSample } from "../engine";
 
 const MILLIMETRE = 0.001;
 
@@ -23,6 +23,9 @@ const LEG_RADIUS = 0.035 * MILLIMETRE;
 const STRIDE_LENGTH_METRES = 1.6 * MILLIMETRE;
 const FOOT_SWING = STRIDE_LENGTH_METRES / 4;
 const FOOT_LIFT = 0.25 * MILLIMETRE;
+/** How far a tucked foot in flight lies from the body's underside. */
+const TUCKED_FOOT_HEIGHT = 0.2 * MILLIMETRE;
+const TUCKED_FOOT_WIDTH = 0.55 * MILLIMETRE;
 
 const LEG_COLOUR = 0x2a1c10;
 const BODY_COLOUR = 0x6b4a24;
@@ -36,6 +39,8 @@ export interface FlyModel {
   /** The head, thorax and abdomen, whose length is the fly's body length. */
   readonly body: THREE.Object3D;
   readonly feet: readonly THREE.Object3D[];
+  /** The behaviour it was last posed for, and how its wings are showing it. */
+  pose(): { readonly behaviour: Behaviour; readonly wings: "rest" | "blur" };
   /** Poses the fly from simulated behaviour alone, so it can't show what the model isn't doing. */
   animate(sample: RunSample): void;
 }
@@ -121,6 +126,25 @@ function createWing(side: number): THREE.Mesh {
   return wing;
 }
 
+/** A faint fan through the arc a beating wing sweeps, with no wingbeat behind it. */
+function createWingBlur(side: number): THREE.Mesh {
+  const start = side === 1 ? 1.05 * Math.PI : 0.4 * Math.PI;
+  const geometry = new THREE.CircleGeometry(2 * MILLIMETRE, 24, start, 0.55 * Math.PI);
+  geometry.rotateX(-Math.PI / 2);
+  const blur = new THREE.Mesh(
+    geometry,
+    new THREE.MeshBasicMaterial({
+      color: 0xd8dce0,
+      transparent: true,
+      opacity: 0.22,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    }),
+  );
+  blur.position.set(0.35 * MILLIMETRE, 0.98 * MILLIMETRE, side * 0.14 * MILLIMETRE);
+  return blur;
+}
+
 function createSegment(length: number, material: THREE.Material): THREE.Mesh {
   return new THREE.Mesh(new THREE.CylinderGeometry(LEG_RADIUS, LEG_RADIUS, length, 8), material);
 }
@@ -200,16 +224,28 @@ function gaitFoot(leg: Leg, stridePhase: number, lifted: boolean): THREE.Vector3
   return leg.restingFoot.clone().add(new THREE.Vector3(along * FOOT_SWING, lift, 0));
 }
 
+function tuckedFoot(leg: Leg): THREE.Vector3 {
+  return new THREE.Vector3(
+    leg.hip.x - 0.1 * MILLIMETRE,
+    TUCKED_FOOT_HEIGHT,
+    leg.side * TUCKED_FOOT_WIDTH,
+  );
+}
+
 /** A procedural fly built in code. Replacing it touches nothing outside this module's interface. */
 export function createFlyModel(): FlyModel {
   const object = new THREE.Group();
   const body = createBody();
   object.add(body);
-  for (const side of [1, -1]) object.add(createWing(side));
+  const wings = [1, -1].map(createWing);
+  const wingBlurs = [1, -1].map(createWingBlur);
+  object.add(...wings, ...wingBlurs);
+  for (const blur of wingBlurs) blur.visible = false;
   const legs = createLegs(object);
 
   let stridePhase = 0;
   let previousTimeSeconds = 0;
+  let shownBehaviour: Behaviour = "immobility";
 
   function animate(sample: RunSample): void {
     const elapsedSeconds = Math.max(0, sample.timeSeconds - previousTimeSeconds);
@@ -219,11 +255,26 @@ export function createFlyModel(): FlyModel {
       stridePhase =
         (stridePhase + (sample.speedMetresPerSecond * elapsedSeconds) / STRIDE_LENGTH_METRES) % 1;
     }
+    const flying = sample.behaviour === "flying";
+    shownBehaviour = sample.behaviour;
+    for (const wing of wings) wing.visible = !flying;
+    for (const blur of wingBlurs) blur.visible = flying;
     // When walking stops, all six feet go down where they are, and then nothing moves.
-    for (const leg of legs) poseLeg(leg, gaitFoot(leg, stridePhase, walking));
+    for (const leg of legs) {
+      poseLeg(leg, flying ? tuckedFoot(leg) : gaitFoot(leg, stridePhase, walking));
+    }
   }
 
   for (const leg of legs) poseLeg(leg, gaitFoot(leg, stridePhase, false));
 
-  return { object, body, feet: legs.map((leg) => leg.foot), animate };
+  return {
+    object,
+    body,
+    feet: legs.map((leg) => leg.foot),
+    animate,
+    pose: () => ({
+      behaviour: shownBehaviour,
+      wings: shownBehaviour === "flying" ? "blur" : "rest",
+    }),
+  };
 }

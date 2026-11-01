@@ -53,12 +53,13 @@ export interface RunSample {
   readonly step: number;
   readonly timeSeconds: number;
   readonly behaviour: Behaviour;
-  /** Where its feet meet the surface it is on. */
+  /** Where its feet meet the surface it is on, or are in the air in flight. */
   readonly position: Position;
-  readonly surface: Surface;
-  /** The way the fly faces, a unit vector along its surface. */
+  /** The surface it stands on, or null from take-off until it lands. */
+  readonly surface: Surface | null;
+  /** The way the fly faces, a unit vector along its surface, or level in flight. */
   readonly forward: Position;
-  /** From its feet towards its back, a unit vector out of its surface. */
+  /** From its feet towards its back, a unit vector out of its surface, or straight up in flight. */
   readonly up: Position;
   /** How fast the fly is really moving, for anything that needs to show its movement. */
   readonly speedMetresPerSecond: number;
@@ -134,7 +135,12 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   }
 
   function transitionState(transition: TransitionId): TransitionState {
-    const contributions = driverContributions(transition, arousal, parameters);
+    const contributions = driverContributions(
+      transition,
+      arousal,
+      { touchingSurface: movement.hasArrived() },
+      parameters,
+    );
     const hazard = DRIVERS.reduce((sum, driver) => sum + contributions[driver], 0);
     return {
       transition,
@@ -158,15 +164,38 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
           triggerLevel: item.triggerLevel,
         });
         behaviour = item.definition.to;
+        if (item.definition.to === "flying") movement.takeOff();
+        if (item.definition.from === "flying") movement.land();
         pending = drawTriggerLevels();
         return;
       }
     }
   }
 
+  function arousalTarget(): number {
+    switch (behaviour) {
+      case "immobility":
+        return parameters.arousalTargetImmobile;
+      case "walking":
+        return parameters.arousalTargetWalking;
+      case "flying":
+        return parameters.arousalTargetFlying;
+    }
+  }
+
+  function currentSpeed(): number {
+    switch (behaviour) {
+      case "immobility":
+        return 0;
+      case "walking":
+        return parameters.walkingSpeedMetresPerSecond;
+      case "flying":
+        return movement.hasArrived() ? 0 : parameters.flightSpeedMetresPerSecond;
+    }
+  }
+
   function updateArousal(): void {
-    const target =
-      behaviour === "walking" ? parameters.arousalTargetWalking : parameters.arousalTargetImmobile;
+    const target = arousalTarget();
     const next =
       arousal +
       ((target - arousal) / parameters.arousalTimeConstantSeconds) * STEP_SECONDS +
@@ -187,7 +216,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       timeSeconds: step * STEP_SECONDS,
       behaviour,
       ...movement.pose(),
-      speedMetresPerSecond: behaviour === "walking" ? parameters.walkingSpeedMetresPerSecond : 0,
+      speedMetresPerSecond: currentSpeed(),
       arousal,
       transitions: pending.map((item) => transitionState(item.definition.id)),
     };
@@ -204,8 +233,10 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       fireDueTransition();
       updateArousal();
       if (behaviour === "walking") walk();
+      if (behaviour === "flying")
+        movement.fly(parameters.flightSpeedMetresPerSecond * STEP_SECONDS);
       const { surface } = movement.pose();
-      stepsOnSurface.set(surface, (stepsOnSurface.get(surface) ?? 0) + 1);
+      if (surface) stepsOnSurface.set(surface, (stepsOnSurface.get(surface) ?? 0) + 1);
       step += 1;
       if (step % STEPS_PER_SECOND === 0) recordSample();
     }

@@ -104,6 +104,53 @@ test("the fly's legs move while it walks, and it is still during Immobility", as
   }).toPass({ timeout: 40_000 });
 });
 
+test("wings blur only in flight, and a ground shadow shows height off the floor", async ({
+  page,
+}) => {
+  await openApp(page);
+  // A flight lasts a second or two, which is a few frames at this speed even when rendering is slow.
+  await page.locator("#speed").fill("3");
+  // Pairs each frame's pose with the sample it was drawn from, until it has seen them all.
+  const frames = await page.evaluate(
+    () =>
+      new Promise<{ wings: string[]; shadows: string[] }>((resolve) => {
+        const wings = new Set<string>();
+        const shadows = new Set<string>();
+        const started = performance.now();
+        const watch = (): void => {
+          const { flyPose, shadow } = window.flySim.view();
+          wings.add(`${flyPose.behaviour} ${flyPose.wings}`);
+          const fly = window.flySim.flyScenePosition();
+          const offFloor = fly.y > 0;
+          const below = Math.hypot(shadow.x - fly.x, shadow.z - fly.z) < 1e-9 && shadow.y < 0.001;
+          shadows.add(`off floor ${offFloor}, visible ${shadow.visible}, below ${below}`);
+          const seenAll =
+            wings.has("flying blur") &&
+            wings.has("immobility rest") &&
+            wings.has("walking rest") &&
+            shadows.has("off floor true, visible true, below true");
+          if (seenAll || performance.now() - started > 50_000) {
+            resolve({ wings: [...wings], shadows: [...shadows] });
+          } else requestAnimationFrame(watch);
+        };
+        watch();
+      }),
+  );
+
+  expect(frames.wings).toContain("flying blur");
+  expect(frames.wings).toContain("immobility rest");
+  expect(frames.wings).toContain("walking rest");
+  for (const pair of frames.wings) {
+    expect(pair.endsWith("blur")).toBe(pair.startsWith("flying"));
+  }
+  expect(frames.shadows).toContain("off floor true, visible true, below true");
+  for (const shadow of frames.shadows) {
+    expect(
+      shadow.startsWith("off floor false") || shadow.endsWith("visible true, below true"),
+    ).toBe(true);
+  }
+});
+
 test("the fly stands on six feet during Immobility", async ({ page }) => {
   await openApp(page);
   await expect(async () => {
@@ -119,8 +166,16 @@ test("the fly stands on six feet during Immobility", async ({ page }) => {
     }
   }).toPass({ timeout: 40_000 });
   const { flyFeet } = await page.evaluate(() => window.flySim.view());
+  const sample = await currentSample(page);
+  if (!sample) throw new Error("expected a sample");
   expect(flyFeet).toHaveLength(6);
-  for (const foot of flyFeet) expect(foot.y).toBeCloseTo(0, 6);
+  // The engine has z up and the scene has y up, and the fly may be on any surface.
+  const { position, up } = sample;
+  for (const foot of flyFeet) {
+    const height =
+      (foot.x - position.x) * up.x + (foot.z - position.y) * up.y + (foot.y - position.z) * up.z;
+    expect(height).toBeCloseTo(0, 6);
+  }
 });
 
 test("a subtle ring marks the small fly in the wide view, but not in the close-up", async ({

@@ -38,7 +38,7 @@ test("each available transition's bar and red strip match the current state", as
     await page.waitForTimeout(500);
   }
 
-  expect(seen.size).toBe(2);
+  expect(seen.size).toBeGreaterThanOrEqual(2);
   expect(widths.size).toBeGreaterThanOrEqual(3);
 });
 
@@ -87,7 +87,7 @@ test("numbers appear only on hover", async ({ page }) => {
 
   // Retries because the available transition can change between finding it and hovering it.
   await expect(async () => {
-    await panel.locator('[data-available="true"]').hover();
+    await panel.locator('[data-available="true"]').first().hover();
     await expect(panel.locator(".tooltip")).toBeVisible();
     expect(await panel.innerText()).toMatch(/\d/);
   }).toPass();

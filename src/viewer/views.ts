@@ -15,6 +15,9 @@ import { CLOSE_UP_ONLY_LAYER } from "./roomScene";
 /** Only the monitoring camera sees this layer, so the close-up can never show the ring. */
 const RING_LAYER = 1;
 const RING_RADIUS_PIXELS = 11;
+/** A true-scale shadow would be under a pixel wide, so like the ring it has a fixed drawn size. */
+const SHADOW_RADIUS_PIXELS = 6;
+const SHADOW_HEIGHT_METRES = 0.0002;
 /** Above this drawn length, the fly can be found without help. */
 const RING_MAX_FLY_PIXELS = 24;
 /** Where the close-up sits along the fly's surface, before moving out from the surface. */
@@ -36,6 +39,8 @@ export interface ViewState {
   readonly closeUpDistance: number;
   /** Where each foot is, in the scene. */
   readonly flyFeet: readonly { x: number; y: number; z: number }[];
+  readonly flyPose: ReturnType<FlyModel["pose"]>;
+  readonly shadow: { x: number; y: number; z: number; visible: boolean };
 }
 
 export interface Views {
@@ -63,6 +68,21 @@ function createRing(): THREE.Mesh {
   ring.layers.set(RING_LAYER);
   ring.renderOrder = 1;
   return ring;
+}
+
+function createShadow(): THREE.Mesh {
+  const shadow = new THREE.Mesh(
+    new THREE.CircleGeometry(1, 24),
+    new THREE.MeshBasicMaterial({
+      color: 0x000000,
+      transparent: true,
+      opacity: 0.55,
+      depthWrite: false,
+    }),
+  );
+  shadow.layers.set(RING_LAYER);
+  shadow.rotation.x = -Math.PI / 2;
+  return shadow;
 }
 
 /**
@@ -110,6 +130,8 @@ export function createViews(options: {
 
   const ring = createRing();
   scene.add(ring);
+  const shadow = createShadow();
+  scene.add(shadow);
 
   const controls = new OrbitControls(monitoringCamera, renderer.domElement);
   controls.target.copy(roomCentre(room));
@@ -200,11 +222,23 @@ export function createViews(options: {
     closeUpCamera.updateMatrixWorld();
   }
 
+  function metresPerPixelAt(point: THREE.Vector3, viewportHeightPixels: number): number {
+    const distance = monitoringCamera.position.distanceTo(point);
+    const halfFieldOfView = THREE.MathUtils.degToRad(monitoringCamera.fov / 2);
+    return (2 * distance * Math.tan(halfFieldOfView)) / viewportHeightPixels;
+  }
+
+  /** Shows height: a shadow on the floor below the fly whenever it is off the floor. */
+  function placeShadow(viewportHeightPixels: number): void {
+    shadow.visible = fly.position.y > 0;
+    shadow.position.set(fly.position.x, SHADOW_HEIGHT_METRES, fly.position.z);
+    const metresPerPixel = metresPerPixelAt(shadow.position, viewportHeightPixels);
+    shadow.scale.setScalar(SHADOW_RADIUS_PIXELS * metresPerPixel);
+  }
+
   /** Keeps the ring a fixed size on screen and facing the camera, and hides it when not needed. */
   function placeRing(viewportHeightPixels: number): void {
-    const distance = monitoringCamera.position.distanceTo(fly.position);
-    const halfFieldOfView = THREE.MathUtils.degToRad(monitoringCamera.fov / 2);
-    const metresPerPixel = (2 * distance * Math.tan(halfFieldOfView)) / viewportHeightPixels;
+    const metresPerPixel = metresPerPixelAt(fly.position, viewportHeightPixels);
     const flyLengthPixels = FLY_LENGTH_METRES / metresPerPixel;
     ring.visible = flyLengthPixels < RING_MAX_FLY_PIXELS;
     ring.position.copy(fly.position);
@@ -218,6 +252,7 @@ export function createViews(options: {
       const full: Viewport = { x: 0, y: 0, width: view.clientWidth, height: view.clientHeight };
       const small = insetViewport();
       placeRing(swapped ? small.height : full.height);
+      placeShadow(swapped ? small.height : full.height);
 
       renderer.setScissorTest(true);
       renderCamera(swapped ? closeUpCamera : monitoringCamera, full);
@@ -237,6 +272,13 @@ export function createViews(options: {
         flyLengthInScene: drawnBodyLength(model),
         flyInCloseUp: { x: flyProjected.x, y: flyProjected.y },
         closeUpDistance: closeUpCamera.position.distanceTo(fly.position),
+        flyPose: model.pose(),
+        shadow: {
+          x: shadow.position.x,
+          y: shadow.position.y,
+          z: shadow.position.z,
+          visible: shadow.visible,
+        },
         flyFeet: model.feet.map((foot) => {
           const world = foot.getWorldPosition(new THREE.Vector3());
           return { x: world.x, y: world.y, z: world.z };
