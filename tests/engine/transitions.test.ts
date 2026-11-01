@@ -4,6 +4,7 @@ import {
   DEFAULT_ROOM,
   DRIVERS,
   createSimulationRun,
+  type ModelParameters,
   type RunRecord,
 } from "../../src/engine";
 
@@ -64,24 +65,37 @@ describe("red strip probability", () => {
     expect(defaultRun.current().transitions[0]?.fireProbabilityNextMinute).toBeCloseTo(0.979143, 5);
   });
 
-  it("doesn't use the Trigger Level", () => {
-    const runWith = (triggerStream: number): RunRecord => {
-      const run = createSimulationRun({ room: DEFAULT_ROOM, seed: 8, triggerStream });
-      run.advanceSeconds(3600);
-      return run.record();
-    };
-    const first = runWith(100);
-    const second = runWith(200);
-    const firstFiring = first.firedTransitions[0];
-    const secondFiring = second.firedTransitions[0];
-    if (!firstFiring || !secondFiring) throw new Error("expected both runs to fire");
+  // Different Trigger Level streams change when transitions fire and nothing else. So
+  // until either run has a further firing, the runs must match exactly, strip included.
+  function samplesComparedBeforeFiring(parameters: ModelParameters, firingsToSkip: number): number {
+    let compared = 0;
+    for (let seed = 0; seed < 20; seed++) {
+      const [first, second] = [100, 200].map((triggerStream) => {
+        const run = createSimulationRun({ room: DEFAULT_ROOM, seed, parameters, triggerStream });
+        run.advanceSeconds(1800);
+        return run.record();
+      });
+      const firstFiring = first?.firedTransitions[firingsToSkip];
+      const secondFiring = second?.firedTransitions[firingsToSkip];
+      if (!first || !second || !firstFiring || !secondFiring) throw new Error("expected firings");
 
-    // The Trigger Levels differ, but until either run fires, the strip must match exactly.
-    expect(firstFiring.triggerLevel).not.toBe(secondFiring.triggerLevel);
-    const untilFirstFiring = Math.min(firstFiring.timeSeconds, secondFiring.timeSeconds);
-    const compared = first.samples.filter((sample) => sample.timeSeconds < untilFirstFiring);
-    expect(compared.length).toBeGreaterThan(0);
-    expect(second.samples.slice(0, compared.length)).toEqual(compared);
+      expect(firstFiring.triggerLevel).not.toBe(secondFiring.triggerLevel);
+      const end = Math.min(firstFiring.timeSeconds, secondFiring.timeSeconds);
+      const before = first.samples.filter((sample) => sample.timeSeconds < end);
+      expect(second.samples.slice(0, before.length)).toEqual(before);
+      compared += before.length;
+    }
+    return compared;
+  }
+
+  it("doesn't use the Trigger Level while the fly is immobile", () => {
+    expect(samplesComparedBeforeFiring(DEFAULT_PARAMETERS, 0)).toBeGreaterThan(100);
+  });
+
+  it("doesn't use the Trigger Level while the fly is walking", () => {
+    // A huge hazard starts walking on the first step in both runs, whatever their Trigger Levels.
+    const walksAtOnce = { ...DEFAULT_PARAMETERS, startWalkingSpontaneousRate: 1e6 };
+    expect(samplesComparedBeforeFiring(walksAtOnce, 1)).toBeGreaterThan(100);
   });
 
   it("lets transitions fire at low intensity", () => {
