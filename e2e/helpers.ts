@@ -48,9 +48,10 @@ async function analyse(page: Page, png: Buffer): Promise<ScreenshotAnalysis> {
       const [r, g, b] = [data[i] ?? 0, data[i + 1] ?? 0, data[i + 2] ?? 0];
       colours.add((r << 16) | (g << 8) | b);
       brightness += (r + g + b) / 3;
-      // The ring is about (241, 178, 64) over the Room. The Room is close to grey and
-      // the fly's browns and reds are duller, so a colour this bright can only be the ring.
-      if (r > 225 && g > 150 && b < 100) ringPixels += 1;
+      // The ring is about (241, 178, 64) over the lit Room and (216, 155, 47) over the dim one.
+      // The Room is close to grey and the fly's browns and reds are duller, so a colour this
+      // bright can only be the ring.
+      if (r > 200 && g > 140 && b < 100) ringPixels += 1;
       if (r < 90 && g < 70 && b < 60 && r > b) darkPixels += 1;
     }
     return {
