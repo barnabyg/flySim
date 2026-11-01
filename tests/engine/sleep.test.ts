@@ -141,7 +141,7 @@ describe("sleep", () => {
   const fellAsleep = firedTransitions.filter((fired) => fired.to === "sleeping");
   const woke = firedTransitions.filter((fired) => fired.from === "sleeping");
 
-  it("starts and ends with no input, through Transition Hazards and Trigger Levels", () => {
+  it("starts and ends by itself, through Transition Hazards and Trigger Levels", () => {
     expect(fellAsleep.length).toBeGreaterThan(2);
     expect(woke.length).toBeGreaterThan(2);
     for (const fired of [...fellAsleep, ...woke]) {

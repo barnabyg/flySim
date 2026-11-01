@@ -103,7 +103,7 @@ export interface RunSample extends MovementPose {
   readonly sleepDepth: number | null;
   /**
    * The internal clock's reading, from 0 up to 24, with 0 at its subjective lights-on.
-   * It runs on its own and light reaches it only through the fly's senses.
+   * It runs on its own, whatever the Room's light.
    */
   readonly circadianPhaseHours: number;
   /** What's left of the latest disturbance, from 1 when it happens down to 0. */
@@ -311,12 +311,8 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
     sleepDepth = Math.min(1, Math.abs(next));
   }
 
-  /** Light pulls the clock towards midday, so a clock that has drifted gets drawn back. */
   function updateCircadianClock(): void {
-    const pull = -Math.sin((2 * Math.PI * (circadianPhaseHours - 6)) / 24);
-    const clockHoursPerHour =
-      24 / parameters.circadianPeriodHours +
-      parameters.clockEntrainmentRate * currentSenses().lightLevel * pull;
+    const clockHoursPerHour = 24 / parameters.circadianPeriodHours;
     circadianPhaseHours = (circadianPhaseHours + clockHoursPerHour * STEP_HOURS) % 24;
   }
 

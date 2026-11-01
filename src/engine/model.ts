@@ -137,8 +137,6 @@ export interface ModelParameters {
   readonly wakeSleepDepthReduction: number;
   /** The internal clock's free-running day. */
   readonly circadianPeriodHours: number;
-  /** How strongly light pulls the clock, in clock hours per hour at full light. */
-  readonly clockEntrainmentRate: number;
   /** How much the clock opens the way to sleep at its strongest, in the middle of its night. */
   readonly fallAsleepCircadianRate: number;
   /** How much of its night-time strength the clock's sleep gate reaches at midday. */
@@ -196,7 +194,6 @@ export const DEFAULT_PARAMETERS: ModelParameters = {
   sleepDepthNoise: 0.008,
   wakeSleepDepthReduction: 0.85,
   circadianPeriodHours: 24,
-  clockEntrainmentRate: 0.05,
   fallAsleepCircadianRate: 0.012,
   siestaGateStrength: 0.35,
   wakeCircadianRate: 0.0015,

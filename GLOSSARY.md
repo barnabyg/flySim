@@ -18,6 +18,18 @@ _Avoid_: Behavioural state, rest, awake-rest, quiescence
 How deeply a sleeping fly is asleep, which sets how hard it is to arouse and how likely it is to wake.
 _Avoid_: Sleep stage, sleep intensity
 
+**Sleep Pressure**:
+A slow state variable that rises while the fly is awake and falls while it sleeps, pushing it towards sleep. It is not a rest timer.
+_Avoid_: Tiredness, sleep debt
+
+**Circadian Clock**:
+The fly's internal clock, which runs by itself and shapes sleep over the day.
+_Avoid_: Time of day (when the internal reading is meant)
+
+**Startle**:
+A Driver created by a Disturb that fades within seconds and pushes the fly to act, with less effect the deeper it sleeps.
+_Avoid_: Escape, shock
+
 **Immobility**:
 The fly's true lack of any body movement, as known by the model. A grooming fly is not immobile.
 _Avoid_: Stillness, standing still, rest
@@ -39,6 +51,14 @@ _Avoid_: Threshold, cutoff
 **Room**:
 The box-shaped world the user watches, containing the fly and features such as food, water and light sources.
 _Avoid_: Arena, sandbox, chamber
+
+**Light Schedule**:
+When the Room's overhead light is on each day, as part of a Simulation Run's setup. A default run has 12 hours of light and 12 of dark and starts at lights-on.
+_Avoid_: Photoperiod, day length setting
+
+**Intervention**:
+A timed change the experimenter makes to a run, such as a Disturb, applied at a step boundary and stored in the run record.
+_Avoid_: Event, input
 
 ### Observations
 

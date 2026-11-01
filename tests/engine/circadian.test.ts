@@ -1,6 +1,5 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import {
-  DEFAULT_PARAMETERS,
   DEFAULT_ROOM,
   createSimulationRun,
   type FiredTransition,
@@ -151,12 +150,9 @@ describe("the circadian clock", () => {
     expect(Math.max(...circadianOn("immobility-to-walking"))).toBe(0);
   });
 
-  it("gets the light only through the fly's senses", () => {
-    // Without entrainment the clock doesn't read the senses, and nothing else uses light,
-    // so changing the schedule changes only the Room.
-    const parameters = { ...DEFAULT_PARAMETERS, clockEntrainmentRate: 0 };
+  it("doesn't read the Room's light, so a schedule changes only the Room", () => {
     const withoutRoomLight = (lightSchedule: LightSchedule): unknown[] => {
-      const run = createSimulationRun({ room: DEFAULT_ROOM, seed: 3, parameters, lightSchedule });
+      const run = createSimulationRun({ room: DEFAULT_ROOM, seed: 3, lightSchedule });
       run.advanceSeconds(14 * HOUR);
       return run.record().samples.map((sample) => ({
         ...sample,
@@ -168,15 +164,5 @@ describe("the circadian clock", () => {
     expect(withoutRoomLight({ lightsOnHour: 6, lightHours: 0 })).toEqual(
       withoutRoomLight({ lightsOnHour: 6, lightHours: 12 }),
     );
-  });
-
-  it("is pulled by the light it senses", () => {
-    const phaseAfter = (lightHours: number): number => {
-      const samples = samplesOf(DAY, { lightsOnHour: 6, lightHours });
-      return samples.at(-1)?.circadianPhaseHours ?? NaN;
-    };
-
-    // A short day holds the clock's morning back from reaching its midday, so it runs fast.
-    expect(phaseAfter(4)).not.toBeCloseTo(phaseAfter(12), 1);
   });
 });
