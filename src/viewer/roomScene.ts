@@ -2,9 +2,35 @@ import * as THREE from "three";
 import type { Position, RoomSetup, RunSample } from "../engine";
 import { createFlyModel } from "./flyModel";
 
+/** Fine floor markings that would only be noise from the monitoring camera's distance. */
+export const CLOSE_UP_ONLY_LAYER = 2;
+
+const MARKING_HEIGHT_METRES = 0.00005;
+
 /** Engine positions have z up, and the scene has y up. */
 function toScene(position: Position): THREE.Vector3 {
   return new THREE.Vector3(position.x, position.z, position.y);
+}
+
+function createFloorMarkings(
+  room: RoomSetup,
+  spacingMetres: number,
+  colour: number,
+): THREE.Object3D {
+  const { widthMetres: width, depthMetres: depth } = room;
+  const points: THREE.Vector3[] = [];
+  for (let x = spacingMetres; x < width; x += spacingMetres) {
+    points.push(new THREE.Vector3(x, MARKING_HEIGHT_METRES, 0));
+    points.push(new THREE.Vector3(x, MARKING_HEIGHT_METRES, depth));
+  }
+  for (let z = spacingMetres; z < depth; z += spacingMetres) {
+    points.push(new THREE.Vector3(0, MARKING_HEIGHT_METRES, z));
+    points.push(new THREE.Vector3(width, MARKING_HEIGHT_METRES, z));
+  }
+  return new THREE.LineSegments(
+    new THREE.BufferGeometry().setFromPoints(points),
+    new THREE.LineBasicMaterial({ color: colour }),
+  );
 }
 
 function createRoomMesh(room: RoomSetup): THREE.Object3D {
@@ -15,7 +41,14 @@ function createRoomMesh(room: RoomSetup): THREE.Object3D {
   const box = new THREE.BoxGeometry(width, height, depth);
   const walls = new THREE.Mesh(
     box,
-    new THREE.MeshLambertMaterial({ color: 0xb9bcc2, side: THREE.BackSide }),
+    new THREE.MeshLambertMaterial({
+      color: 0xb9bcc2,
+      side: THREE.BackSide,
+      // Keeps the floor markings from flickering against the floor.
+      polygonOffset: true,
+      polygonOffsetFactor: 1,
+      polygonOffsetUnits: 1,
+    }),
   );
   walls.position.set(width / 2, height / 2, depth / 2);
   group.add(walls);
@@ -26,6 +59,11 @@ function createRoomMesh(room: RoomSetup): THREE.Object3D {
   );
   edges.position.copy(walls.position);
   group.add(edges);
+
+  group.add(createFloorMarkings(room, 0.1, 0x8d9199));
+  const fineMarkings = createFloorMarkings(room, 0.002, 0xa2a6ad);
+  fineMarkings.layers.set(CLOSE_UP_ONLY_LAYER);
+  group.add(fineMarkings);
 
   return group;
 }

@@ -1,11 +1,11 @@
 import * as THREE from "three";
 import { DEFAULT_ROOM, type RunRecord, type RunSample } from "../engine";
 import { createDriverPanel, type FlashedTransition } from "./driverPanel";
-import { createMonitoringCamera, frameRoom } from "./monitoringCamera";
 import { createRibbon } from "./ribbon";
 import { createRoomScene } from "./roomScene";
 import { startSimulation } from "./simulationClient";
 import { INITIAL_SPEED, createTimeControls } from "./timeControls";
+import { createViews, type ViewState } from "./views";
 
 /** Lets browser tests and the console observe a run. It can't change one. */
 export interface FlySimApi {
@@ -14,6 +14,7 @@ export interface FlySimApi {
   record(): Promise<RunRecord>;
   flyScenePosition(): { x: number; y: number; z: number };
   flashes(): readonly FlashedTransition[];
+  view(): ViewState;
 }
 
 declare global {
@@ -44,7 +45,6 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 
 const roomScene = createRoomScene(room);
-const monitoringCamera = createMonitoringCamera();
 const simulation = startSimulation(seed, room, INITIAL_SPEED);
 
 const driverPanel = createDriverPanel(requireElement("#drivers", HTMLElement));
@@ -65,20 +65,19 @@ simulation.onFrame((sample, fired) => {
   timeControls.showTime(sample.timeSeconds);
 });
 
-function resize(): void {
-  const { clientWidth: width, clientHeight: height } = view;
-  renderer.setSize(width, height, false);
-  monitoringCamera.aspect = width / height;
-  monitoringCamera.updateProjectionMatrix();
-  frameRoom(monitoringCamera, room);
-}
-new ResizeObserver(resize).observe(view);
-resize();
+const views = createViews({
+  renderer,
+  scene: roomScene.scene,
+  fly: roomScene.fly,
+  room,
+  view,
+  inset: requireElement("#inset", HTMLElement),
+});
 
 renderer.setAnimationLoop(() => {
   const sample = simulation.latest();
   if (sample) roomScene.updateFly(sample);
-  renderer.render(roomScene.scene, monitoringCamera);
+  views.render();
   ribbon.draw();
 });
 
@@ -91,4 +90,5 @@ window.flySim = {
     return { x, y, z };
   },
   flashes: () => driverPanel.flashes,
+  view: () => views.state(),
 };

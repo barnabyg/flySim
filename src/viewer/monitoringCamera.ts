@@ -6,6 +6,14 @@ const FIELD_OF_VIEW_DEGREES = 35;
 /** The share of the view the Room's corners may reach, leaving a small border. */
 const FRAME_FILL = 0.92;
 
+/** A rectangle of the view in normalised device coordinates. */
+export interface ScreenRegion {
+  readonly minX: number;
+  readonly maxX: number;
+  readonly minY: number;
+  readonly maxY: number;
+}
+
 export function roomCorners(room: RoomSetup): THREE.Vector3[] {
   const corners: THREE.Vector3[] = [];
   for (const x of [0, room.widthMetres]) {
@@ -24,15 +32,27 @@ export function createMonitoringCamera(): THREE.PerspectiveCamera {
   return new THREE.PerspectiveCamera(FIELD_OF_VIEW_DEGREES, 1, 0.01, 50);
 }
 
-function fits(camera: THREE.PerspectiveCamera, corners: readonly THREE.Vector3[]): boolean {
+function fits(
+  camera: THREE.PerspectiveCamera,
+  corners: readonly THREE.Vector3[],
+  covered: ScreenRegion,
+): boolean {
   return corners.every((corner) => {
-    const projected = corner.clone().project(camera);
-    return Math.abs(projected.x) <= FRAME_FILL && Math.abs(projected.y) <= FRAME_FILL;
+    const { x, y } = corner.clone().project(camera);
+    const isCovered = x > covered.minX && x < covered.maxX && y > covered.minY && y < covered.maxY;
+    return Math.abs(x) <= FRAME_FILL && Math.abs(y) <= FRAME_FILL && !isCovered;
   });
 }
 
-/** Moves the camera to the nearest point on its default line that shows the whole Room. */
-export function frameRoom(camera: THREE.PerspectiveCamera, room: RoomSetup): void {
+/**
+ * Moves the camera to the nearest point on its default line that shows the whole Room,
+ * with no corner of it behind the covered region.
+ */
+export function frameRoom(
+  camera: THREE.PerspectiveCamera,
+  room: RoomSetup,
+  covered: ScreenRegion,
+): void {
   const corners = roomCorners(room);
   const centre = roomCentre(room);
   let near = 0.1;
@@ -42,7 +62,7 @@ export function frameRoom(camera: THREE.PerspectiveCamera, room: RoomSetup): voi
     camera.position.copy(centre).addScaledVector(VIEW_DIRECTION, distance);
     camera.lookAt(centre);
     camera.updateMatrixWorld();
-    if (fits(camera, corners)) far = distance;
+    if (fits(camera, corners, covered)) far = distance;
     else near = distance;
   }
   camera.position.copy(centre).addScaledVector(VIEW_DIRECTION, far);
