@@ -115,14 +115,19 @@ function holdStartle(row: TransitionRow, contribution: number, nowMilliseconds: 
   }
 }
 
+/** In significant figures, as sleep's hazards are thousands of times below a startle's. */
+function perSecond(rate: number): string {
+  return `${rate.toPrecision(3)}/s`;
+}
+
 function tooltipHtml(state: TransitionState | undefined, sleepDepth: number | null): string {
   if (!state) return `<div class="tooltip-row">—</div>`;
   const drivers = DRIVERS.map(
     (driver) =>
-      `<div class="tooltip-row"><span class="swatch" style="background:${DRIVER_COLOURS[driver]}"></span>${DRIVER_NAMES[driver]}<b>${state.contributions[driver].toFixed(4)}/s</b></div>`,
+      `<div class="tooltip-row"><span class="swatch" style="background:${DRIVER_COLOURS[driver]}"></span>${DRIVER_NAMES[driver]}<b>${perSecond(state.contributions[driver])}</b></div>`,
   ).join("");
   return `${drivers}
-    <div class="tooltip-row">Total<b>${state.hazard.toFixed(4)}/s</b></div>
+    <div class="tooltip-row">Total<b>${perSecond(state.hazard)}</b></div>
     <div class="tooltip-row"><span class="swatch" style="background:var(--red)"></span>Next minute<b>${(state.fireProbabilityNextMinute * 100).toFixed(1)}%</b></div>${
       sleepDepth === null
         ? ""
