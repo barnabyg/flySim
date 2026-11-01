@@ -18,7 +18,7 @@ export type ToSimulation =
     }
   | { readonly type: "set-speed"; readonly speed: number }
   | { readonly type: "set-paused"; readonly paused: boolean }
-  | { readonly type: "intervene"; readonly intervention: InterventionType }
+  | { readonly type: "intervene"; readonly interventionType: InterventionType }
   | { readonly type: "request-record"; readonly requestId: number };
 
 export type FromSimulation =

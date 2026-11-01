@@ -21,7 +21,7 @@ export interface SimulationClient {
   onFrame(listener: FrameListener): void;
   setSpeed(speed: number): void;
   setPaused(paused: boolean): void;
-  intervene(intervention: InterventionType): void;
+  intervene(type: InterventionType): void;
   record(): Promise<RunRecord>;
 }
 
@@ -71,8 +71,8 @@ export function startSimulation(
     setPaused: (paused) => {
       send({ type: "set-paused", paused });
     },
-    intervene: (intervention) => {
-      send({ type: "intervene", intervention });
+    intervene: (interventionType) => {
+      send({ type: "intervene", interventionType });
     },
     record: () =>
       new Promise((resolve) => {

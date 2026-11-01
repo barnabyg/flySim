@@ -54,7 +54,7 @@ test("the sleep rows name the circadian clock, and the ribbon shows the day and 
     .toBeGreaterThan(1800);
   await pauseWhileAsleep(page);
   await page.locator('[data-transition="sleeping-to-immobility"]').hover();
-  await expect(page.locator(".tooltip")).toContainText("Circadian clock");
+  await expect(page.locator(".tooltip")).toContainText("Circadian Clock");
 
   const strip = await page.evaluate(() => {
     const canvas = document.querySelector<HTMLCanvasElement>("#ribbon");
@@ -75,22 +75,31 @@ test("the sleep rows name the circadian clock, and the ribbon shows the day and 
   expect(strip).toContain("2a3048");
 });
 
-test("the ribbon's foot and marks don't leave stale pixels behind", async ({ page }) => {
-  await page.goto("/?seed=4&speed=1000&lightHours=0");
+test("the ribbon's foot leaves no stale pixels when the window reaches before the run", async ({
+  page,
+}) => {
+  await page.goto("/?seed=4&speed=1000");
   await expect.poll(() => currentSample(page).then(Boolean), { timeout: 30_000 }).toBe(true);
   await expect.poll(() => currentTime(page)).toBeGreaterThan(600);
-  // Slowing right down moves the start of the window, so the run's start redraws further right.
+
+  // At 1×, the 60 s window is all within the run, so the strip fills the ribbon's foot.
   await page.locator("#speed").fill("0");
   await page.waitForTimeout(300);
-  const leftmostFootColour = await page.evaluate(() => {
+  // Back at 1000×, the window starts long before the run, so its left end has nothing to show.
+  await page.locator("#speed").fill("10");
+  await page.waitForTimeout(300);
+
+  const { windowStart, alpha } = await page.evaluate(() => {
     const canvas = document.querySelector<HTMLCanvasElement>("#ribbon");
     const context = canvas?.getContext("2d");
     if (!canvas || !context) throw new Error("No ribbon");
-    const start = Number(canvas.dataset["windowStart"]);
-    if (start >= 0) return "window starts after the run began";
-    return [...context.getImageData(0, canvas.height - 1, 1, 1).data].join();
+    return {
+      windowStart: Number(canvas.dataset["windowStart"]),
+      alpha: context.getImageData(0, canvas.height - 1, 1, 1).data[3],
+    };
   });
-  expect(["0,0,0,0", "window starts after the run began"]).toContain(leftmostFootColour);
+  expect(windowStart).toBeLessThan(0);
+  expect(alpha).toBe(0);
 });
 
 test("the ribbon and hover numbers tell light sleep from deep sleep", async ({ page }) => {

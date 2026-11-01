@@ -7,6 +7,7 @@ import {
   vigilanceStateOf,
   type Behaviour,
   type DriverId,
+  type InternalState,
   type ModelParameters,
   type Senses,
   type TransitionDefinition,
@@ -82,7 +83,7 @@ export interface TransitionState {
   readonly fireProbabilityNextMinute: number;
 }
 
-export interface RunSample extends MovementPose {
+export interface RunSample extends MovementPose, InternalState {
   readonly step: number;
   readonly timeSeconds: number;
   /** The Room's clock, from 0 up to 24. */
@@ -96,18 +97,6 @@ export interface RunSample extends MovementPose {
   readonly vigilanceState: VigilanceState;
   /** How fast the fly is really moving, for anything that needs to show its movement. */
   readonly speedMetresPerSecond: number;
-  readonly arousal: number;
-  /** A slow state variable, not a rest timer. It rises while awake and falls while asleep. */
-  readonly sleepPressure: number;
-  /** How deeply the fly is asleep, from 0 to 1, or null while it is awake. */
-  readonly sleepDepth: number | null;
-  /**
-   * The internal clock's reading, from 0 up to 24, with 0 at its subjective lights-on.
-   * It runs on its own, whatever the Room's light.
-   */
-  readonly circadianPhaseHours: number;
-  /** What's left of the latest disturbance, from 1 when it happens down to 0. */
-  readonly startle: number;
   /** The transitions available from the current behaviour. */
   readonly transitions: readonly TransitionState[];
 }

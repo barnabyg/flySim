@@ -69,10 +69,14 @@ export interface Senses {
 /** The fly's hidden state that Drivers read. */
 export interface InternalState {
   readonly arousal: number;
+  /** A slow state variable, not a rest timer. It rises while awake and falls while asleep. */
   readonly sleepPressure: number;
-  /** Null while awake. */
+  /** How deeply the fly is asleep, from 0 to 1, or null while it is awake. */
   readonly sleepDepth: number | null;
-  /** The internal clock's reading, from 0 up to 24, with 0 at its subjective lights-on. */
+  /**
+   * The internal clock's reading, from 0 up to 24, with 0 at its subjective lights-on.
+   * It runs on its own, whatever the Room's light.
+   */
   readonly circadianPhaseHours: number;
   /** What's left of the latest disturbance, from 1 when it happens down to 0. */
   readonly startle: number;
@@ -223,8 +227,10 @@ const NO_CONTRIBUTIONS: Readonly<Record<DriverId, number>> = {
  * gate is broad and the siesta's narrow, which leaves a morning and evening of activity.
  */
 function sleepGate(circadianPhaseHours: number, parameters: ModelParameters): number {
-  const height = Math.sin((2 * Math.PI * circadianPhaseHours) / 24);
-  return height > 0 ? parameters.siestaGateStrength * height ** 4 : Math.sqrt(-height);
+  const dayPositive = Math.sin((2 * Math.PI * circadianPhaseHours) / 24);
+  return dayPositive > 0
+    ? parameters.siestaGateStrength * dayPositive ** 4
+    : Math.sqrt(-dayPositive);
 }
 
 /**

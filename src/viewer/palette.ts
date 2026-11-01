@@ -17,6 +17,10 @@ export function sleepDepthColour(depth: number): string {
   return SLEEP_DEPTH_COLOURS[index] ?? BEHAVIOUR_COLOURS.sleeping;
 }
 
+/** The day and night parts of anything showing the Room's light. */
+export const DAY_COLOUR = "#e8d98a";
+export const NIGHT_COLOUR = "#2a3048";
+
 export const DRIVER_COLOURS: Readonly<Record<DriverId, string>> = {
   spontaneous: "#9aa1ae",
   arousal: "#3fc1a0",
@@ -39,7 +43,7 @@ export const DRIVER_NAMES: Readonly<Record<DriverId, string>> = {
   arousal: "Arousal",
   contact: "Surface contact",
   sleepPressure: "Sleep pressure",
-  circadian: "Circadian clock",
+  circadian: "Circadian Clock",
   startle: "Startle",
 };
 

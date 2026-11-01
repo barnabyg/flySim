@@ -1,4 +1,5 @@
 import type { LightSchedule } from "../engine";
+import { DAY_COLOUR, NIGHT_COLOUR } from "./palette";
 
 export const SPEEDS: readonly number[] = [1, 2, 5, 10, 20, 30, 60, 120, 300, 600, 1000];
 export const INITIAL_SPEED = 60;
@@ -10,9 +11,10 @@ const RESUME_ICON =
 const SPEED_ICON =
   '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M2 3l6 5-6 5zM8 3l6 5-6 5z" fill="currentColor"/></svg>';
 
+const pad = (value: number): string => String(value).padStart(2, "0");
+
 function formatClock(timeSeconds: number): string {
   const total = Math.floor(timeSeconds);
-  const pad = (value: number): string => String(value).padStart(2, "0");
   return `${pad(Math.floor(total / 3600))}:${pad(Math.floor(total / 60) % 60)}:${pad(total % 60)}`;
 }
 
@@ -23,7 +25,6 @@ function dialDegrees(hours: number): number {
 
 function formatTimeOfDay(hours: number): string {
   const totalMinutes = Math.floor(hours * 60);
-  const pad = (value: number): string => String(value).padStart(2, "0");
   return `${pad(Math.floor(totalMinutes / 60))}:${pad(totalMinutes % 60)}`;
 }
 
@@ -64,8 +65,8 @@ export function createTimeControls(
   }
 
   // The dial's bright part is the schedule's day, so the hand shows the light it's under.
-  const lightDegrees = lightSchedule.lightHours * 15;
-  dial.style.background = `conic-gradient(from ${dialDegrees(lightSchedule.lightsOnHour)}deg, #e8d98a 0 ${lightDegrees}deg, #2a3048 ${lightDegrees}deg 360deg)`;
+  const lightDegrees = (lightSchedule.lightHours / 24) * 360;
+  dial.style.background = `conic-gradient(from ${dialDegrees(lightSchedule.lightsOnHour)}deg, ${DAY_COLOUR} 0 ${lightDegrees}deg, ${NIGHT_COLOUR} ${lightDegrees}deg 360deg)`;
 
   let paused = false;
 

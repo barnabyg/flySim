@@ -1,23 +1,26 @@
 import {
+  BEHAVIOURS,
   STEPS_PER_SECOND,
   type Behaviour,
   type FiredTransition,
   type Intervention,
   type RunSample,
 } from "../engine";
-import { BEHAVIOUR_COLOURS, SLEEP_DEPTH_COLOURS, sleepDepthColour } from "./palette";
+import {
+  BEHAVIOUR_COLOURS,
+  DAY_COLOUR,
+  NIGHT_COLOUR,
+  SLEEP_DEPTH_COLOURS,
+  sleepDepthColour,
+} from "./palette";
 
 /** The ribbon always spans this many seconds of real time at the current speed. */
 const WINDOW_WALL_SECONDS = 60;
 
 /** The order colours stack in, with sleep shaded from light to deep. */
-const STACK: readonly string[] = [
-  BEHAVIOUR_COLOURS.immobility,
-  BEHAVIOUR_COLOURS.grooming,
-  BEHAVIOUR_COLOURS.walking,
-  BEHAVIOUR_COLOURS.flying,
-  ...SLEEP_DEPTH_COLOURS,
-];
+const STACK: readonly string[] = BEHAVIOURS.flatMap((behaviour) =>
+  behaviour === "sleeping" ? SLEEP_DEPTH_COLOURS : [BEHAVIOUR_COLOURS[behaviour]],
+);
 
 function colourOf(behaviour: Behaviour, sleepDepth: number | null): string {
   return behaviour === "sleeping"
@@ -27,8 +30,6 @@ function colourOf(behaviour: Behaviour, sleepDepth: number | null): string {
 
 /** A thin strip along the ribbon's foot shows the Room's light, so a day can be read at a glance. */
 const LIGHT_STRIP_PIXELS = 2;
-const DAY_COLOUR = "#e8d98a";
-const NIGHT_COLOUR = "#2a3048";
 const MARK_COLOUR = "#ffffff";
 const MARK_PIXELS = 2;
 
