@@ -47,6 +47,15 @@ describe("timed interventions", () => {
     expect(recordWithUpFront(upFront, 90_000)).not.toEqual(recordWithUpFront([], 90_000));
   });
 
+  it("gives the same record part-way through, before a later intervention is due", () => {
+    const upFront = [
+      { step: 10_000, type: "disturb" as const },
+      { step: 40_000, type: "disturb" as const },
+    ];
+
+    expect(recordWithUpFront(upFront, 20_000)).toEqual(recordWithDuringRun([10_000], 20_000));
+  });
+
   it("orders interventions by step, wherever they came from", () => {
     const run = createSimulationRun({
       room: DEFAULT_ROOM,

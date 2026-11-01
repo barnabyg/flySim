@@ -135,7 +135,7 @@ export interface RunRecord {
   /** One per simulated second, starting at step 0 unless older ones were dropped. */
   readonly samples: readonly RunSample[];
   readonly firedTransitions: readonly FiredTransition[];
-  /** Every intervention, in step order. */
+  /** Every intervention up to the current step, in step order, wherever it came from. */
   readonly interventions: readonly Intervention[];
   /** Covers the whole run, even when older samples were dropped. */
   readonly timeOnSurfaceSeconds: Readonly<Record<Surface, number>>;
@@ -411,7 +411,8 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       stepsPerSecond: STEPS_PER_SECOND,
       samples: [...samples],
       firedTransitions: [...firedTransitions],
-      interventions: [...interventions],
+      // One due later isn't in the record yet, as it wouldn't be if made during the run.
+      interventions: interventions.filter((each) => each.step <= step),
       timeOnSurfaceSeconds: Object.fromEntries(
         SURFACES.map((surface) => [surface, (stepsOnSurface.get(surface) ?? 0) * STEP_SECONDS]),
       ) as Record<Surface, number>,
