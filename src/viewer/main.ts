@@ -1,10 +1,13 @@
 import * as THREE from "three";
 import {
   DEFAULT_PARAMETERS,
+  SOURCE_KINDS,
   lightLevel,
+  type FloorPlace,
   type LightSchedule,
   type RunRecord,
   type RunSample,
+  type SourceKind,
 } from "../engine";
 import { createDriverPanel, type FlashedTransition } from "./driverPanel";
 import { createFieldOverlay } from "./fieldOverlay";
@@ -13,6 +16,7 @@ import { createRoomScene } from "./roomScene";
 import { createRunControls } from "./runControls";
 import { randomSeed, settingsFromUrl, urlForSettings, type RunSettings } from "./runSettings";
 import { startSimulation } from "./simulationClient";
+import { createSourceDragging } from "./sourceDragging";
 import { INITIAL_SPEED, SPEEDS, createTimeControls } from "./timeControls";
 import { createViews, type ViewState } from "./views";
 
@@ -26,6 +30,8 @@ export interface FlySimApi {
   view(): ViewState;
   /** Whether the field overlay is showing. */
   fields(): { visible: boolean };
+  /** Where each source is shown, and its centre in the page, or null if it isn't showing. */
+  sources(): Record<SourceKind, { place: FloorPlace; client: { x: number; y: number } } | null>;
 }
 
 declare global {
@@ -109,6 +115,10 @@ simulation.onFrame((sample, fired, interventions) => {
   for (const intervention of interventions) {
     if (intervention.type === "light-schedule") shownSchedule = intervention.lightSchedule;
   }
+  // A move shows from the moment it's made, and stops needing to once the run has it.
+  for (const [kind, place] of movingTo) {
+    if (!dragging.has(kind) && samePlace(sample[kind], place)) movingTo.delete(kind);
+  }
   driverPanel.update(sample, fired);
   ribbon.update(sample, fired, interventions);
   timeControls.showTime(sample.timeSeconds, sample.timeOfDayHours, shownSchedule);
@@ -123,14 +133,50 @@ const views = createViews({
   inset: requireElement("#inset", HTMLElement),
 });
 
+/**
+ * Sources being dragged, or dropped and not yet moved in the run, which show where they are
+ * going. A source moves in the run at the next step, which is only once time resumes, but the
+ * Room shows it at once, as it does a new light schedule.
+ */
+const movingTo = new Map<SourceKind, FloorPlace>();
+const dragging = new Set<SourceKind>();
+
+function samePlace(a: FloorPlace | null, b: FloorPlace): boolean {
+  return a?.x === b.x && a.y === b.y;
+}
+
+function shownPlace(kind: SourceKind): FloorPlace | null {
+  return movingTo.get(kind) ?? simulation.latest()?.[kind] ?? null;
+}
+
+createSourceDragging({
+  view,
+  canvas,
+  room,
+  camera: () => views.mainMonitoringCamera(),
+  shownPlace,
+  setOrbitEnabled: (enabled) => {
+    views.setOrbitEnabled(enabled);
+  },
+  onDrag: (kind, place) => {
+    dragging.add(kind);
+    movingTo.set(kind, place);
+  },
+  onDrop: (kind, place) => {
+    dragging.delete(kind);
+    movingTo.set(kind, place);
+    simulation.intervene({ type: "move-source", source: kind, place });
+  },
+});
+
 renderer.setAnimationLoop(() => {
   const sample = simulation.latest();
   if (sample) {
     roomScene.updateFly(sample);
-    roomScene.placeSource("food", sample.food);
-    roomScene.placeSource("water", sample.water);
-    fieldOverlay.placeSource("food", sample.food);
-    fieldOverlay.placeSource("water", sample.water);
+    for (const kind of SOURCE_KINDS) {
+      roomScene.placeSource(kind, shownPlace(kind));
+      fieldOverlay.placeSource(kind, shownPlace(kind));
+    }
     roomScene.updateLighting(lightLevel(shownSchedule, sample.timeOfDayHours));
   }
   views.render();
@@ -148,4 +194,21 @@ window.flySim = {
   flashes: () => driverPanel.flashes,
   view: () => views.state(),
   fields: () => ({ visible: fieldOverlay.visible() }),
+  sources: () => {
+    const camera = views.mainMonitoringCamera();
+    const box = canvas.getBoundingClientRect();
+    const onScreen = (kind: SourceKind) => {
+      const place = shownPlace(kind);
+      if (!place || !camera) return null;
+      const projected = new THREE.Vector3(place.x, 0, place.y).project(camera);
+      return {
+        place,
+        client: {
+          x: box.left + ((projected.x + 1) / 2) * box.width,
+          y: box.top + ((1 - projected.y) / 2) * box.height,
+        },
+      };
+    };
+    return { food: onScreen("food"), water: onScreen("water") };
+  },
 };

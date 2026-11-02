@@ -80,17 +80,20 @@ export interface RoomContents {
   humidityAt(position: Position): number;
   /** Where a source is, or null if the Room has none. */
   place(kind: SourceKind): FloorPlace | null;
+  /** Puts a source somewhere else on the floor, taking its field with it. */
+  move(kind: SourceKind, place: FloorPlace): void;
 }
 
 export function createRoomContents(
   room: RoomSetup,
-  places: Readonly<Record<SourceKind, FloorPlace | null>>,
+  initialPlaces: Readonly<Record<SourceKind, FloorPlace | null>>,
   settings: FieldSettings,
 ): RoomContents {
   for (const kind of SOURCE_KINDS) {
-    const place = places[kind];
+    const place = initialPlaces[kind];
     if (place) validateFloorPlace(room, place);
   }
+  const places = { ...initialPlaces };
 
   return {
     touching: (kind, position, surface) => {
@@ -104,5 +107,9 @@ export function createRoomContents(
     odourAt: (position) => odourField(places.food, settings.odourRangeMetres, position),
     humidityAt: (position) => humidityField(places.water, settings, position),
     place: (kind) => places[kind],
+    move: (kind, place) => {
+      validateFloorPlace(room, place);
+      places[kind] = place;
+    },
   };
 }

@@ -32,7 +32,13 @@ import {
   type Surface,
 } from "./movement";
 import { createRandomStream } from "./random";
-import { createRoomContents, defaultPlace, type FloorPlace } from "./roomContents";
+import {
+  createRoomContents,
+  defaultPlace,
+  validateFloorPlace,
+  type FloorPlace,
+  type SourceKind,
+} from "./roomContents";
 
 export const MODEL_VERSION = "0.5.0";
 
@@ -55,7 +61,9 @@ export const DEFAULT_ROOM: RoomSetup = { widthMetres: 1, depthMetres: 1, heightM
 /** Something the experimenter does to a run. */
 export type InterventionAction =
   | { readonly type: "disturb" }
-  | { readonly type: "light-schedule"; readonly lightSchedule: LightSchedule };
+  | { readonly type: "light-schedule"; readonly lightSchedule: LightSchedule }
+  /** Drags a source across the floor. Its field goes with it, and the fly learns of it only by sensing it. */
+  | { readonly type: "move-source"; readonly source: SourceKind; readonly place: FloorPlace };
 
 export type InterventionType = InterventionAction["type"];
 
@@ -189,8 +197,9 @@ function lightPull(circadianPhaseHours: number): number {
   return circadianPhaseHours < 12 ? 0 : -Math.cos((Math.PI * (circadianPhaseHours - 12)) / 12);
 }
 
-function validateAction(action: InterventionAction): void {
+function validateAction(action: InterventionAction, room: RoomSetup): void {
   if (action.type === "light-schedule") validateLightSchedule(action.lightSchedule);
+  if (action.type === "move-source") validateFloorPlace(room, action.place);
 }
 
 export function createSimulationRun(setup: SimulationSetup): SimulationRun {
@@ -217,7 +226,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   for (const intervention of setup.interventions ?? []) {
     const { step: at } = intervention;
     if (!Number.isInteger(at) || at < 0) throw new Error(`No intervention can be at step ${at}`);
-    validateAction(intervention);
+    validateAction(intervention, room);
   }
   const interventions = [...(setup.interventions ?? [])].sort((a, b) => a.step - b.step);
   let nextIntervention = 0;
@@ -427,6 +436,9 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
         case "light-schedule":
           lightSchedule = due.lightSchedule;
           break;
+        case "move-source":
+          contents.move(due.source, due.place);
+          break;
       }
     }
   }
@@ -560,7 +572,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
     current,
     firedTransitions,
     intervene: (action) => {
-      validateAction(action);
+      validateAction(action, room);
       const intervention: Intervention = { ...action, step };
       // Later than any at this step or before, which keeps the list in step order.
       const after = interventions.findIndex((each) => each.step > step);

@@ -97,7 +97,7 @@ When the Room's overhead light is on each day. A Simulation Run's setup gives th
 _Avoid_: Photoperiod, day length setting
 
 **Intervention**:
-A timed change the experimenter makes to a Simulation Run, such as a Disturb or a new Light Schedule, applied at a step boundary and stored in the Run Record.
+A timed change the experimenter makes to a Simulation Run, such as a Disturb, a new Light Schedule or moving the Food or Water Source to a new place on the floor, applied at a step boundary and stored in the Run Record. A moved source takes its field with it, and the fly learns of the move only through its senses.
 _Avoid_: Event, input
 
 **Disturb**:

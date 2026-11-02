@@ -47,6 +47,10 @@ export interface ViewState {
 export interface Views {
   render(): void;
   state(): ViewState;
+  /** The monitoring camera while it fills the main view, or undefined while the close-up does. */
+  mainMonitoringCamera(): THREE.PerspectiveCamera | undefined;
+  /** Lets something else take a drag in the main view without it also orbiting the camera. */
+  setOrbitEnabled(enabled: boolean): void;
 }
 
 interface Viewport {
@@ -147,9 +151,10 @@ export function createViews(options: {
     orbited = true;
   });
 
+  let orbitAllowed = true;
   inset.addEventListener("click", () => {
     swapped = !swapped;
-    controls.enabled = !swapped;
+    controls.enabled = !swapped && orbitAllowed;
     inset.setAttribute("aria-label", swapped ? "Show the monitoring camera" : "Show the close-up");
   });
 
@@ -258,6 +263,11 @@ export function createViews(options: {
   }
 
   return {
+    mainMonitoringCamera: () => (swapped ? undefined : monitoringCamera),
+    setOrbitEnabled: (enabled) => {
+      orbitAllowed = enabled;
+      controls.enabled = !swapped && enabled;
+    },
     render: () => {
       trackFly();
       const full: Viewport = { x: 0, y: 0, width: view.clientWidth, height: view.clientHeight };
