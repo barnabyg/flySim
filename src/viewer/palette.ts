@@ -31,6 +31,7 @@ export const DRIVER_COLOURS: Readonly<Record<DriverId, string>> = {
   circadian: "#e8d24a",
   startle: "#ff7a1a",
   hunger: "#d64f7a",
+  odour: "#a6b84a",
 };
 
 export const BEHAVIOUR_NAMES: Readonly<Record<Behaviour, string>> = {
@@ -51,6 +52,7 @@ export const DRIVER_NAMES: Readonly<Record<DriverId, string>> = {
   circadian: "Circadian Clock",
   startle: "Startle",
   hunger: "Hunger",
+  odour: "Odour",
 };
 
 const BEHAVIOUR_ICON_PATHS: Readonly<Record<Behaviour, string>> = {

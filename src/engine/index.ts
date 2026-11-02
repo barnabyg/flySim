@@ -11,7 +11,7 @@ export {
   type VigilanceState,
 } from "./model";
 export { DEFAULT_LIGHT_SCHEDULE, lightLevel, type LightSchedule } from "./lightSchedule";
-export { SOURCE_RADIUS_METRES, type FloorPlace, type SourceState } from "./roomContents";
+export { SOURCE_RADIUS_METRES, odourField, type FloorPlace } from "./roomContents";
 export { SURFACES, type Position, type RoomSetup, type Surface } from "./movement";
 export {
   DEFAULT_ROOM,

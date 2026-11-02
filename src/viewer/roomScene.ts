@@ -130,7 +130,13 @@ function createSource(colour: number): THREE.Object3D {
   const group = new THREE.Group();
   const patch = new THREE.Mesh(
     new THREE.CircleGeometry(SOURCE_RADIUS_METRES, 48),
-    new THREE.MeshLambertMaterial({ color: colour }),
+    // So close to the floor, depth alone can't keep it in front from far off.
+    new THREE.MeshLambertMaterial({
+      color: colour,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1,
+    }),
   );
   patch.rotation.x = -Math.PI / 2;
   group.add(patch);
@@ -149,8 +155,8 @@ export interface RoomScene {
   readonly fly: FlyModel;
   readonly food: THREE.Object3D;
   updateFly(sample: RunSample): void;
-  /** Puts the food where it is shown to be. */
-  placeFood(place: FloorPlace): void;
+  /** Puts the food where it is shown to be, or hides it if there is none. */
+  placeFood(place: FloorPlace | null): void;
   /** Sets how bright the Room looks, from the overhead light's level. */
   updateLighting(lightLevel: number): void;
 }
@@ -182,7 +188,8 @@ export function createRoomScene(room: RoomSetup): RoomScene {
     fly,
     food,
     placeFood: (place) => {
-      food.position.copy(toScene({ ...place, z: SOURCE_HEIGHT_METRES }));
+      food.visible = place !== null;
+      if (place) food.position.copy(toScene({ ...place, z: SOURCE_HEIGHT_METRES }));
     },
     updateLighting: (lightLevel) => {
       const brightness = NIGHT_BRIGHTNESS + (1 - NIGHT_BRIGHTNESS) * lightLevel;

@@ -92,9 +92,9 @@ describe("Transition Hazards", () => {
   });
 
   it("gives the same hazard at the same arousal however long the bout has lasted", () => {
-    // Hunger moves too, and feeding moves it a lot, so only arousal is left to vary here.
+    // Hunger and the odour sensed move too, so only arousal is left to vary here.
     const { samples, firedTransitions } = recordOf(23, 7200, {
-      parameters: { ...DEFAULT_PARAMETERS, startWalkingHungerRate: 0 },
+      parameters: { ...DEFAULT_PARAMETERS, startWalkingHungerRate: 0, startWalkingOdourRate: 0 },
     });
     const timeInBout = (timeSeconds: number): number => {
       const started = firedTransitions.findLast((fired) => fired.timeSeconds <= timeSeconds);

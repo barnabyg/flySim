@@ -18,11 +18,12 @@ describe("food in the Room", () => {
     const record = recordOf(1, 1, { food });
 
     expect(record.food).toEqual(food);
-    expect(record.samples[0]?.food.place).toEqual(food);
+    expect(record.samples[0]?.food).toEqual(food);
   });
 
   it("puts the food on the floor away from the walls by default", () => {
     const { food } = recordOf(1, 1);
+    if (!food) throw new Error("no food");
 
     expect(food.x).toBeGreaterThan(0.1);
     expect(food.x).toBeLessThan(DEFAULT_ROOM.widthMetres - 0.1);
@@ -93,7 +94,8 @@ describe("Feeding", () => {
         feedingNearFood += 1;
         expect(sample.senses.touchingFood).toBe(true);
         expect(sample.surface).toBe("floor");
-        const { place } = sample.food;
+        const place = sample.food;
+        if (!place) throw new Error("no food");
         expect(Math.hypot(sample.position.x - place.x, sample.position.y - place.y)).toBeLessThan(
           SOURCE_RADIUS_METRES,
         );

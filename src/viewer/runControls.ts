@@ -16,6 +16,9 @@ const DARK_ICON =
 /** Holding Disturb repeats it this often, which can keep the fly awake for a night at 1000×. */
 const DISTURB_REPEAT_MILLISECONDS = 50;
 
+const FIELDS_ICON =
+  '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M2 5c2-2 4 2 6 0s4-2 6 0M2 9c2-2 4 2 6 0s4-2 6 0M2 13c2-2 4 2 6 0s4-2 6 0" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
+
 const DISTURB_ICON =
   '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M9.500 1L3 9h4l-1 6 7-8.500H9z" fill="currentColor"/></svg>';
 
@@ -25,6 +28,7 @@ export interface RunControlHandlers {
   onNewSeed(): void;
   onRoomChange(room: RoomSetup): void;
   onLightScheduleChange(lightSchedule: LightSchedule): void;
+  onFieldsToggle(visible: boolean): void;
 }
 
 const pad = (value: number): string => String(value).padStart(2, "0");
@@ -83,7 +87,8 @@ export function createRunControls(
           <button id="light-apply" type="submit">Set</button>
         </div>
       </form>
-    </details>`;
+    </details>
+    <button id="fields" class="icon-button" type="button" aria-pressed="false" aria-label="Show the fields" title="Show what the fly could smell">${FIELDS_ICON}</button>`;
 
   const disturb = container.querySelector<HTMLButtonElement>("#disturb");
   const restart = container.querySelector<HTMLButtonElement>("#restart");
@@ -98,7 +103,8 @@ export function createRunControls(
   const lightsOffInput = container.querySelector<HTMLInputElement>("#lights-off");
   const alwaysOn = container.querySelector<HTMLButtonElement>("#always-on");
   const alwaysOff = container.querySelector<HTMLButtonElement>("#always-off");
-  if (!disturb || !restart || !newSeed || !form || !width || !depth || !height) {
+  const fields = container.querySelector<HTMLButtonElement>("#fields");
+  if (!disturb || !restart || !newSeed || !form || !width || !depth || !height || !fields) {
     throw new Error("Malformed run controls");
   }
   if (
@@ -137,6 +143,12 @@ export function createRunControls(
   disturb.addEventListener("click", (event) => {
     // A pointer press has already disturbed, so only a keyboard's click is left to handle.
     if (event.detail === 0) handlers.onDisturb();
+  });
+  fields.addEventListener("click", () => {
+    const visible = fields.getAttribute("aria-pressed") !== "true";
+    fields.setAttribute("aria-pressed", String(visible));
+    fields.setAttribute("aria-label", visible ? "Hide the fields" : "Show the fields");
+    handlers.onFieldsToggle(visible);
   });
   restart.addEventListener("click", () => {
     handlers.onRestart();

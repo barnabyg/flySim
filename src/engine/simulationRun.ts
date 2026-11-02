@@ -5,6 +5,7 @@ import {
   TRANSITIONS,
   driverContributions,
   hungerOf,
+  turningScale,
   vigilanceStateOf,
   type Behaviour,
   type DriverId,
@@ -30,12 +31,7 @@ import {
   type Surface,
 } from "./movement";
 import { createRandomStream } from "./random";
-import {
-  createRoomContents,
-  defaultFoodPlace,
-  type FloorPlace,
-  type SourceState,
-} from "./roomContents";
+import { createRoomContents, defaultFoodPlace, type FloorPlace } from "./roomContents";
 
 export const MODEL_VERSION = "0.5.0";
 
@@ -69,8 +65,11 @@ export interface SimulationSetup {
   readonly room: RoomSetup;
   readonly seed: number;
   readonly parameters?: ModelParameters;
-  /** Where the food is on the floor. The default is away from the middle of the Room. */
-  readonly food?: FloorPlace;
+  /**
+   * Where the food is on the floor, or null for a Room without food. The default is away
+   * from the middle of the Room.
+   */
+  readonly food?: FloorPlace | null;
   /** The default is 12:12. The run starts at lights-on, and interventions can change it. */
   readonly lightSchedule?: LightSchedule;
   /** Interventions to apply at given steps, on top of any made during the run. */
@@ -112,8 +111,8 @@ export interface RunSample extends MovementPose, InternalState {
   readonly speedMetresPerSecond: number;
   /** The transitions available from the current behaviour. */
   readonly transitions: readonly TransitionState[];
-  /** The food as it is now. The fly gets it only through its senses. */
-  readonly food: SourceState;
+  /** Where the food is now, or null if there is none. The fly gets it only through its senses. */
+  readonly food: FloorPlace | null;
 }
 
 export interface FiredTransition extends TransitionState {
@@ -135,8 +134,8 @@ export interface RunRecord {
   readonly seed: number;
   readonly room: RoomSetup;
   readonly parameters: ModelParameters;
-  /** Where the food started. */
-  readonly food: FloorPlace;
+  /** Where the food started, or null if there was none. */
+  readonly food: FloorPlace | null;
   /** The schedule the run started with. Later ones are among its interventions. */
   readonly lightSchedule: LightSchedule;
   readonly stepsPerSecond: number;
@@ -189,8 +188,8 @@ function validateAction(action: InterventionAction): void {
 export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   const { room, seed, maxRecordedSamples = Infinity } = setup;
   const parameters = setup.parameters ?? DEFAULT_PARAMETERS;
-  const initialFoodPlace = setup.food ?? defaultFoodPlace(room);
-  const contents = createRoomContents(room, initialFoodPlace);
+  const initialFoodPlace = setup.food === undefined ? defaultFoodPlace(room) : setup.food;
+  const contents = createRoomContents(room, initialFoodPlace, parameters.odourRangeMetres);
   const initialLightSchedule = setup.lightSchedule ?? DEFAULT_LIGHT_SCHEDULE;
   validateLightSchedule(initialLightSchedule);
   let lightSchedule = initialLightSchedule;
@@ -220,6 +219,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   let circadianPhaseHours = 0;
   let startle = 0;
   let energy = parameters.initialEnergy;
+  let recentOdour = 0;
   const movement = createMovement(room, movementNoise);
   const stepsOnSurface = new Map<Surface, number>();
   const stepsInBehaviour = new Map<Behaviour, number>();
@@ -242,12 +242,24 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   }
 
   /** The only route from the world to the fly's hazards. */
+  /**
+   * What the fly senses, worked out once between changes to the world or to where it is,
+   * as every hazard needs it on every step.
+   */
+  let sensed: Senses | undefined;
+
   function currentSenses(): Senses {
+    sensed ??= sense();
+    return sensed;
+  }
+
+  function sense(): Senses {
     const { position, surface } = movement.pose();
     return {
       touchingSurface: movement.hasArrived(),
       lightLevel: currentLightLevel(),
       touchingFood: contents.touchingFood(position, surface),
+      odour: contents.odourAt(position),
     };
   }
 
@@ -260,6 +272,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       startle,
       energy,
       hunger: hungerOf(energy),
+      recentOdour,
     };
   }
 
@@ -300,6 +313,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
         sleepDepth = behaviour === "sleeping" ? parameters.sleepDepthAtOnset : null;
         if (item.definition.to === "flying") movement.takeOff();
         if (item.definition.from === "flying") movement.land();
+        sensed = undefined;
         pending = drawTriggerLevels();
         return;
       }
@@ -414,16 +428,25 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
     energy = Math.min(1, Math.max(0, energy + (intake - energyUse()) * STEP_SECONDS));
   }
 
+  function updateRecentOdour(senses: Senses): void {
+    recentOdour +=
+      ((senses.odour - recentOdour) / parameters.odourAdaptationSeconds) * STEP_SECONDS;
+  }
+
   function updateStartle(): void {
     startle *= Math.exp(-STEP_SECONDS / parameters.startleTimeConstantSeconds);
     // Ends a faded startle outright, so that it leaves no trace in later hazards.
     if (startle < MIN_STARTLE) startle = 0;
   }
 
-  function walk(): void {
+  /** Steers by comparing what the fly senses now with what it has sensed lately. */
+  function walk(senses: Senses): void {
     movement.walk(
       parameters.walkingSpeedMetresPerSecond * STEP_SECONDS,
-      parameters.walkingTurnNoise * SQRT_STEP_SECONDS * movementNoise.normal(),
+      turningScale(internalState(), senses, parameters) *
+        parameters.walkingTurnNoise *
+        SQRT_STEP_SECONDS *
+        movementNoise.normal(),
     );
   }
 
@@ -454,6 +477,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   function advanceSteps(steps: number): void {
     for (let i = 0; i < steps; i++) {
       applyDueInterventions();
+      sensed = undefined;
       fireDueTransition();
       updateArousal();
       updateSleepPressure();
@@ -461,13 +485,17 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       updateCircadianClock();
       updateStartle();
       updateEnergy();
-      if (behaviour === "walking") walk();
+      const senses = currentSenses();
+      if (behaviour === "walking") walk(senses);
+      updateRecentOdour(senses);
       if (behaviour === "flying")
         movement.fly(parameters.flightSpeedMetresPerSecond * STEP_SECONDS);
       const surface = movement.surface();
       if (surface) stepsOnSurface.set(surface, (stepsOnSurface.get(surface) ?? 0) + 1);
       stepsInBehaviour.set(behaviour, (stepsInBehaviour.get(behaviour) ?? 0) + 1);
       step += 1;
+      // The fly may have moved, and the time of day has moved on.
+      sensed = undefined;
       if (step % STEPS_PER_SECOND === 0) recordSample();
     }
   }

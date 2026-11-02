@@ -10,7 +10,8 @@ export type DriverId =
   | "sleepPressure"
   | "circadian"
   | "startle"
-  | "hunger";
+  | "hunger"
+  | "odour";
 
 export type TransitionId =
   | "immobility-to-walking"
@@ -51,6 +52,7 @@ export const DRIVERS: readonly DriverId[] = [
   "circadian",
   "startle",
   "hunger",
+  "odour",
 ];
 
 export const TRANSITIONS: readonly TransitionDefinition[] = [
@@ -82,6 +84,8 @@ export interface Senses {
   readonly lightLevel: number;
   /** Whether its feet are on the food. */
   readonly touchingFood: boolean;
+  /** The Odour Field where the fly is, from 0 to 1. It senses nothing of where the food is. */
+  readonly odour: number;
 }
 
 /** The fly's hidden state that Drivers read. */
@@ -102,6 +106,11 @@ export interface InternalState {
   readonly energy: number;
   /** Rises as the energy reserve falls, from 0 when full to 1 when empty. */
   readonly hunger: number;
+  /**
+   * The odour the fly has sensed lately, which follows what it senses with a short lag.
+   * Comparing the two tells it whether the odour is rising or falling as it walks.
+   */
+  readonly recentOdour: number;
 }
 
 /** Hunger rises as the energy reserve falls. */
@@ -140,6 +149,8 @@ export interface ModelParameters {
   readonly startWalkingLightRate: number;
   /** Scaled by Hunger squared, so a part-fed fly still settles for minutes at a time. */
   readonly startWalkingHungerRate: number;
+  /** Scaled by the odour sensed and by Hunger, which sets how much the odour matters. */
+  readonly startWalkingOdourRate: number;
   readonly stopWalkingSpontaneousRate: number;
   readonly stopWalkingLowArousalRate: number;
   /** Grooming has no contamination model, so nothing about dirt drives these. */
@@ -149,6 +160,7 @@ export interface ModelParameters {
   readonly walkAfterGroomingSpontaneousRate: number;
   readonly walkAfterGroomingArousalRate: number;
   readonly walkAfterGroomingHungerRate: number;
+  readonly walkAfterGroomingOdourRate: number;
   readonly takeOffFromImmobilitySpontaneousRate: number;
   readonly takeOffFromImmobilityArousalRate: number;
   readonly takeOffFromWalkingSpontaneousRate: number;
@@ -214,6 +226,19 @@ export interface ModelParameters {
   readonly stopFeedingStartleRate: number;
   /** The share of a full energy reserve taken in per second of feeding. */
   readonly feedingIntake: number;
+  /** How far the Odour Field reaches from the food, in any direction. 0 switches it off. */
+  readonly odourRangeMetres: number;
+  /** How quickly the recently sensed odour catches up with what the fly senses now. */
+  readonly odourAdaptationSeconds: number;
+  /** The weakest odour the fly compares against, which keeps a faint odour from swamping it. */
+  readonly odourDetectionFloor: number;
+  /** The relative change in odour, over the adaptation time, that steers the fly fully. */
+  readonly odourContrast: number;
+  /**
+   * How strongly a fully hungry fly steers by odour. Rising odour makes it turn less and
+   * falling odour makes it turn more, so it keeps on up the field and turns back down it.
+   */
+  readonly odourSteeringGain: number;
 }
 
 export const DEFAULT_PARAMETERS: ModelParameters = {
@@ -230,6 +255,7 @@ export const DEFAULT_PARAMETERS: ModelParameters = {
   startWalkingArousalRate: 0.25,
   startWalkingLightRate: 0.002,
   startWalkingHungerRate: 0.005,
+  startWalkingOdourRate: 0.02,
   stopWalkingSpontaneousRate: 0.02,
   stopWalkingLowArousalRate: 0.06,
   startGroomingSpontaneousRate: 0.001,
@@ -238,6 +264,7 @@ export const DEFAULT_PARAMETERS: ModelParameters = {
   walkAfterGroomingSpontaneousRate: 0.005,
   walkAfterGroomingArousalRate: 0.03,
   walkAfterGroomingHungerRate: 0.02,
+  walkAfterGroomingOdourRate: 0.02,
   takeOffFromImmobilitySpontaneousRate: 0.002,
   takeOffFromImmobilityArousalRate: 0.02,
   takeOffFromWalkingSpontaneousRate: 0.018,
@@ -279,6 +306,11 @@ export const DEFAULT_PARAMETERS: ModelParameters = {
   stopFeedingSatietyRate: 0.15,
   stopFeedingStartleRate: 2,
   feedingIntake: 0.004,
+  odourRangeMetres: 0.3,
+  odourAdaptationSeconds: 1,
+  odourDetectionFloor: 0.01,
+  odourContrast: 0.05,
+  odourSteeringGain: 2,
 };
 
 const NO_CONTRIBUTIONS: Readonly<Record<DriverId, number>> = {
@@ -290,6 +322,7 @@ const NO_CONTRIBUTIONS: Readonly<Record<DriverId, number>> = {
   circadian: 0,
   startle: 0,
   hunger: 0,
+  odour: 0,
 };
 
 /**
@@ -302,6 +335,22 @@ function sleepGate(circadianPhaseHours: number, parameters: ModelParameters): nu
   return dayPositive > 0
     ? parameters.siestaGateStrength * dayPositive ** 4
     : Math.sqrt(-dayPositive);
+}
+
+/**
+ * How much a walking fly turns, as a multiple of its usual turning. It reads only the odour
+ * it senses and has sensed lately, so it can't head for food it can't smell. Without any
+ * odour this is exactly 1, so a fly out of range walks as if there were no food.
+ */
+export function turningScale(
+  state: InternalState,
+  senses: Senses,
+  parameters: ModelParameters,
+): number {
+  const change =
+    (senses.odour - state.recentOdour) / (state.recentOdour + parameters.odourDetectionFloor);
+  const rising = Math.tanh(change / parameters.odourContrast);
+  return Math.exp(-parameters.odourSteeringGain * state.hunger * rising);
 }
 
 /**
@@ -326,6 +375,7 @@ export function driverContributions(
         light: parameters.startWalkingLightRate * senses.lightLevel,
         startle: parameters.startWalkingStartleRate * startle,
         hunger: parameters.startWalkingHungerRate * hunger * hunger,
+        odour: parameters.startWalkingOdourRate * senses.odour * hunger,
       };
     case "immobility-to-grooming":
       return {
@@ -342,6 +392,7 @@ export function driverContributions(
         arousal: parameters.walkAfterGroomingArousalRate * arousal,
         startle: parameters.walkAfterGroomingStartleRate * startle,
         hunger: parameters.walkAfterGroomingHungerRate * hunger * hunger,
+        odour: parameters.walkAfterGroomingOdourRate * senses.odour * hunger,
       };
     case "immobility-to-flying":
       return {

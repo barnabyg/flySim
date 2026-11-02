@@ -68,6 +68,10 @@ _Avoid_: Arena, sandbox, chamber
 A patch of food on the Room's floor, at a place a Simulation Run's setup gives. It never runs out, and the fly touches it only by standing on it.
 _Avoid_: Food item, bait, feeder
 
+**Odour Field**:
+A steady, simplified spread of odour from the Food Source, with no airflow or turbulence, strongest at the food and gone beyond a set range in any direction. The fly senses it only where it is, and a hungry fly steers up it by comparing what it senses now with what it sensed a moment ago, so it can wander past food it can't smell. It is Provisional.
+_Avoid_: Scent map, smell gradient, plume (which implies airflow)
+
 **Light Schedule**:
 When the Room's overhead light is on each day. A Simulation Run's setup gives the schedule it starts with, and an Intervention can change it during the run, including to always on or always off. A default run has 12 hours of light and 12 of dark and starts at lights-on.
 _Avoid_: Photoperiod, day length setting

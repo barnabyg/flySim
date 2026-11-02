@@ -1,6 +1,13 @@
 import * as THREE from "three";
-import { lightLevel, type LightSchedule, type RunRecord, type RunSample } from "../engine";
+import {
+  DEFAULT_PARAMETERS,
+  lightLevel,
+  type LightSchedule,
+  type RunRecord,
+  type RunSample,
+} from "../engine";
 import { createDriverPanel, type FlashedTransition } from "./driverPanel";
+import { createFieldOverlay } from "./fieldOverlay";
 import { createRibbon } from "./ribbon";
 import { createRoomScene } from "./roomScene";
 import { createRunControls } from "./runControls";
@@ -17,6 +24,8 @@ export interface FlySimApi {
   flyScenePosition(): { x: number; y: number; z: number };
   flashes(): readonly FlashedTransition[];
   view(): ViewState;
+  /** Whether the field overlay is showing. */
+  fields(): { visible: boolean };
 }
 
 declare global {
@@ -44,8 +53,13 @@ const canvas = requireElement("#scene", HTMLCanvasElement);
 
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+// Lets the field overlay stop at the Room's walls.
+renderer.localClippingEnabled = true;
 
 const roomScene = createRoomScene(room);
+// The worker runs the default parameters, so the overlay draws the same fields.
+const fieldOverlay = createFieldOverlay(room, DEFAULT_PARAMETERS);
+roomScene.scene.add(fieldOverlay.object);
 const simulation = startSimulation(seed, room, speed, lightSchedule, food);
 
 const driverPanel = createDriverPanel(requireElement("#drivers", HTMLElement));
@@ -82,6 +96,9 @@ createRunControls(requireElement("#run-controls", HTMLElement), seed, room, ligh
   onRoomChange: (newRoom) => {
     restartWith({ room: newRoom });
   },
+  onFieldsToggle: (visible) => {
+    fieldOverlay.setVisible(visible);
+  },
 });
 /**
  * The latest schedule asked for. A change applies to the fly at the next step, which is
@@ -110,7 +127,8 @@ renderer.setAnimationLoop(() => {
   const sample = simulation.latest();
   if (sample) {
     roomScene.updateFly(sample);
-    roomScene.placeFood(sample.food.place);
+    roomScene.placeFood(sample.food);
+    fieldOverlay.placeFood(sample.food);
     roomScene.updateLighting(lightLevel(shownSchedule, sample.timeOfDayHours));
   }
   views.render();
@@ -127,4 +145,5 @@ window.flySim = {
   },
   flashes: () => driverPanel.flashes,
   view: () => views.state(),
+  fields: () => ({ visible: fieldOverlay.visible() }),
 };
