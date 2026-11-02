@@ -1,4 +1,9 @@
-import { STEPS_PER_SECOND, createSimulationRun, type SimulationRun } from "../engine";
+import {
+  DEFAULT_PARAMETERS,
+  STEPS_PER_SECOND,
+  createSimulationRun,
+  type SimulationRun,
+} from "../engine";
 import type { FromSimulation, ToSimulation } from "./protocol";
 
 const TICK_MILLISECONDS = 16;
@@ -25,7 +30,8 @@ function tick(): void {
   const now = performance.now();
   const elapsedSeconds = (now - lastTickTime) / 1000;
   lastTickTime = now;
-  if (paused) return;
+  // A dead fly's run goes no further.
+  if (paused || run.current().death) return;
   stepsOwed += elapsedSeconds * speed * STEPS_PER_SECOND;
 
   // How many steps run in a tick depends on wall-clock time, but a run depends only
@@ -63,6 +69,11 @@ onmessage = (event: MessageEvent<ToSimulation>) => {
         seed: message.seed,
         lightSchedule: message.lightSchedule,
         ...message.sources,
+        parameters: {
+          ...DEFAULT_PARAMETERS,
+          initialEnergy: message.reserves.energy ?? DEFAULT_PARAMETERS.initialEnergy,
+          initialHydration: message.reserves.hydration ?? DEFAULT_PARAMETERS.initialHydration,
+        },
         maxRecordedSamples: MAX_RECORDED_SAMPLES,
       });
       lastTickTime = performance.now();
@@ -77,7 +88,9 @@ onmessage = (event: MessageEvent<ToSimulation>) => {
       sendFrame();
       break;
     case "intervene":
-      run?.intervene(message.action);
+      // A run whose fly has died can't change any more.
+      if (!run || run.current().death) break;
+      run.intervene(message.action);
       // Even while paused, so that the experimenter sees the press register at once.
       sendFrame();
       break;

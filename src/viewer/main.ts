@@ -47,7 +47,7 @@ function requireElement<T extends Element>(selector: string, type: new () => T):
 }
 
 const settings = settingsFromUrl(location.search, SPEEDS, INITIAL_SPEED);
-const { room, seed, lightSchedule, sources } = settings;
+const { room, seed, lightSchedule, sources, reserves } = settings;
 let speed = settings.speed;
 
 function restartWith(changes: Partial<RunSettings>): void {
@@ -66,7 +66,7 @@ const roomScene = createRoomScene(room);
 // The worker runs the default parameters, so the overlay draws the same fields.
 const fieldOverlay = createFieldOverlay(room, DEFAULT_PARAMETERS);
 roomScene.scene.add(fieldOverlay.object);
-const simulation = startSimulation(seed, room, speed, lightSchedule, sources);
+const simulation = startSimulation(seed, room, speed, lightSchedule, sources, reserves);
 
 const driverPanel = createDriverPanel(requireElement("#drivers", HTMLElement));
 const ribbon = createRibbon(requireElement("#ribbon", HTMLCanvasElement));
@@ -105,7 +105,12 @@ createRunControls(requireElement("#run-controls", HTMLElement), seed, room, ligh
   onFieldsToggle: (visible) => {
     fieldOverlay.setVisible(visible);
   },
+  onSourcePresenceChange: (kind, present) => {
+    changing.set(kind, present ? (lastPlaces.get(kind) ?? null) : null);
+    simulation.intervene({ type: present ? "restore-source" : "remove-source", source: kind });
+  },
 });
+const deathNotice = requireElement("#death", HTMLElement);
 /**
  * The latest schedule asked for. A change applies to the fly at the next step, which is
  * only once time resumes, but the Room and dial show it at once.
@@ -115,9 +120,13 @@ simulation.onFrame((sample, fired, interventions) => {
   for (const intervention of interventions) {
     if (intervention.type === "light-schedule") shownSchedule = intervention.lightSchedule;
   }
-  // A move shows from the moment it's made, and stops needing to once the run has it.
-  for (const [kind, place] of movingTo) {
-    if (!dragging.has(kind) && samePlace(sample[kind], place)) movingTo.delete(kind);
+  // A change shows from the moment it's made, and stops needing to once the run has it.
+  for (const [kind, place] of changing) {
+    if (!dragging.has(kind) && samePlace(sample[kind], place)) changing.delete(kind);
+  }
+  if (sample.death && deathNotice.hidden) {
+    deathNotice.hidden = false;
+    deathNotice.textContent = `The fly has died of ${CAUSES[sample.death.cause]}.`;
   }
   driverPanel.update(sample, fired);
   ribbon.update(sample, fired, interventions);
@@ -134,20 +143,29 @@ const views = createViews({
 });
 
 /**
- * Sources being dragged, or dropped and not yet moved in the run, which show where they are
- * going. A source moves in the run at the next step, which is only once time resumes, but the
- * Room shows it at once, as it does a new light schedule.
+ * Sources being dragged, or moved, removed or put back and not yet changed in the run, which
+ * show where they are going, or null if they are going away. A source changes in the run at
+ * the next step, which is only once time resumes, but the Room shows it at once, as it does a
+ * new light schedule.
  */
-const movingTo = new Map<SourceKind, FloorPlace>();
+const changing = new Map<SourceKind, FloorPlace | null>();
 const dragging = new Set<SourceKind>();
+/** Where each source was last shown, which is where it goes when it is put back. */
+const lastPlaces = new Map<SourceKind, FloorPlace>();
 
-function samePlace(a: FloorPlace | null, b: FloorPlace): boolean {
-  return a?.x === b.x && a.y === b.y;
+function samePlace(a: FloorPlace | null, b: FloorPlace | null): boolean {
+  return a === null || b === null ? a === b : a.x === b.x && a.y === b.y;
 }
 
 function shownPlace(kind: SourceKind): FloorPlace | null {
-  return movingTo.get(kind) ?? simulation.latest()?.[kind] ?? null;
+  const place = changing.has(kind)
+    ? (changing.get(kind) ?? null)
+    : (simulation.latest()?.[kind] ?? null);
+  if (place) lastPlaces.set(kind, place);
+  return place;
 }
+
+const CAUSES = { starvation: "starvation", desiccation: "lack of water" } as const;
 
 createSourceDragging({
   view,
@@ -160,11 +178,11 @@ createSourceDragging({
   },
   onDrag: (kind, place) => {
     dragging.add(kind);
-    movingTo.set(kind, place);
+    changing.set(kind, place);
   },
   onDrop: (kind, place) => {
     dragging.delete(kind);
-    movingTo.set(kind, place);
+    changing.set(kind, place);
     simulation.intervene({ type: "move-source", source: kind, place });
   },
 });

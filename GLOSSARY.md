@@ -54,6 +54,14 @@ _Avoid_: Dehydration (when the Driver is meant)
 The behaviour of taking in water through the extended proboscis. It can start only while the fly touches the Water Source, and ends as Thirst falls, not after a set time.
 _Avoid_: Watering, hydrating
 
+**Weakness**:
+How a fly low on either reserve starts walking, grooming and flight less and less often, through smaller pushes from every Driver rather than a rule of its own.
+_Avoid_: Fatigue, tiredness (which suggest Sleep Pressure)
+
+**Death**:
+The end of a Simulation Run when a reserve runs out, by starvation or by lack of water. The Run Record marks when and why, and the run advances no further. Survival times are Provisional and not validated.
+_Avoid_: Game over, failure
+
 **Immobility**:
 The fly's true lack of any body movement, as known by the model. A grooming fly is not immobile.
 _Avoid_: Stillness, standing still, rest
@@ -97,8 +105,12 @@ When the Room's overhead light is on each day. A Simulation Run's setup gives th
 _Avoid_: Photoperiod, day length setting
 
 **Intervention**:
-A timed change the experimenter makes to a Simulation Run, such as a Disturb, a new Light Schedule or moving the Food or Water Source to a new place on the floor, applied at a step boundary and stored in the Run Record. A moved source takes its field with it, and the fly learns of the move only through its senses.
+A timed change the experimenter makes to a Simulation Run, such as a Disturb, a new Light Schedule, or moving, removing or restoring the Food or Water Source, applied at a step boundary and stored in the Run Record. A moved source takes its field with it, and the fly learns of the move only through its senses.
 _Avoid_: Event, input
+
+**Removing a Source**:
+The Intervention that takes the Food or Water Source out of the Room, field and all, until restoring it puts it back where it was. Without it, the matching reserve keeps falling.
+_Avoid_: Deleting, hiding (the source is gone for the fly, not just from view)
 
 **Disturb**:
 The Intervention that jolts the fly, as a lab might by knocking its tube, and creates a Startle.

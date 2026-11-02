@@ -10,6 +10,7 @@ import type {
   RunSample,
 } from "../engine";
 import type { FromSimulation, ToSimulation } from "./protocol";
+import type { StartingReserves } from "./runSettings";
 
 export type FrameListener = (
   sample: RunSample,
@@ -34,6 +35,7 @@ export function startSimulation(
   speed: number,
   lightSchedule: LightSchedule,
   sources: Partial<Readonly<Record<SourceKind, FloorPlace>>>,
+  reserves: StartingReserves,
 ): SimulationClient {
   const worker = new Worker(new URL("./simulationWorker.ts", import.meta.url), { type: "module" });
   const listeners: FrameListener[] = [];
@@ -61,7 +63,7 @@ export function startSimulation(
     }
   };
 
-  send({ type: "start", seed, room, speed, lightSchedule, sources });
+  send({ type: "start", seed, room, speed, lightSchedule, sources, reserves });
 
   return {
     latest: () => latest,

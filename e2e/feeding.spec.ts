@@ -80,7 +80,12 @@ test("Feeding shows in the bars, flashes, ribbon and the fly itself", async ({ p
   );
   expect(frame.strip).toBeCloseTo(frame.state.fireProbabilityNextMinute, 6);
   expect(frame.flashes.some((flash) => flash.transition.endsWith("-to-feeding"))).toBe(true);
-  expect(frame.pose).toEqual({ behaviour: "feeding", wings: "rest", proboscis: "extended" });
+  expect(frame.pose).toEqual({
+    behaviour: "feeding",
+    wings: "rest",
+    proboscis: "extended",
+    dead: false,
+  });
   expect(frame.sample.senses.touchingFood).toBe(true);
 
   await page.locator('[data-transition="feeding-to-immobility"]').hover();

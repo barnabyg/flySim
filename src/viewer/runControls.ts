@@ -1,4 +1,4 @@
-import type { LightSchedule, RoomSetup } from "../engine";
+import { SOURCE_KINDS, type LightSchedule, type RoomSetup, type SourceKind } from "../engine";
 import { MAX_ROOM_METRES, MIN_ROOM_METRES } from "./runSettings";
 
 const RESTART_ICON =
@@ -19,6 +19,17 @@ const DISTURB_REPEAT_MILLISECONDS = 50;
 const FIELDS_ICON =
   '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M2 5c2-2 4 2 6 0s4-2 6 0M2 9c2-2 4 2 6 0s4-2 6 0M2 13c2-2 4 2 6 0s4-2 6 0" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
 
+const SOURCE_ICONS: Readonly<Record<SourceKind, string>> = {
+  food: '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M2 8 H14 A6 6 0 0 1 2 8 Z" fill="currentColor"/><path d="M8 6 V2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+  water:
+    '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M8 1.500 C10 5 13 7.500 13 10 A5 5 0 0 1 3 10 C3 7.500 6 5 8 1.500 Z" fill="currentColor"/></svg>',
+};
+
+/** What each button says it will do, given whether its source is in the Room. */
+function sourceLabel(kind: SourceKind, present: boolean): string {
+  return present ? `Remove the ${kind}` : `Put the ${kind} back`;
+}
+
 const DISTURB_ICON =
   '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M9.500 1L3 9h4l-1 6 7-8.500H9z" fill="currentColor"/></svg>';
 
@@ -29,6 +40,7 @@ export interface RunControlHandlers {
   onRoomChange(room: RoomSetup): void;
   onLightScheduleChange(lightSchedule: LightSchedule): void;
   onFieldsToggle(visible: boolean): void;
+  onSourcePresenceChange(kind: SourceKind, present: boolean): void;
 }
 
 const pad = (value: number): string => String(value).padStart(2, "0");
@@ -88,6 +100,10 @@ export function createRunControls(
         </div>
       </form>
     </details>
+    ${SOURCE_KINDS.map(
+      (kind) =>
+        `<button id="${kind}-presence" class="icon-button source-presence" type="button" aria-pressed="false" aria-label="${sourceLabel(kind, true)}" title="${sourceLabel(kind, true)}">${SOURCE_ICONS[kind]}</button>`,
+    ).join("")}
     <button id="fields" class="icon-button" type="button" aria-pressed="false" aria-label="Show the fields" title="Show what the fly could smell and feel">${FIELDS_ICON}</button>`;
 
   const disturb = container.querySelector<HTMLButtonElement>("#disturb");
@@ -144,6 +160,18 @@ export function createRunControls(
     // A pointer press has already disturbed, so only a keyboard's click is left to handle.
     if (event.detail === 0) handlers.onDisturb();
   });
+  // Pressed while the source is out of the Room.
+  for (const kind of SOURCE_KINDS) {
+    const button = container.querySelector<HTMLButtonElement>(`#${kind}-presence`);
+    if (!button) throw new Error(`Missing the ${kind} button`);
+    button.addEventListener("click", () => {
+      const present = button.getAttribute("aria-pressed") === "true";
+      button.setAttribute("aria-pressed", String(!present));
+      button.setAttribute("aria-label", sourceLabel(kind, present));
+      button.title = sourceLabel(kind, present);
+      handlers.onSourcePresenceChange(kind, present);
+    });
+  }
   fields.addEventListener("click", () => {
     const visible = fields.getAttribute("aria-pressed") !== "true";
     fields.setAttribute("aria-pressed", String(visible));

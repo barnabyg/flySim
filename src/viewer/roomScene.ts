@@ -15,6 +15,8 @@ export const CLOSE_UP_ONLY_LAYER = 2;
 
 const MARKING_HEIGHT_METRES = 0.00005;
 const AIR_TURNING_SECONDS = 0.05;
+/** A dead fly lies on its back, raised by the height of its back so that it rests on the floor. */
+const DEAD_LIFT_METRES = 0.00105;
 /** The Room stays dimly visible at night, so that the experimenter can still watch the fly. */
 const NIGHT_BRIGHTNESS = 0.22;
 const NIGHT_TINT = new THREE.Color(0x9fb4ff);
@@ -214,6 +216,10 @@ export function createRoomScene(room: RoomSetup): RoomScene {
       fly.object.position.copy(toScene(sample.position));
       const forward = toScene(sample.forward);
       const up = toScene(sample.up);
+      if (sample.death) {
+        fly.object.position.addScaledVector(up, DEAD_LIFT_METRES);
+        up.negate();
+      }
       target.setFromRotationMatrix(
         basis.makeBasis(forward, up, new THREE.Vector3().crossVectors(forward, up)),
       );

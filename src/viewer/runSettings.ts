@@ -19,7 +19,19 @@ export interface RunSettings {
   readonly lightSchedule: LightSchedule;
   /** Where the food and water start, where they aren't at the engine's defaults. */
   readonly sources: Partial<Readonly<Record<SourceKind, FloorPlace>>>;
+  /** How full the fly's reserves start, where they aren't at the engine's defaults. */
+  readonly reserves: StartingReserves;
 }
+
+/** How full the Energy and Hydration Reserves start, from just above empty to full. */
+export interface StartingReserves {
+  readonly energy?: number;
+  readonly hydration?: number;
+}
+
+const RESERVES = ["energy", "hydration"] as const;
+/** A reserve can't start empty, as the fly would be dead before the run began. */
+const MIN_STARTING_RESERVE = 0.01;
 
 export function randomSeed(): number {
   return Math.floor(Math.random() * 2 ** 31);
@@ -69,6 +81,12 @@ export function settingsFromUrl(
     const place = floorPlace(parameters.get(kind), room);
     if (place) sources[kind] = place;
   }
+  const reserves: { energy?: number; hydration?: number } = {};
+  for (const reserve of RESERVES) {
+    const parsed = numberFrom(parameters.get(reserve));
+    if (Number.isFinite(parsed))
+      reserves[reserve] = Math.min(1, Math.max(MIN_STARTING_RESERVE, parsed));
+  }
   return {
     seed: Number.isInteger(seed) ? seed : randomSeed(),
     room,
@@ -78,10 +96,18 @@ export function settingsFromUrl(
       lightHours: lightHours(parameters.get("lightHours")),
     },
     sources,
+    reserves,
   };
 }
 
-export function urlForSettings({ seed, room, speed, lightSchedule, sources }: RunSettings): string {
+export function urlForSettings({
+  seed,
+  room,
+  speed,
+  lightSchedule,
+  sources,
+  reserves,
+}: RunSettings): string {
   const parameters = new URLSearchParams({
     seed: String(seed),
     width: String(room.widthMetres),
@@ -94,6 +120,10 @@ export function urlForSettings({ seed, room, speed, lightSchedule, sources }: Ru
   for (const kind of SOURCE_KINDS) {
     const place = sources[kind];
     if (place) parameters.set(kind, `${place.x},${place.y}`);
+  }
+  for (const reserve of RESERVES) {
+    const level = reserves[reserve];
+    if (level !== undefined) parameters.set(reserve, String(level));
   }
   return `?${parameters.toString()}`;
 }

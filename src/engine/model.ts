@@ -186,6 +186,8 @@ export interface ModelParameters {
   readonly startWalkingHungerRate: number;
   /** Scaled by the odour sensed and by Hunger, which sets how much the odour matters. */
   readonly startWalkingOdourRate: number;
+  /** Scaled by the fourth power of Thirst, as Hunger is, so a parched fly searches. */
+  readonly startWalkingThirstRate: number;
   readonly stopWalkingSpontaneousRate: number;
   readonly stopWalkingLowArousalRate: number;
   /** Grooming has no contamination model, so nothing about dirt drives these. */
@@ -196,6 +198,7 @@ export interface ModelParameters {
   readonly walkAfterGroomingArousalRate: number;
   readonly walkAfterGroomingHungerRate: number;
   readonly walkAfterGroomingOdourRate: number;
+  readonly walkAfterGroomingThirstRate: number;
   readonly takeOffFromImmobilitySpontaneousRate: number;
   readonly takeOffFromImmobilityArousalRate: number;
   readonly takeOffFromWalkingSpontaneousRate: number;
@@ -308,6 +311,11 @@ export interface ModelParameters {
   readonly walkAfterGroomingHumidityRate: number;
   /** The share of Hunger's push to start feeding that full Thirst takes away. */
   readonly feedingThirstInhibition: number;
+  /**
+   * Below this much of either reserve the fly weakens, starting effortful behaviour less and
+   * less often, by the square of how far the reserve has fallen towards empty.
+   */
+  readonly weaknessReserve: number;
 }
 
 export const DEFAULT_PARAMETERS: ModelParameters = {
@@ -326,6 +334,7 @@ export const DEFAULT_PARAMETERS: ModelParameters = {
   startWalkingLightRate: 0.002,
   startWalkingHungerRate: 0.03,
   startWalkingOdourRate: 0.02,
+  startWalkingThirstRate: 0.03,
   stopWalkingSpontaneousRate: 0.02,
   stopWalkingLowArousalRate: 0.06,
   startGroomingSpontaneousRate: 0.001,
@@ -335,6 +344,7 @@ export const DEFAULT_PARAMETERS: ModelParameters = {
   walkAfterGroomingArousalRate: 0.03,
   walkAfterGroomingHungerRate: 0.06,
   walkAfterGroomingOdourRate: 0.02,
+  walkAfterGroomingThirstRate: 0.06,
   takeOffFromImmobilitySpontaneousRate: 0.002,
   takeOffFromImmobilityArousalRate: 0.02,
   takeOffFromWalkingSpontaneousRate: 0.018,
@@ -377,10 +387,10 @@ export const DEFAULT_PARAMETERS: ModelParameters = {
   stopFeedingStartleRate: 2,
   feedingIntake: 0.004,
   initialHydration: 0.6,
-  waterLossResting: 9e-6,
-  waterLossWalking: 1.5e-5,
-  waterLossFlying: 4e-5,
-  waterLossSleeping: 6e-6,
+  waterLossResting: 5e-6,
+  waterLossWalking: 8e-6,
+  waterLossFlying: 2e-5,
+  waterLossSleeping: 3.5e-6,
   startDrinkingThirstRate: 1,
   stopDrinkingSatietyRate: 0.15,
   stopDrinkingStartleRate: 2,
@@ -399,6 +409,7 @@ export const DEFAULT_PARAMETERS: ModelParameters = {
   startWalkingHumidityRate: 0.02,
   walkAfterGroomingHumidityRate: 0.02,
   feedingThirstInhibition: 0.8,
+  weaknessReserve: 0.15,
 };
 
 const NO_CONTRIBUTIONS: Readonly<Record<DriverId, number>> = {
@@ -457,12 +468,43 @@ function dampness(senses: Senses, parameters: ModelParameters): number {
     : 0;
 }
 
+/** Transitions that take effort to start, which a weak fly starts less often. */
+const EFFORTFUL: ReadonlySet<TransitionId> = new Set<TransitionId>([
+  "immobility-to-walking",
+  "immobility-to-grooming",
+  "grooming-to-walking",
+  "immobility-to-flying",
+  "walking-to-flying",
+]);
+
+/** From 1 for a fly with enough of both reserves down to 0 as either runs out. */
+function vigour(state: InternalState, parameters: ModelParameters): number {
+  const reserve = Math.min(state.energy, state.hydration);
+  return Math.min(1, reserve / parameters.weaknessReserve) ** 2;
+}
+
 /**
  * Each Driver's share of a Transition Hazard, per second. The contributions add
  * up to the hazard, so a bar of them shows directly what is pushing a transition.
- * Only the current Drivers affect a hazard, so time spent in a bout can't.
+ * Only the current Drivers affect a hazard, so time spent in a bout can't. A weak fly's
+ * Drivers push less towards effortful behaviour, which shrinks the whole bar.
  */
 export function driverContributions(
+  transition: TransitionId,
+  state: InternalState,
+  senses: Senses,
+  parameters: ModelParameters,
+): Record<DriverId, number> {
+  const contributions = unweakenedContributions(transition, state, senses, parameters);
+  if (!EFFORTFUL.has(transition)) return contributions;
+  const strength = vigour(state, parameters);
+  if (strength === 1) return contributions;
+  return Object.fromEntries(
+    DRIVERS.map((driver) => [driver, contributions[driver] * strength]),
+  ) as Record<DriverId, number>;
+}
+
+function unweakenedContributions(
   transition: TransitionId,
   state: InternalState,
   senses: Senses,
@@ -483,6 +525,7 @@ export function driverContributions(
         startle: parameters.startWalkingStartleRate * startle,
         hunger: parameters.startWalkingHungerRate * hunger ** 4,
         odour: parameters.startWalkingOdourRate * senses.odour * hunger,
+        thirst: parameters.startWalkingThirstRate * thirst ** 4,
         humidity: parameters.startWalkingHumidityRate * damp * thirst,
       };
     case "immobility-to-grooming":
@@ -501,6 +544,7 @@ export function driverContributions(
         startle: parameters.walkAfterGroomingStartleRate * startle,
         hunger: parameters.walkAfterGroomingHungerRate * hunger ** 4,
         odour: parameters.walkAfterGroomingOdourRate * senses.odour * hunger,
+        thirst: parameters.walkAfterGroomingThirstRate * thirst ** 4,
         humidity: parameters.walkAfterGroomingHumidityRate * damp * thirst,
       };
     case "immobility-to-flying":

@@ -47,6 +47,7 @@ export interface FlyModel {
     readonly behaviour: Behaviour;
     readonly wings: "rest" | "blur";
     readonly proboscis: "folded" | "extended";
+    readonly dead: boolean;
   };
   /** Poses the fly from simulated behaviour alone, so it can't show what the model isn't doing. */
   animate(sample: RunSample): void;
@@ -292,6 +293,7 @@ export function createFlyModel(): FlyModel {
   let stridePhase = 0;
   let previousTimeSeconds = 0;
   let shownBehaviour: Behaviour = "immobility";
+  let shownDead = false;
 
   function animate(sample: RunSample): void {
     const elapsedSeconds = Math.max(0, sample.timeSeconds - previousTimeSeconds);
@@ -312,9 +314,11 @@ export function createFlyModel(): FlyModel {
     proboscis.scale.y = takingIn
       ? 1 + 0.08 * Math.sin(2 * Math.PI * PUMPS_PER_SECOND * sample.timeSeconds)
       : 1;
+    shownDead = sample.death !== null;
     // When walking stops, all six feet go down where they are, and then nothing moves.
+    // A dead fly's legs curl in, as they are tucked in flight.
     for (const leg of legs) {
-      if (flying) poseLeg(leg, tuckedFoot(leg));
+      if (flying || shownDead) poseLeg(leg, tuckedFoot(leg));
       else if (grooming && leg.isFront) poseLeg(leg, rubbingFoot(leg, sample.timeSeconds));
       else poseLeg(leg, gaitFoot(leg, stridePhase, walking));
     }
@@ -331,6 +335,7 @@ export function createFlyModel(): FlyModel {
       behaviour: shownBehaviour,
       wings: shownBehaviour === "flying" ? "blur" : "rest",
       proboscis: proboscis.visible ? "extended" : "folded",
+      dead: shownDead,
     }),
   };
 }

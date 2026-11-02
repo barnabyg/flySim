@@ -1,0 +1,69 @@
+import { expect, test } from "@playwright/test";
+import { currentSample, currentTime, openApp, runRecord } from "./helpers";
+
+test("removing the food takes it away as an Intervention, and putting it back restores it", async ({
+  page,
+}) => {
+  await openApp(page);
+  const button = page.locator("#food-presence");
+  await expect(button).toHaveAccessibleName("Remove the food");
+  const place = (await currentSample(page))?.food;
+
+  await button.click();
+  await expect(button).toHaveAccessibleName("Put the food back");
+  await expect(button).toHaveAttribute("aria-pressed", "true");
+  await expect.poll(async () => (await currentSample(page))?.food).toBeNull();
+  expect(await page.evaluate(() => window.flySim.sources().food)).toBeNull();
+  // The water is still there.
+  expect((await currentSample(page))?.water).not.toBeNull();
+
+  await button.click();
+  await expect(button).toHaveAccessibleName("Remove the food");
+  await expect.poll(async () => (await currentSample(page))?.food).toEqual(place);
+  expect((await runRecord(page)).interventions.map(({ type, step }) => ({ type, step }))).toEqual([
+    { type: "remove-source", step: expect.any(Number) },
+    { type: "restore-source", step: expect.any(Number) },
+  ]);
+});
+
+test("removing a source while paused hides it at once", async ({ page }) => {
+  await openApp(page);
+  await page.locator("#pause").click();
+  await page.locator("#water-presence").click();
+
+  expect(await page.evaluate(() => window.flySim.sources().water)).toBeNull();
+  expect((await currentSample(page))?.water).not.toBeNull();
+  await page.locator("#pause").click();
+  await expect.poll(async () => (await currentSample(page))?.water).toBeNull();
+});
+
+test("without water the fly dies, the run stops, and restart still works", async ({ page }) => {
+  // Nearly dry at the start, so that it dies within a few simulated hours.
+  await page.goto("/?seed=8&speed=1000&hydration=0.03");
+  await expect.poll(() => currentSample(page).then(Boolean), { timeout: 30_000 }).toBe(true);
+  expect((await runRecord(page)).samples[0]?.hydration).toBeCloseTo(0.03, 6);
+  await page.locator("#water-presence").click();
+
+  await expect
+    .poll(async () => (await currentSample(page))?.death?.cause, { timeout: 45_000 })
+    .toBe("desiccation");
+  await expect(page.locator("#death")).toBeVisible();
+  await expect(page.locator("#death")).toContainText("lack of water");
+  const view = await page.evaluate(() => window.flySim.view());
+  expect(view.flyPose.dead).toBe(true);
+
+  // Nothing moves on: not the time, the bars or the ribbon.
+  const time = await currentTime(page);
+  const ribbonEnd = await page.locator("#ribbon").getAttribute("data-window-end");
+  await page.waitForTimeout(1000);
+  expect(await currentTime(page)).toBe(time);
+  expect(await page.locator("#ribbon").getAttribute("data-window-end")).toBe(ribbonEnd);
+  expect((await currentSample(page))?.transitions).toEqual([]);
+  expect((await runRecord(page)).death?.cause).toBe("desiccation");
+
+  await page.locator("#restart").click();
+  // The same seed, alive again.
+  await expect.poll(async () => (await currentSample(page))?.death, { timeout: 30_000 }).toBeNull();
+  expect(await page.evaluate(() => window.flySim.seed)).toBe(8);
+  await expect(page.locator("#death")).toBeHidden();
+});

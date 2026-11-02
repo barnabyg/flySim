@@ -28,8 +28,8 @@ const IMMOBILITY_AND_WALKING_ONLY = {
 describe("Transition Hazards", () => {
   it("splits a known hazard into its per-Driver contributions", () => {
     // At step 0, arousal is 0.5, so arousal contributes 0.25 * 0.5^2 = 0.0625 per second,
-    // the run starts at lights-on, so light adds 0.002, and Hunger is 0.4, so it adds
-    // 0.03 * 0.4^4 = 0.000768.
+    // the run starts at lights-on, so light adds 0.002, and Hunger and Thirst are both 0.4,
+    // so each adds 0.03 * 0.4^4 = 0.000768.
     // With no food or water in the Room, the fly senses neither odour nor raised humidity.
     const empty = { room: DEFAULT_ROOM, seed: 1, food: null, water: null };
     const [state] = createSimulationRun(empty).current().transitions;
@@ -39,7 +39,8 @@ describe("Transition Hazards", () => {
     expect(state?.contributions.arousal).toBeCloseTo(0.0625, 12);
     expect(state?.contributions.light).toBeCloseTo(0.002, 12);
     expect(state?.contributions.hunger).toBeCloseTo(0.000768, 12);
-    expect(state?.hazard).toBeCloseTo(0.065568, 12);
+    expect(state?.contributions.thirst).toBeCloseTo(0.000768, 12);
+    expect(state?.hazard).toBeCloseTo(0.066336, 12);
   });
 
   it("has per-Driver contributions that add up to the hazard, and a strip from the hazard alone", () => {
@@ -97,9 +98,14 @@ describe("Transition Hazards", () => {
   });
 
   it("gives the same hazard at the same arousal however long the bout has lasted", () => {
-    // Hunger and the odour sensed move too, so only arousal is left to vary here.
+    // Hunger, Thirst and the odour sensed move too, so only arousal is left to vary here.
     const { samples, firedTransitions } = recordOf(23, 7200, {
-      parameters: { ...DEFAULT_PARAMETERS, startWalkingHungerRate: 0, startWalkingOdourRate: 0 },
+      parameters: {
+        ...DEFAULT_PARAMETERS,
+        startWalkingHungerRate: 0,
+        startWalkingOdourRate: 0,
+        startWalkingThirstRate: 0,
+      },
     });
     const timeInBout = (timeSeconds: number): number => {
       const started = firedTransitions.findLast((fired) => fired.timeSeconds <= timeSeconds);
@@ -207,18 +213,19 @@ describe("red strip probability", () => {
         startWalkingArousalRate: 0,
         startWalkingLightRate: 0,
         startWalkingHungerRate: 0,
+        startWalkingThirstRate: 0,
       },
     });
     expect(halfLifeRun.current().transitions[0]?.fireProbabilityNextMinute).toBeCloseTo(0.5, 12);
 
-    // The default initial hazard of 0.065568 per second gives 1 - exp(-3.93408).
+    // The default initial hazard of 0.066336 per second gives 1 - exp(-3.98016).
     const defaultRun = createSimulationRun({
       room: DEFAULT_ROOM,
       seed: 1,
       food: null,
       water: null,
     });
-    expect(defaultRun.current().transitions[0]?.fireProbabilityNextMinute).toBeCloseTo(0.980436, 5);
+    expect(defaultRun.current().transitions[0]?.fireProbabilityNextMinute).toBeCloseTo(0.981317, 5);
   });
 
   // Different Trigger Level streams change when transitions fire and nothing else. So

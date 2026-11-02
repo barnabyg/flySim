@@ -63,7 +63,10 @@ export type InterventionAction =
   | { readonly type: "disturb" }
   | { readonly type: "light-schedule"; readonly lightSchedule: LightSchedule }
   /** Drags a source across the floor. Its field goes with it, and the fly learns of it only by sensing it. */
-  | { readonly type: "move-source"; readonly source: SourceKind; readonly place: FloorPlace };
+  | { readonly type: "move-source"; readonly source: SourceKind; readonly place: FloorPlace }
+  /** Takes a source away, with its field, until it is restored to where it was. */
+  | { readonly type: "remove-source"; readonly source: SourceKind }
+  | { readonly type: "restore-source"; readonly source: SourceKind };
 
 export type InterventionType = InterventionAction["type"];
 
@@ -126,6 +129,15 @@ export interface RunSample extends MovementPose, InternalState {
   readonly food: FloorPlace | null;
   /** Where the water is now, or null if there is none. */
   readonly water: FloorPlace | null;
+  /** How the fly died, or null while it lives. */
+  readonly death: Death | null;
+}
+
+/** Death ends a run. It comes only when a reserve runs out. */
+export interface Death {
+  readonly step: number;
+  readonly timeSeconds: number;
+  readonly cause: "starvation" | "desiccation";
 }
 
 export interface FiredTransition extends TransitionState {
@@ -164,6 +176,8 @@ export interface RunRecord {
   readonly timeOnSurfaceSeconds: Readonly<Record<Surface, number>>;
   /** Covers the whole run, even when older samples were dropped. */
   readonly timeInBehaviourSeconds: Readonly<Record<Behaviour, number>>;
+  /** How the fly died, or null if it is alive. */
+  readonly death: Death | null;
 }
 
 /** The engine's single public interface. */
@@ -240,6 +254,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   let startle = 0;
   let energy = parameters.initialEnergy;
   let hydration = parameters.initialHydration;
+  let death: Death | null = null;
   const movement = createMovement(room, movementNoise);
   // The fly starts used to what it senses where it starts.
   let recentOdour = contents.odourAt(movement.pose().position);
@@ -439,6 +454,12 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
         case "move-source":
           contents.move(due.source, due.place);
           break;
+        case "remove-source":
+          contents.remove(due.source);
+          break;
+        case "restore-source":
+          contents.restore(due.source);
+          break;
       }
     }
   }
@@ -521,12 +542,25 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       behaviour,
       vigilanceState: vigilanceStateOf(behaviour),
       ...movement.pose(),
-      speedMetresPerSecond: currentSpeed(),
+      speedMetresPerSecond: death ? 0 : currentSpeed(),
       ...internalState(),
-      transitions: pending.map((item) => transitionState(item.definition.id)),
+      transitions: death ? [] : pending.map((item) => transitionState(item.definition.id)),
       food: contents.place("food"),
       water: contents.place("water"),
+      death,
     };
+  }
+
+  /** A reserve that has run out kills the fly where it is, and it drops to the floor. */
+  function checkForDeath(): boolean {
+    const cause = energy <= 0 ? "starvation" : hydration <= 0 ? "desiccation" : undefined;
+    if (!cause) return false;
+    death = { step, timeSeconds: step * STEP_SECONDS, cause };
+    behaviour = "immobility";
+    sleepDepth = null;
+    movement.fall();
+    sensed = undefined;
+    return true;
   }
 
   function recordSample(): void {
@@ -536,7 +570,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   }
 
   function advanceSteps(steps: number): void {
-    for (let i = 0; i < steps; i++) {
+    for (let i = 0; i < steps && !death; i++) {
       applyDueInterventions();
       sensed = undefined;
       fireDueTransition();
@@ -558,7 +592,9 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       step += 1;
       // The fly may have moved, and the time of day has moved on.
       sensed = undefined;
-      if (step % STEPS_PER_SECOND === 0) recordSample();
+      const died = checkForDeath();
+      // The record always ends with the moment of death.
+      if (step % STEPS_PER_SECOND === 0 || died) recordSample();
     }
   }
 
@@ -572,6 +608,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
     current,
     firedTransitions,
     intervene: (action) => {
+      if (death) throw new Error("The fly has died, so the run can't change");
       validateAction(action, room);
       const intervention: Intervention = { ...action, step };
       // Later than any at this step or before, which keeps the list in step order.
@@ -599,6 +636,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       timeInBehaviourSeconds: Object.fromEntries(
         BEHAVIOURS.map((each) => [each, (stepsInBehaviour.get(each) ?? 0) * STEP_SECONDS]),
       ) as Record<Behaviour, number>,
+      death,
     }),
   };
 }

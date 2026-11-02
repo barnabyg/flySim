@@ -25,6 +25,7 @@ export {
   MODEL_VERSION,
   STEPS_PER_SECOND,
   createSimulationRun,
+  type Death,
   type FiredTransition,
   type Intervention,
   type InterventionAction,

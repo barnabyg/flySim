@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_PARAMETERS,
   DEFAULT_ROOM,
   STEPS_PER_SECOND,
   createSimulationRun,
@@ -157,7 +158,8 @@ describe("the light's effect on the fly", () => {
 
   it("makes the fly less active as soon as the light goes out", () => {
     // The same seeds and hours, with the light put out two hours into the day or left on.
-    // Trips to food and water would swamp the light's effect in so few runs, so there are none.
+    // Trips to food and water, and the restlessness of a fly in need of them, would swamp the
+    // light's effect in so few runs, so a well-fed and watered fly has none to make.
     const walkingShare = (lightSchedule?: LightSchedule): number => {
       let walking = 0;
       for (const seed of [41, 42, 43, 44, 45, 46]) {
@@ -166,6 +168,7 @@ describe("the light's effect on the fly", () => {
           seed,
           food: null,
           water: null,
+          parameters: { ...DEFAULT_PARAMETERS, initialEnergy: 0.95, initialHydration: 0.95 },
           interventions: lightSchedule
             ? [{ step: 2 * HOUR * STEPS_PER_SECOND, type: "light-schedule", lightSchedule }]
             : [],

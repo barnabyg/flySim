@@ -82,6 +82,10 @@ export interface RoomContents {
   place(kind: SourceKind): FloorPlace | null;
   /** Puts a source somewhere else on the floor, taking its field with it. */
   move(kind: SourceKind, place: FloorPlace): void;
+  /** Takes a source out of the Room, with its field. It keeps its place for its return. */
+  remove(kind: SourceKind): void;
+  /** Puts a removed source back where it was last moved to. */
+  restore(kind: SourceKind): void;
 }
 
 export function createRoomContents(
@@ -93,23 +97,33 @@ export function createRoomContents(
     const place = initialPlaces[kind];
     if (place) validateFloorPlace(room, place);
   }
+  /** Where each source is, or was when it was removed. */
   const places = { ...initialPlaces };
+  const removed = new Set<SourceKind>();
+  const present = (kind: SourceKind): FloorPlace | null =>
+    removed.has(kind) ? null : places[kind];
 
   return {
     touching: (kind, position, surface) => {
-      const place = places[kind];
+      const place = present(kind);
       return (
         place !== null &&
         surface === "floor" &&
         Math.hypot(position.x - place.x, position.y - place.y) <= SOURCE_RADIUS_METRES
       );
     },
-    odourAt: (position) => odourField(places.food, settings.odourRangeMetres, position),
-    humidityAt: (position) => humidityField(places.water, settings, position),
-    place: (kind) => places[kind],
+    odourAt: (position) => odourField(present("food"), settings.odourRangeMetres, position),
+    humidityAt: (position) => humidityField(present("water"), settings, position),
+    place: present,
     move: (kind, place) => {
       validateFloorPlace(room, place);
       places[kind] = place;
+    },
+    remove: (kind) => {
+      removed.add(kind);
+    },
+    restore: (kind) => {
+      removed.delete(kind);
     },
   };
 }

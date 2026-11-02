@@ -74,6 +74,8 @@ export interface Movement {
   /** Whether a flight has reached the surface it was heading for. */
   hasArrived(): boolean;
   land(): void;
+  /** Drops straight to the floor below, from wherever it is, and stays there. */
+  fall(): void;
   /** The surface it stands on, or null in flight. Cheaper than a whole pose. */
   surface(): Surface | null;
   pose(): MovementPose;
@@ -347,6 +349,20 @@ export function createMovement(room: RoomSetup, random: RandomStream): Movement 
       }
     },
     hasArrived: () => flight?.arrived ?? false,
+    fall: () => {
+      flight = undefined;
+      surface = "floor";
+      position.z = 0;
+      for (const axis of ["x", "y"] as const) {
+        position[axis] = Math.min(
+          extents[axis] - CLEARANCE_METRES,
+          Math.max(CLEARANCE_METRES, position[axis]),
+        );
+      }
+      forward.z = 0;
+      if (Math.hypot(forward.x, forward.y) < 0.01) forward.x = 1;
+      normaliseForward();
+    },
     land: () => {
       flight = undefined;
     },

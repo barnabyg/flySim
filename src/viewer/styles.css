@@ -341,3 +341,18 @@ body {
   color: var(--background);
   background: var(--text);
 }
+
+#death {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  padding: 6px 10px;
+  color: var(--text);
+  background: rgb(120 20 20 / 85%);
+  border-radius: 6px;
+  pointer-events: none;
+}
+
+#death[hidden] {
+  display: none;
+}
