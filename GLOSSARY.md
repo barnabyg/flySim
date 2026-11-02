@@ -61,17 +61,17 @@ A timed change the experimenter makes to a Simulation Run, such as a Disturb or 
 _Avoid_: Event, input
 
 **Disturb**:
-The Intervention that jolts the fly, like a tap on its tube, and creates a Startle.
+The Intervention that jolts the fly, as a lab might by knocking its tube, and creates a Startle.
 _Avoid_: Poke, tap, stimulus
 
 ### Runs
 
 **Simulation Run**:
-One seeded run of the model from a setup of Room, Light Schedule, model parameters and Interventions. The same setup and seed always give the same run, at any time speed.
+One seeded run of the model from a setup of Room, Light Schedule, model parameters and Interventions. The same setup and seed always give the same run, at any time speed. A test can also choose which random stream draws Trigger Levels.
 _Avoid_: Simulation, session, episode
 
 **Run Record**:
-What a Simulation Run stores: its setup and seed, a sample of the fly's state each simulated second, every fired transition and every Intervention. It is enough to check and replay the run.
+What a Simulation Run stores: its seed and setup, a sample of the fly's state each simulated second, every fired transition and every Intervention. A long run in the viewer keeps only its latest samples.
 _Avoid_: Log, history, trace
 
 ### Observations

@@ -14,5 +14,5 @@ Single-context: one `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/ag
 
 ## Code and verification
 
-- **Code map:** what lives where in `src/`, `tests/` and `e2e/`, including the worker path every new run input or command passes through. See the Code map section of `README.md`.
+- **Code map:** what lives where in `src/`, `tests/` and `e2e/`, including the worker path every new run setting or command passes through. See the Code map section of `README.md`.
 - **Verify:** install, single-test and full verification commands. See the Verify it section of `README.md`.
