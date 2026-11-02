@@ -60,9 +60,10 @@ Sleep's timing, the rebound and the light schedule's effects are rough tunings, 
 
 ## Verify it
 
-The first time, install the browser the tests use:
+The first time, from the repo root, install the dependencies and the browser the tests use:
 
 ```powershell
+npm ci
 npx playwright install chromium
 ```
 
@@ -71,6 +72,17 @@ Then run every gate: formatting, lint with type-aware static analysis, type chec
 ```powershell
 npm run verify
 ```
+
+To run one test file, or only the tests whose names match some text:
+
+```powershell
+npx vitest run tests/engine/sleep.test.ts
+npx vitest run tests/engine/sleep.test.ts -t "Sleep Depth"
+npx playwright test e2e/room.spec.ts
+npx playwright test e2e/timeControl.spec.ts -g "ribbon"
+```
+
+Playwright starts the dev server itself.
 
 CI runs the same command on the only Node version it's tested with.
 
