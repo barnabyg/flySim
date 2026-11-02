@@ -20,7 +20,14 @@ export async function runRecord(page: Page): Promise<RunRecord> {
 }
 
 /** What the fly looks like in one frame, and the latest step when it was taken. */
-async function flyFrame(page: Page) {
+interface FlyFrame {
+  readonly step: number;
+  readonly behaviour: Behaviour;
+  readonly position: { x: number; y: number; z: number };
+  readonly feet: readonly { x: number; y: number; z: number }[];
+}
+
+async function flyFrame(page: Page): Promise<FlyFrame> {
   return page.evaluate(() => ({
     step: window.flySim.current()?.step ?? -1,
     behaviour: window.flySim.view().flyPose.behaviour,
@@ -28,8 +35,6 @@ async function flyFrame(page: Page) {
     feet: window.flySim.view().flyFeet,
   }));
 }
-
-type FlyFrame = Awaited<ReturnType<typeof flyFrame>>;
 
 /**
  * Takes two frames 400 ms apart within one bout of a behaviour, so it returns frames from one bout
