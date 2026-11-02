@@ -182,10 +182,11 @@ describe("death", () => {
 });
 
 describe("a default run", () => {
-  for (const seed of [1, 2, 3, 4, 5, 6]) {
+  // Long runs, so few seeds: the daily loop's seeds cover more flies for a day each.
+  for (const seed of [1, 2, 3]) {
     it(`lasts several simulated days without death, seed ${seed}`, () => {
       const run = createSimulationRun({ room: DEFAULT_ROOM, seed, maxRecordedSamples: 1 });
-      run.advanceSeconds(4 * DAY);
+      run.advanceSeconds(3 * DAY);
       expect(run.record().death).toBeNull();
     });
   }

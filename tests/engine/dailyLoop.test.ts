@@ -17,10 +17,21 @@ function dayOf(seed: number, setup: Partial<SimulationSetup> = {}) {
   return { hourly, feeds: trips("feeding"), drinks: trips("drinking"), death: run.current().death };
 }
 
+/** Each seed's default day, run once and shared by the tests that need it. */
+const defaultDays = new Map<number, ReturnType<typeof dayOf>>();
+function defaultDayOf(seed: number) {
+  let day = defaultDays.get(seed);
+  if (!day) {
+    day = dayOf(seed);
+    defaultDays.set(seed, day);
+  }
+  return day;
+}
+
 describe("the daily loop", () => {
   for (const seed of SEEDS) {
     it(`finds food and water by searching within a simulated day, seed ${seed}`, () => {
-      const { feeds, drinks, death } = dayOf(seed);
+      const { feeds, drinks, death } = defaultDayOf(seed);
 
       expect(death).toBeNull();
       expect(feeds).toBeGreaterThanOrEqual(1);
@@ -31,7 +42,7 @@ describe("the daily loop", () => {
   it("makes a fly kept from food hungrier, and one with food less hungry", () => {
     for (const seed of SEEDS.slice(0, 3)) {
       const kept = dayOf(seed, { food: null }).hourly;
-      const fed = dayOf(seed).hourly;
+      const fed = defaultDayOf(seed).hourly;
       const [start] = kept;
       if (!start) throw new Error("no samples");
 
@@ -45,7 +56,7 @@ describe("the daily loop", () => {
   it("makes a fly kept from water thirstier, and one with water less thirsty", () => {
     for (const seed of SEEDS.slice(0, 3)) {
       const kept = dayOf(seed, { water: null }).hourly;
-      const watered = dayOf(seed).hourly;
+      const watered = defaultDayOf(seed).hourly;
       const [start] = kept;
       if (!start) throw new Error("no samples");
 
