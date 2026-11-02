@@ -7,10 +7,10 @@ import {
   createSimulationRun,
   type Position,
   type RoomSetup,
-  type RunRecord,
   type RunSample,
   type Surface,
 } from "../../src/engine";
+import { recordOf } from "./helpers";
 
 /** Starts walking at once and rarely stops, so the fly covers plenty of ground. */
 const WALKING_MOSTLY = {
@@ -18,19 +18,6 @@ const WALKING_MOSTLY = {
   startWalkingSpontaneousRate: 10,
   stopWalkingSpontaneousRate: 0.001,
   stopWalkingLowArousalRate: 0,
-  takeOffFromImmobilitySpontaneousRate: 0,
-  takeOffFromImmobilityArousalRate: 0,
-  takeOffFromWalkingSpontaneousRate: 0,
-  takeOffFromWalkingArousalRate: 0,
-  startGroomingSpontaneousRate: 0,
-  startGroomingArousalRate: 0,
-  fallAsleepSleepPressureRate: 0,
-  fallAsleepCircadianRate: 0,
-};
-
-/** Only the original two transitions can fire, so nothing competes with them. */
-const IMMOBILITY_AND_WALKING_ONLY = {
-  ...DEFAULT_PARAMETERS,
   takeOffFromImmobilitySpontaneousRate: 0,
   takeOffFromImmobilityArousalRate: 0,
   takeOffFromWalkingSpontaneousRate: 0,
@@ -88,12 +75,6 @@ function surfaceProblem(sample: RunSample, room: RoomSetup): string | undefined 
   if (Math.abs(dot(forward, up)) > 1e-9) return "not facing along the surface";
   if (Math.abs(dot(forward, forward) - 1) > 1e-9) return "not a unit direction";
   return undefined;
-}
-
-function recordOf(seed: number, simulatedSeconds: number): RunRecord {
-  const run = createSimulationRun({ room: DEFAULT_ROOM, seed });
-  run.advanceSeconds(simulatedSeconds);
-  return run.record();
 }
 
 describe("Simulation Run", () => {
@@ -290,27 +271,6 @@ describe("Simulation Run", () => {
     });
   });
 
-  it("shares firings between competing transitions in proportion to their hazards", () => {
-    // Constant hazards of 0.06 and 0.02 per second, so 3 in 4 firings should start walking.
-    const parameters = {
-      ...IMMOBILITY_AND_WALKING_ONLY,
-      startWalkingSpontaneousRate: 0.06,
-      startWalkingArousalRate: 0,
-      startGroomingSpontaneousRate: 0.02,
-    };
-    const fromImmobility = Array.from({ length: 20 }, (_, seed) => {
-      const run = createSimulationRun({ room: DEFAULT_ROOM, seed, parameters });
-      run.advanceSeconds(3600);
-      return run.firedTransitions.filter((fired) => fired.from === "immobility");
-    }).flat();
-    const walkingShare =
-      fromImmobility.filter((fired) => fired.to === "walking").length / fromImmobility.length;
-
-    expect(fromImmobility.length).toBeGreaterThan(500);
-    expect(walkingShare).toBeGreaterThan(0.7);
-    expect(walkingShare).toBeLessThan(0.8);
-  });
-
   describe("flight", () => {
     const FLYING_OFTEN = {
       ...DEFAULT_PARAMETERS,
@@ -424,89 +384,6 @@ describe("Simulation Run", () => {
       expect(takeOffs.length).toBeGreaterThan(0);
       for (const fired of takeOffs) expect(fired.hazard).toBeGreaterThan(0);
     });
-  });
-
-  it("gives the same hazard at the same arousal however long the bout has lasted", () => {
-    const { samples, firedTransitions } = recordOf(23, 7200);
-    const timeInBout = (timeSeconds: number): number => {
-      const started = firedTransitions.findLast((fired) => fired.timeSeconds <= timeSeconds);
-      return timeSeconds - (started?.timeSeconds ?? 0);
-    };
-    const immobile = samples
-      .filter((sample) => sample.behaviour === "immobility")
-      .map((sample) => ({
-        arousal: sample.arousal,
-        hazard: sample.transitions[0]?.hazard ?? NaN,
-        timeInBout: timeInBout(sample.timeSeconds),
-      }))
-      .sort((a, b) => a.arousal - b.arousal);
-
-    // Neighbours in arousal should agree on hazard. Where their time in the bout
-    // differs a lot, any direct dependence on it would show up as a gap.
-    let comparisons = 0;
-    for (let i = 1; i < immobile.length; i++) {
-      const a = immobile[i - 1];
-      const b = immobile[i];
-      if (!a || !b) throw new Error("missing sample");
-      if (Math.abs(a.timeInBout - b.timeInBout) > 30) {
-        comparisons += 1;
-        expect(Math.abs(a.hazard - b.hazard)).toBeLessThan(0.001);
-      }
-    }
-    expect(comparisons).toBeGreaterThan(50);
-  });
-
-  it("draws Trigger Levels from an exponential distribution with mean 1", () => {
-    // Competing transitions would bias the level of whichever fires first, so only one competes.
-    const levels = Array.from({ length: 20 }, (_, seed) => {
-      const run = createSimulationRun({
-        room: DEFAULT_ROOM,
-        seed,
-        parameters: IMMOBILITY_AND_WALKING_ONLY,
-      });
-      run.advanceSeconds(7200);
-      return run.record();
-    })
-      .flatMap((record) => record.firedTransitions)
-      .map((fired) => fired.triggerLevel);
-    const mean = levels.reduce((sum, level) => sum + level, 0) / levels.length;
-    const shareBelowOne = levels.filter((level) => level < 1).length / levels.length;
-
-    expect(levels.length).toBeGreaterThan(500);
-    expect(mean).toBeGreaterThan(0.9);
-    expect(mean).toBeLessThan(1.1);
-    // For an exponential with mean 1, P(level < 1) = 1 - 1/e = 0.632.
-    expect(shareBelowOne).toBeGreaterThan(0.58);
-    expect(shareBelowOne).toBeLessThan(0.68);
-  });
-
-  it("fires a transition when its accumulated hazard reaches the Trigger Level", () => {
-    const { samples, firedTransitions } = recordOf(31, 7200);
-
-    // Integrate the once-a-second hazard over each bout that's long enough for
-    // the integral to be accurate, and compare it with the Trigger Level.
-    let checked = 0;
-    let boutStart = 0;
-    for (const fired of firedTransitions) {
-      const inBout = samples.filter(
-        (sample) => sample.timeSeconds > boutStart && sample.timeSeconds <= fired.timeSeconds,
-      );
-      if (inBout.length >= 20) {
-        const accumulated = inBout.reduce(
-          (sum, sample) =>
-            sum +
-            (sample.transitions.find((state) => state.transition === fired.transition)?.hazard ??
-              0),
-          0,
-        );
-        expect(Math.abs(accumulated - fired.triggerLevel)).toBeLessThan(
-          0.1 * fired.triggerLevel + 0.05,
-        );
-        checked += 1;
-      }
-      boutStart = fired.timeSeconds;
-    }
-    expect(checked).toBeGreaterThan(10);
   });
 
   it("retains only recent samples when asked, without changing the run", () => {

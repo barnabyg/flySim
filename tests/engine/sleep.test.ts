@@ -4,23 +4,12 @@ import {
   DEFAULT_ROOM,
   DRIVERS,
   createSimulationRun,
-  type ModelParameters,
-  type RunRecord,
   type RunSample,
   type Surface,
 } from "../../src/engine";
+import { recordOf } from "./helpers";
 
 const HOUR = 3600;
-
-function recordOf(
-  seed: number,
-  simulatedSeconds: number,
-  parameters: ModelParameters = DEFAULT_PARAMETERS,
-): RunRecord {
-  const run = createSimulationRun({ room: DEFAULT_ROOM, seed, parameters });
-  run.advanceSeconds(simulatedSeconds);
-  return run.record();
-}
 
 /** The stretches of a record's samples for which the fly is asleep. */
 function sleepBouts(samples: readonly RunSample[]): RunSample[][] {
@@ -75,10 +64,12 @@ describe("Sleep Depth", () => {
   it("lowers the wake hazard as it rises", () => {
     // With only the spontaneous Driver left, depth is the only thing that can move the hazard.
     const { samples } = recordOf(5, 24 * HOUR, {
-      ...DEFAULT_PARAMETERS,
-      wakeLowSleepPressureRate: 0,
-      wakeCircadianRate: 0,
-      wakeLightRate: 0,
+      parameters: {
+        ...DEFAULT_PARAMETERS,
+        wakeLowSleepPressureRate: 0,
+        wakeCircadianRate: 0,
+        wakeLightRate: 0,
+      },
     });
     const asleep = samples
       .filter((sample) => sample.behaviour === "sleeping")
@@ -202,11 +193,13 @@ describe("sleep", () => {
   it("gives the same sleep hazards at the same state however long the bout has lasted", () => {
     // Without Sleep Depth, the wake hazard depends on sleep pressure alone.
     const { samples, firedTransitions } = recordOf(1, 12 * HOUR, {
-      ...DEFAULT_PARAMETERS,
-      wakeSleepDepthReduction: 0,
-      fallAsleepCircadianRate: 0,
-      wakeCircadianRate: 0,
-      wakeLightRate: 0,
+      parameters: {
+        ...DEFAULT_PARAMETERS,
+        wakeSleepDepthReduction: 0,
+        fallAsleepCircadianRate: 0,
+        wakeCircadianRate: 0,
+        wakeLightRate: 0,
+      },
     });
     // Each record's bouts start at a firing, so the time since the last firing is time in bout.
     const timeInBout = (timeSeconds: number): number =>

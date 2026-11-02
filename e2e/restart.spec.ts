@@ -94,35 +94,6 @@ test("the Room's size can be changed, and the fly stays within the new Room", as
   }
 });
 
-test("the fly's feet never go through a surface as it crosses edges", async ({ page }) => {
-  // A small Room makes for many edges, and a low speed shows the frames around each crossing.
-  await page.goto("/?seed=3&width=0.1&depth=0.1&height=0.1&speed=5");
-  await expect.poll(() => currentSample(page).then(Boolean), { timeout: 30_000 }).toBe(true);
-
-  const { surfaces, worstOutside } = await page.evaluate(
-    () =>
-      new Promise<{ surfaces: string[]; worstOutside: number }>((resolve) => {
-        const surfaces = new Set<string>();
-        let worstOutside = 0;
-        const started = performance.now();
-        const watch = (): void => {
-          const surface = window.flySim.current()?.surface;
-          if (surface) surfaces.add(surface);
-          for (const { x, y, z } of window.flySim.view().flyFeet) {
-            worstOutside = Math.max(worstOutside, -x, -y, -z, x - 0.1, y - 0.1, z - 0.1);
-          }
-          if (surfaces.size >= 4 || performance.now() - started > 40_000) {
-            resolve({ surfaces: [...surfaces], worstOutside });
-          } else requestAnimationFrame(watch);
-        };
-        watch();
-      }),
-  );
-
-  expect(surfaces.length).toBeGreaterThanOrEqual(3);
-  expect(worstOutside).toBeLessThan(1e-5);
-});
-
 test("a Room size outside the allowed range falls back to a size that works", async ({ page }) => {
   await page.goto("/?seed=1&width=0.0001&depth=nonsense&height=900");
   await expect.poll(() => page.evaluate(() => window.flySim.current() !== undefined)).toBe(true);

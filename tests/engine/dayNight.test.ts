@@ -3,22 +3,12 @@ import {
   DEFAULT_LIGHT_SCHEDULE,
   DEFAULT_ROOM,
   createSimulationRun,
-  type LightSchedule,
   type RunRecord,
   type RunSample,
 } from "../../src/engine";
+import { recordOf } from "./helpers";
 
 const HOUR = 3600;
-
-function recordOf(seed: number, simulatedSeconds: number, lightSchedule?: LightSchedule) {
-  const run = createSimulationRun({
-    room: DEFAULT_ROOM,
-    seed,
-    ...(lightSchedule ? { lightSchedule } : {}),
-  });
-  run.advanceSeconds(simulatedSeconds);
-  return run.record();
-}
 
 function sampleAt(record: RunRecord, timeSeconds: number): RunSample {
   const sample = record.samples.find((each) => each.timeSeconds === timeSeconds);
@@ -54,7 +44,7 @@ describe("the light schedule", () => {
   });
 
   it("follows a schedule other than the default", () => {
-    const record = recordOf(1, 3 * HOUR, { lightsOnHour: 8, lightHours: 2 });
+    const record = recordOf(1, 3 * HOUR, { lightSchedule: { lightsOnHour: 8, lightHours: 2 } });
 
     expect(sampleAt(record, 0).timeOfDayHours).toBe(8);
     expect(sampleAt(record, 2 * HOUR - 1).lightLevel).toBe(1);
