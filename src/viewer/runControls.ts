@@ -58,7 +58,7 @@ export function createRunControls(
   lightSchedule: LightSchedule,
   handlers: RunControlHandlers,
 ): void {
-  const lightsOff = (lightSchedule.lightsOnHour + lightSchedule.lightHours) % 24;
+  const lightsOffHour = (lightSchedule.lightsOnHour + lightSchedule.lightHours) % 24;
   container.innerHTML = `
     <button id="disturb" class="icon-button" type="button" aria-label="Disturb" title="Disturb">${DISTURB_ICON}</button>
     <button id="restart" class="icon-button" type="button" aria-label="Restart with the same seed" title="Restart with seed ${seed}">${RESTART_ICON}</button>
@@ -76,7 +76,7 @@ export function createRunControls(
       <summary class="icon-button" aria-label="Light schedule" title="Light schedule">${LIGHT_ICON}</summary>
       <form id="light-form" class="settings-form">
         <label>${LIGHT_ICON}<input id="lights-on" type="time" aria-label="Lights on" value="${clockValue(lightSchedule.lightsOnHour)}" required /></label>
-        <label>${DARK_ICON}<input id="lights-off" type="time" aria-label="Lights off" value="${clockValue(lightsOff)}" required /></label>
+        <label>${DARK_ICON}<input id="lights-off" type="time" aria-label="Lights off" value="${clockValue(lightsOffHour)}" required /></label>
         <div class="settings-buttons">
           <button id="always-on" class="icon-button" type="button" aria-label="Always on" title="Always on">${LIGHT_ICON}</button>
           <button id="always-off" class="icon-button" type="button" aria-label="Always off" title="Always off">${DARK_ICON}</button>
@@ -94,14 +94,21 @@ export function createRunControls(
   const height = container.querySelector<HTMLInputElement>("#room-height");
   const lightSettings = container.querySelector<HTMLDetailsElement>("#light-settings");
   const lightForm = container.querySelector<HTMLFormElement>("#light-form");
-  const lightsOn = container.querySelector<HTMLInputElement>("#lights-on");
+  const lightsOnInput = container.querySelector<HTMLInputElement>("#lights-on");
   const lightsOffInput = container.querySelector<HTMLInputElement>("#lights-off");
   const alwaysOn = container.querySelector<HTMLButtonElement>("#always-on");
   const alwaysOff = container.querySelector<HTMLButtonElement>("#always-off");
   if (!disturb || !restart || !newSeed || !form || !width || !depth || !height) {
     throw new Error("Malformed run controls");
   }
-  if (!lightSettings || !lightForm || !lightsOn || !lightsOffInput || !alwaysOn || !alwaysOff) {
+  if (
+    !lightSettings ||
+    !lightForm ||
+    !lightsOnInput ||
+    !lightsOffInput ||
+    !alwaysOn ||
+    !alwaysOff
+  ) {
     throw new Error("Malformed light controls");
   }
 
@@ -139,18 +146,20 @@ export function createRunControls(
   });
   lightForm.addEventListener("submit", (event) => {
     event.preventDefault();
-    const on = hoursFrom(lightsOn);
+    const on = hoursFrom(lightsOnInput);
     const off = hoursFrom(lightsOffInput);
     if (!Number.isFinite(on) || !Number.isFinite(off)) return;
     // The same time for both leaves no time with the light on.
     changeLight({ lightsOnHour: on, lightHours: (off - on + 24) % 24 });
   });
-  alwaysOn.addEventListener("click", () => {
-    changeLight({ lightsOnHour: hoursFrom(lightsOn) || 0, lightHours: 24 });
-  });
-  alwaysOff.addEventListener("click", () => {
-    changeLight({ lightsOnHour: hoursFrom(lightsOn) || 0, lightHours: 0 });
-  });
+  for (const [button, lightHours] of [
+    [alwaysOn, 24],
+    [alwaysOff, 0],
+  ] as const) {
+    button.addEventListener("click", () => {
+      changeLight({ lightsOnHour: hoursFrom(lightsOnInput) || 0, lightHours });
+    });
+  }
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     handlers.onRoomChange({
