@@ -67,3 +67,24 @@ test("restarting with the same seed returns to the starting schedule", async ({ 
   expect((await runRecord(page)).interventions).toEqual([]);
   expect((await currentSample(page))?.lightSchedule).toEqual({ lightsOnHour: 6, lightHours: 12 });
 });
+
+test("a change made while paused shows in the Room and dial at once", async ({ page }) => {
+  await openApp(page);
+  await expect.poll(() => meanBrightness(page, "#scene")).toBeGreaterThan(40);
+  await page.locator("#pause").click();
+  await page.waitForTimeout(300);
+  const paused = await currentSample(page);
+  const day = await meanBrightness(page, "#scene");
+  const dayDial = await dialBackground(page);
+
+  await page.locator("#light-settings summary").click();
+  await page.locator("#always-off").click();
+
+  await expect.poll(() => meanBrightness(page, "#scene")).toBeLessThan(0.6 * day);
+  expect(await dialBackground(page)).not.toBe(dayDial);
+  // Time hasn't moved, so the fly itself gets the change when time resumes.
+  expect((await currentSample(page))?.step).toBe(paused?.step);
+  await expect.poll(async () => (await runRecord(page)).interventions).toHaveLength(1);
+  await page.locator("#pause").click();
+  await expect.poll(async () => (await currentSample(page))?.lightLevel).toBe(0);
+});
