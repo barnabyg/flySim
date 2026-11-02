@@ -85,7 +85,7 @@ export interface InternalState {
 
 /**
  * Model values for Phases 1 and 2. They are roughly tuned so that about 10 simulated minutes
- * shows all four awake behaviours, a settled fly often stays still and awake for more than
+ * shows all four awake behaviours, a settled fly often stays in awake Immobility for more than
  * 5 minutes, and a day shows a morning, siesta, evening and night of sleep. They are not
  * validated: every relationship here is Provisional.
  */
