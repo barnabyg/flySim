@@ -40,11 +40,15 @@ test("removing a source while paused hides it at once", async ({ page }) => {
 test("without water the fly dies, the run stops, and restart still works", async ({ page }) => {
   // It runs at the top speed, which is heavy for a page beside others, so it gets longer.
   test.setTimeout(120_000);
-  // As dry as a run can start, so that it dies within the first simulated hour.
-  await page.goto("/?seed=8&speed=1000&hydration=0.01");
+  // As dry as a run can start, so that it dies within the first simulated hour. It starts
+  // slowly, so the water goes before the fly could reach it, and then runs at the top speed.
+  await page.goto("/?seed=8&speed=1&hydration=0.01");
   await expect.poll(() => currentSample(page).then(Boolean), { timeout: 30_000 }).toBe(true);
   expect((await runRecord(page)).samples[0]?.hydration).toBeCloseTo(0.01, 6);
   await page.locator("#water-presence").click();
+  const speed = page.locator("#speed");
+  await speed.fill(await speed.evaluate((slider) => (slider as HTMLInputElement).max));
+  await expect(page.locator("#speed-readout")).toHaveText("1000×");
 
   await expect
     .poll(async () => (await currentSample(page))?.death?.cause, { timeout: 45_000 })
