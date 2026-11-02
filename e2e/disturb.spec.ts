@@ -128,3 +128,21 @@ test("restarting with the same seed gives the run without any Disturb presses", 
   expect((await runRecord(page)).interventions).toEqual([]);
   expect((await display(page)).marks).toBe(0);
 });
+
+test("holding Disturb repeats it, so the fly can be kept awake", async ({ page }) => {
+  await openApp(page);
+  await page.locator("#disturb").hover();
+  await page.mouse.down();
+  await page.waitForTimeout(1000);
+  await page.mouse.up();
+  // About 20 a second, with room for a busy machine's timers to run late.
+  await expect.poll(async () => (await runRecord(page)).interventions.length).toBeGreaterThan(3);
+  const held = (await runRecord(page)).interventions.length;
+
+  expect(held).toBeLessThan(60);
+  await page.waitForTimeout(500);
+  expect((await runRecord(page)).interventions).toHaveLength(held);
+  // A single click is still a single Disturb.
+  await page.locator("#disturb").click();
+  await expect.poll(async () => (await runRecord(page)).interventions).toHaveLength(held + 1);
+});

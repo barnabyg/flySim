@@ -3,7 +3,7 @@ export type Behaviour = "immobility" | "grooming" | "walking" | "flying" | "slee
 export type VigilanceState = "awake" | "asleep";
 
 export type DriverId =
-  "spontaneous" | "arousal" | "contact" | "sleepPressure" | "circadian" | "startle";
+  "spontaneous" | "arousal" | "contact" | "light" | "sleepPressure" | "circadian" | "startle";
 
 export type TransitionId =
   | "immobility-to-walking"
@@ -35,6 +35,7 @@ export const DRIVERS: readonly DriverId[] = [
   "spontaneous",
   "arousal",
   "contact",
+  "light",
   "sleepPressure",
   "circadian",
   "startle",
@@ -84,8 +85,9 @@ export interface InternalState {
 
 /**
  * Model values for Phases 1 and 2. They are roughly tuned so that about 10 simulated minutes
- * shows all four awake behaviours and a longer run shows sleep. They are not validated:
- * every relationship here is Provisional.
+ * shows all four awake behaviours, a settled fly often stays in awake Immobility for more than
+ * 5 minutes, and a day shows a morning, siesta, evening and night of sleep. They are not
+ * validated: every relationship here is Provisional.
  */
 export interface ModelParameters {
   /** Arousal relaxes towards this level during Immobility. */
@@ -105,6 +107,8 @@ export interface ModelParameters {
   /** Rates are per second. */
   readonly startWalkingSpontaneousRate: number;
   readonly startWalkingArousalRate: number;
+  /** Light the fly senses acts at once, unlike its slow effect on the clock. */
+  readonly startWalkingLightRate: number;
   readonly stopWalkingSpontaneousRate: number;
   readonly stopWalkingLowArousalRate: number;
   /** Grooming has no contamination model, so nothing about dirt drives these. */
@@ -141,12 +145,16 @@ export interface ModelParameters {
   readonly wakeSleepDepthReduction: number;
   /** The internal clock's free-running day. */
   readonly circadianPeriodHours: number;
+  /** How strongly light pulls the clock, in clock hours per hour at full light. */
+  readonly clockEntrainmentRate: number;
   /** How much the clock opens the way to sleep at its strongest, in the middle of its night. */
   readonly fallAsleepCircadianRate: number;
   /** How much of its night-time strength the clock's sleep gate reaches at midday. */
   readonly siestaGateStrength: number;
   /** How much the clock pushes towards waking when its sleep gate is shut. */
   readonly wakeCircadianRate: number;
+  /** Light pushes towards waking, so darkness helps sleep but doesn't bring it about. */
+  readonly wakeLightRate: number;
   /** A startle fades at this pace, which lets it be told apart from what follows. */
   readonly startleTimeConstantSeconds: number;
   /** Rates at the full strength of a startle. */
@@ -171,18 +179,19 @@ export const DEFAULT_PARAMETERS: ModelParameters = {
   arousalTimeConstantSeconds: 120,
   arousalNoise: 0.015,
   initialArousal: 0.5,
-  startWalkingSpontaneousRate: 0.002,
+  startWalkingSpontaneousRate: 0.0003,
   startWalkingArousalRate: 0.25,
+  startWalkingLightRate: 0.002,
   stopWalkingSpontaneousRate: 0.02,
   stopWalkingLowArousalRate: 0.06,
-  startGroomingSpontaneousRate: 0.004,
-  startGroomingArousalRate: 0.05,
+  startGroomingSpontaneousRate: 0.001,
+  startGroomingArousalRate: 0.04,
   stopGroomingSpontaneousRate: 0.04,
   walkAfterGroomingSpontaneousRate: 0.005,
   walkAfterGroomingArousalRate: 0.03,
-  takeOffFromImmobilitySpontaneousRate: 0.003,
+  takeOffFromImmobilitySpontaneousRate: 0.002,
   takeOffFromImmobilityArousalRate: 0.02,
-  takeOffFromWalkingSpontaneousRate: 0.012,
+  takeOffFromWalkingSpontaneousRate: 0.018,
   takeOffFromWalkingArousalRate: 0.06,
   landingContactRate: 100,
   sleepPressureRiseTimeConstantSeconds: 28_800,
@@ -198,9 +207,11 @@ export const DEFAULT_PARAMETERS: ModelParameters = {
   sleepDepthNoise: 0.008,
   wakeSleepDepthReduction: 0.85,
   circadianPeriodHours: 24,
+  clockEntrainmentRate: 0.4,
   fallAsleepCircadianRate: 0.012,
   siestaGateStrength: 0.35,
   wakeCircadianRate: 0.0015,
+  wakeLightRate: 0.0003,
   startleTimeConstantSeconds: 8,
   startWalkingStartleRate: 3,
   walkAfterGroomingStartleRate: 2,
@@ -216,6 +227,7 @@ const NO_CONTRIBUTIONS: Readonly<Record<DriverId, number>> = {
   spontaneous: 0,
   arousal: 0,
   contact: 0,
+  light: 0,
   sleepPressure: 0,
   circadian: 0,
   startle: 0,
@@ -251,6 +263,7 @@ export function driverContributions(
         ...NO_CONTRIBUTIONS,
         spontaneous: parameters.startWalkingSpontaneousRate,
         arousal: parameters.startWalkingArousalRate * arousal * arousal,
+        light: parameters.startWalkingLightRate * senses.lightLevel,
         startle: parameters.startWalkingStartleRate * startle,
       };
     case "immobility-to-grooming":
@@ -308,6 +321,7 @@ export function driverContributions(
       return {
         ...NO_CONTRIBUTIONS,
         spontaneous: parameters.wakeSpontaneousRate * easeOfWaking,
+        light: parameters.wakeLightRate * senses.lightLevel * easeOfWaking,
         sleepPressure: parameters.wakeLowSleepPressureRate * (1 - sleepPressure) * easeOfWaking,
         circadian:
           parameters.wakeCircadianRate *

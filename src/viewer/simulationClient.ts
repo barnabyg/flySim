@@ -1,7 +1,7 @@
 import type {
   FiredTransition,
   Intervention,
-  InterventionType,
+  InterventionAction,
   LightSchedule,
   RoomSetup,
   RunRecord,
@@ -21,7 +21,7 @@ export interface SimulationClient {
   onFrame(listener: FrameListener): void;
   setSpeed(speed: number): void;
   setPaused(paused: boolean): void;
-  intervene(type: InterventionType): void;
+  intervene(action: InterventionAction): void;
   record(): Promise<RunRecord>;
 }
 
@@ -71,8 +71,8 @@ export function startSimulation(
     setPaused: (paused) => {
       send({ type: "set-paused", paused });
     },
-    intervene: (interventionType) => {
-      send({ type: "intervene", interventionType });
+    intervene: (action) => {
+      send({ type: "intervene", action });
     },
     record: () =>
       new Promise((resolve) => {

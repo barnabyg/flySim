@@ -184,15 +184,15 @@ body {
   cursor: pointer;
 }
 
-#room-settings summary {
+.settings summary {
   list-style: none;
 }
 
-#room-settings summary::-webkit-details-marker {
+.settings summary::-webkit-details-marker {
   display: none;
 }
 
-#room-form {
+.settings-form {
   position: absolute;
   bottom: 40px;
   left: 0;
@@ -207,7 +207,7 @@ body {
   border-radius: 6px;
 }
 
-#room-form label {
+.settings-form label {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -216,6 +216,20 @@ body {
 
 #room-form input {
   width: 64px;
+}
+
+#light-form input {
+  width: 96px;
+}
+
+.settings-buttons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.settings-buttons button[type="submit"] {
+  margin-left: auto;
 }
 
 #controls {

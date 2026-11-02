@@ -10,7 +10,7 @@ export {
   type TransitionId,
   type VigilanceState,
 } from "./model";
-export { DEFAULT_LIGHT_SCHEDULE, type LightSchedule } from "./lightSchedule";
+export { DEFAULT_LIGHT_SCHEDULE, lightLevel, type LightSchedule } from "./lightSchedule";
 export { SURFACES, type Position, type RoomSetup, type Surface } from "./movement";
 export {
   DEFAULT_ROOM,
@@ -19,6 +19,7 @@ export {
   createSimulationRun,
   type FiredTransition,
   type Intervention,
+  type InterventionAction,
   type InterventionType,
   type RunRecord,
   type RunSample,

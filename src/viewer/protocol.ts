@@ -1,7 +1,7 @@
 import type {
   FiredTransition,
   Intervention,
-  InterventionType,
+  InterventionAction,
   LightSchedule,
   RunRecord,
   RunSample,
@@ -18,7 +18,7 @@ export type ToSimulation =
     }
   | { readonly type: "set-speed"; readonly speed: number }
   | { readonly type: "set-paused"; readonly paused: boolean }
-  | { readonly type: "intervene"; readonly interventionType: InterventionType }
+  | { readonly type: "intervene"; readonly action: InterventionAction }
   | { readonly type: "request-record"; readonly requestId: number };
 
 export type FromSimulation =

@@ -29,7 +29,8 @@ function formatTimeOfDay(hours: number): string {
 }
 
 export interface TimeControls {
-  showTime(timeSeconds: number, timeOfDayHours: number): void;
+  /** The schedule is the one in effect, which the dial shows as its day and night. */
+  showTime(timeSeconds: number, timeOfDayHours: number, lightSchedule: LightSchedule): void;
 }
 
 export interface TimeControlHandlers {
@@ -65,8 +66,21 @@ export function createTimeControls(
   }
 
   // The dial's bright part is the schedule's day, so the hand shows the light it's under.
-  const lightDegrees = (lightSchedule.lightHours / 24) * 360;
-  dial.style.background = `conic-gradient(from ${dialDegrees(lightSchedule.lightsOnHour)}deg, ${DAY_COLOUR} 0 ${lightDegrees}deg, ${NIGHT_COLOUR} ${lightDegrees}deg 360deg)`;
+  let shownSchedule: LightSchedule | undefined;
+  function showSchedule(schedule: LightSchedule): void {
+    if (
+      schedule.lightsOnHour === shownSchedule?.lightsOnHour &&
+      schedule.lightHours === shownSchedule.lightHours
+    ) {
+      return;
+    }
+    shownSchedule = schedule;
+    const lightDegrees = (schedule.lightHours / 24) * 360;
+    if (dial) {
+      dial.style.background = `conic-gradient(from ${dialDegrees(schedule.lightsOnHour)}deg, ${DAY_COLOUR} 0 ${lightDegrees}deg, ${NIGHT_COLOUR} ${lightDegrees}deg 360deg)`;
+    }
+  }
+  showSchedule(lightSchedule);
 
   let paused = false;
 
@@ -92,7 +106,8 @@ export function createTimeControls(
   });
 
   return {
-    showTime: (timeSeconds, timeOfDayHours) => {
+    showTime: (timeSeconds, timeOfDayHours, schedule) => {
+      showSchedule(schedule);
       clock.textContent = formatClock(timeSeconds);
       const text = formatTimeOfDay(timeOfDayHours);
       timeOfDay.textContent = text;

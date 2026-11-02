@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import {
+  DEFAULT_PARAMETERS,
   DEFAULT_ROOM,
   createSimulationRun,
   type FiredTransition,
@@ -150,19 +151,119 @@ describe("the circadian clock", () => {
     expect(Math.max(...circadianOn("immobility-to-walking"))).toBe(0);
   });
 
-  it("doesn't read the Room's light, so a schedule changes only the Room", () => {
-    const withoutRoomLight = (lightSchedule: LightSchedule): unknown[] => {
-      const run = createSimulationRun({ room: DEFAULT_ROOM, seed: 3, lightSchedule });
-      run.advanceSeconds(14 * HOUR);
-      return run.record().samples.map((sample) => ({
-        ...sample,
-        lightLevel: undefined,
-        senses: undefined,
-      }));
-    };
+  /** How far the clock is ahead of a schedule with 12 hours of light, from -12 to 12 hours. */
+  function offsetFrom(schedule: LightSchedule, sample: RunSample): number {
+    const target = (sample.timeOfDayHours - schedule.lightsOnHour + 24) % 24;
+    return ((sample.circadianPhaseHours - target + 36) % 24) - 12;
+  }
 
-    expect(withoutRoomLight({ lightsOnHour: 6, lightHours: 0 })).toEqual(
-      withoutRoomLight({ lightsOnHour: 6, lightHours: 12 }),
+  // From the second lights-on, the light comes on 6 hours later or 6 hours earlier.
+  it.each([
+    ["later", 12, 6],
+    ["earlier", 0, -6],
+  ])(
+    "moves gradually towards a schedule shifted %s, rather than jumping",
+    (_, lightsOnHour, start) => {
+      const shifted = { lightsOnHour, lightHours: 12 };
+      const run = createSimulationRun({
+        room: DEFAULT_ROOM,
+        seed: 21,
+        interventions: [{ step: DAY * 50, type: "light-schedule", lightSchedule: shifted }],
+        maxRecordedSamples: 1,
+      });
+      run.advanceSeconds(DAY);
+      const hourly: number[] = [];
+      for (let hour = 0; hour <= 8 * 24; hour++) {
+        hourly.push(offsetFrom(shifted, run.current()));
+        run.advanceSeconds(HOUR);
+      }
+      const daily = hourly.filter((_, hour) => hour % 24 === 0);
+
+      // Measured as how far the clock is from the new schedule, on the same side throughout.
+      const sign = Math.sign(start);
+      expect(daily[0]).toBeCloseTo(start, 1);
+      hourly.forEach((offset, hour) => {
+        const next = hourly[hour + 1];
+        if (next !== undefined) expect(Math.abs(next - offset)).toBeLessThan(0.5);
+      });
+      daily.forEach((offset, day) => {
+        const next = daily[day + 1];
+        if (next === undefined) return;
+        expect(sign * next).toBeLessThan(sign * offset);
+        expect(sign * (offset - next)).toBeLessThan(3);
+      });
+      expect(Math.abs(daily[1] ?? NaN)).toBeGreaterThan(2);
+      expect(Math.abs(daily.at(-1) ?? NaN)).toBeLessThan(1);
+    },
+  );
+
+  it("never runs backwards, however strongly light pulls it", () => {
+    // Constant light reaches the clock's whole night, where a strong pull would reverse it.
+    const run = createSimulationRun({
+      room: DEFAULT_ROOM,
+      seed: 21,
+      parameters: { ...DEFAULT_PARAMETERS, clockEntrainmentRate: 3 },
+      lightSchedule: { lightsOnHour: 6, lightHours: 24 },
+    });
+    run.advanceSeconds(DAY);
+    const { samples } = run.record();
+
+    samples.forEach((sample, index) => {
+      expect(sample.circadianPhaseHours).toBeGreaterThanOrEqual(0);
+      expect(sample.circadianPhaseHours).toBeLessThan(24);
+      const next = samples[index + 1];
+      if (next && next.circadianPhaseHours > 1) {
+        expect(next.circadianPhaseHours).toBeGreaterThanOrEqual(sample.circadianPhaseHours);
+      }
+    });
+  });
+
+  it("keeps running in constant darkness", () => {
+    const samples = samplesOf(3 * DAY, { lightsOnHour: 6, lightHours: 0 });
+    // It free-runs on its own day, which is a 24-hour one by default.
+    for (const sample of samples) {
+      expect(Math.abs(offsetFrom({ lightsOnHour: 6, lightHours: 12 }, sample))).toBeLessThan(0.01);
+    }
+  });
+});
+
+describe("sleep in constant darkness", () => {
+  let runs: SleepBout[][] = [];
+  const shareBetween = (fromHour: number, toHour: number, day: number): number =>
+    mean(
+      runs.map((bouts) =>
+        sleepShare(bouts, day * DAY + fromHour * HOUR, day * DAY + toHour * HOUR),
+      ),
     );
+
+  beforeAll(() => {
+    // The light goes out for good after the first day.
+    runs = SEEDS.slice(0, 4).map((seed) => {
+      const run = createSimulationRun({
+        room: DEFAULT_ROOM,
+        seed,
+        interventions: [
+          {
+            step: DAY * 50,
+            type: "light-schedule",
+            lightSchedule: { lightsOnHour: 6, lightHours: 0 },
+          },
+        ],
+        maxRecordedSamples: 1,
+      });
+      run.advanceSeconds(3 * DAY);
+      return sleepBoutsOf(run.firedTransitions);
+    });
+  }, 300_000);
+
+  it.each([1, 2])("keeps the daily pattern on day %i, with no light to respond to", (day) => {
+    // Hours are on the clock's own day, which still starts at the old lights-on.
+    expect(shareBetween(12, 24, day)).toBeGreaterThan(shareBetween(0, 12, day) + 0.2);
+    expect(shareBetween(4, 8, day)).toBeGreaterThan(shareBetween(0, 2, day));
+    expect(shareBetween(4, 8, day)).toBeGreaterThan(shareBetween(10, 12, day));
+  });
+
+  it("stays mostly awake in the clock's morning, though the Room is dark", () => {
+    for (const day of [1, 2]) expect(shareBetween(0, 2, day)).toBeLessThan(0.3);
   });
 });

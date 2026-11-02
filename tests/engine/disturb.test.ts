@@ -23,7 +23,7 @@ function recordWithDuringRun(steps: readonly number[], totalSteps: number) {
   for (const step of steps) {
     run.advanceSteps(step - done);
     done = step;
-    run.intervene("disturb");
+    run.intervene({ type: "disturb" });
   }
   run.advanceSteps(totalSteps - done);
   return run.record();
@@ -66,7 +66,7 @@ describe("timed interventions", () => {
       ],
     });
     run.advanceSteps(500);
-    run.intervene("disturb");
+    run.intervene({ type: "disturb" });
     run.advanceSteps(1000);
 
     expect(run.record().interventions.map(({ step }) => step)).toEqual([300, 500, 900]);
@@ -83,7 +83,7 @@ describe("timed interventions", () => {
   it("takes effect on the step after it was asked for, not before", () => {
     const run = createSimulationRun({ room: DEFAULT_ROOM, seed: 8 });
     run.advanceSteps(1000);
-    const { step } = run.intervene("disturb");
+    const { step } = run.intervene({ type: "disturb" });
 
     expect(step).toBe(1000);
     // A paused run shows no effect until time resumes.
@@ -130,7 +130,7 @@ describe("the startle", () => {
     const stateAfterDisturb = (triggerStream: number): RunSample => {
       const run = createSimulationRun({ room: DEFAULT_ROOM, seed: 8, triggerStream });
       run.advanceSteps(1);
-      run.intervene("disturb");
+      run.intervene({ type: "disturb" });
       run.advanceSteps(1);
       return run.current();
     };
@@ -155,7 +155,7 @@ describe("the startle", () => {
   function disturbOnceIn(run: SimulationRun, isWanted: (sample: RunSample) => boolean): boolean {
     for (let seconds = 0; seconds < 3600; seconds++) {
       if (isWanted(run.current())) {
-        run.intervene("disturb");
+        run.intervene({ type: "disturb" });
         return true;
       }
       run.advanceSeconds(1);

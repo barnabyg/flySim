@@ -17,13 +17,15 @@ function recordOf(seed: number, simulatedSeconds: number): RunRecord {
 
 describe("Transition Hazards", () => {
   it("splits a known hazard into its per-Driver contributions", () => {
-    // At step 0, arousal is 0.5, so arousal contributes 0.25 * 0.5^2 = 0.0625 per second.
+    // At step 0, arousal is 0.5, so arousal contributes 0.25 * 0.5^2 = 0.0625 per second,
+    // and the run starts at lights-on, so light adds 0.002.
     const [state] = createSimulationRun({ room: DEFAULT_ROOM, seed: 1 }).current().transitions;
 
     expect(state?.transition).toBe("immobility-to-walking");
-    expect(state?.contributions.spontaneous).toBeCloseTo(0.002, 12);
+    expect(state?.contributions.spontaneous).toBeCloseTo(0.0003, 12);
     expect(state?.contributions.arousal).toBeCloseTo(0.0625, 12);
-    expect(state?.hazard).toBeCloseTo(0.0645, 12);
+    expect(state?.contributions.light).toBeCloseTo(0.002, 12);
+    expect(state?.hazard).toBeCloseTo(0.0648, 12);
   });
 
   it("has per-Driver contributions that combine to the hazard throughout a run", () => {
@@ -70,13 +72,14 @@ describe("red strip probability", () => {
         ...DEFAULT_PARAMETERS,
         startWalkingSpontaneousRate: Math.LN2 / 60,
         startWalkingArousalRate: 0,
+        startWalkingLightRate: 0,
       },
     });
     expect(halfLifeRun.current().transitions[0]?.fireProbabilityNextMinute).toBeCloseTo(0.5, 12);
 
-    // The default initial hazard of 0.0645 per second gives 1 - exp(-3.87).
+    // The default initial hazard of 0.0648 per second gives 1 - exp(-3.888).
     const defaultRun = createSimulationRun({ room: DEFAULT_ROOM, seed: 1 });
-    expect(defaultRun.current().transitions[0]?.fireProbabilityNextMinute).toBeCloseTo(0.979143, 5);
+    expect(defaultRun.current().transitions[0]?.fireProbabilityNextMinute).toBeCloseTo(0.979514, 5);
   });
 
   // Different Trigger Level streams change when transitions fire and nothing else. So

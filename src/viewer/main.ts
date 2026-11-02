@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import type { RunRecord, RunSample } from "../engine";
+import { lightLevel, type LightSchedule, type RunRecord, type RunSample } from "../engine";
 import { createDriverPanel, type FlashedTransition } from "./driverPanel";
 import { createRibbon } from "./ribbon";
 import { createRoomScene } from "./roomScene";
@@ -66,9 +66,12 @@ const timeControls = createTimeControls(
     },
   },
 );
-createRunControls(requireElement("#run-controls", HTMLElement), seed, room, {
+createRunControls(requireElement("#run-controls", HTMLElement), seed, room, lightSchedule, {
   onDisturb: () => {
-    simulation.intervene("disturb");
+    simulation.intervene({ type: "disturb" });
+  },
+  onLightScheduleChange: (newSchedule) => {
+    simulation.intervene({ type: "light-schedule", lightSchedule: newSchedule });
   },
   onRestart: () => {
     restartWith({});
@@ -80,10 +83,18 @@ createRunControls(requireElement("#run-controls", HTMLElement), seed, room, {
     restartWith({ room: newRoom });
   },
 });
+/**
+ * The latest schedule asked for. A change applies to the fly at the next step, which is
+ * only once time resumes, but the Room and dial show it at once.
+ */
+let shownSchedule: LightSchedule = lightSchedule;
 simulation.onFrame((sample, fired, interventions) => {
+  for (const intervention of interventions) {
+    if (intervention.type === "light-schedule") shownSchedule = intervention.lightSchedule;
+  }
   driverPanel.update(sample, fired);
   ribbon.update(sample, fired, interventions);
-  timeControls.showTime(sample.timeSeconds, sample.timeOfDayHours);
+  timeControls.showTime(sample.timeSeconds, sample.timeOfDayHours, shownSchedule);
 });
 
 const views = createViews({
@@ -99,7 +110,7 @@ renderer.setAnimationLoop(() => {
   const sample = simulation.latest();
   if (sample) {
     roomScene.updateFly(sample);
-    roomScene.updateLighting(sample.lightLevel);
+    roomScene.updateLighting(lightLevel(shownSchedule, sample.timeOfDayHours));
   }
   views.render();
   ribbon.draw();
