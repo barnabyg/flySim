@@ -37,7 +37,14 @@ export {
   type SimulationSetup,
   type TransitionState,
 } from "./simulationRun";
-export { setupFromOptions, type SetupOptions } from "./setupOptions";
+export {
+  MAX_ROOM_METRES,
+  MIN_ROOM_METRES,
+  MIN_STARTING_RESERVE,
+  setupFromOptions,
+  validateSetupOptions,
+  type SetupOptions,
+} from "./setupOptions";
 export {
   DEFAULT_SAMPLE_INTERVAL_SECONDS,
   EXPORT_FORMAT,

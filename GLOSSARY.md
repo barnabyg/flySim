@@ -138,6 +138,10 @@ _Avoid_: Dump, save file
 The version of an Export's layout. It is a compatibility contract: every later version of the simulator reads files written at any released version, or comes with a proposed migration. A file from another model version may still not reproduce its run.
 _Avoid_: File version, schema version
 
+**Batch**:
+Many Simulation Runs of the same setup, one per seed, run without the viewer for a set simulated time or until the fly dies. It writes each run's Export, tables combining every run, and a manifest of what was run.
+_Avoid_: Sweep, experiment (which suggests varying the setup)
+
 ### Observations
 
 **Inactivity Bout**:

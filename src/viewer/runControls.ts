@@ -1,11 +1,12 @@
 import {
   DEFAULT_SAMPLE_INTERVAL_SECONDS,
+  MAX_ROOM_METRES,
+  MIN_ROOM_METRES,
   SOURCE_KINDS,
   type LightSchedule,
   type RoomSetup,
   type SourceKind,
 } from "../engine";
-import { MAX_ROOM_METRES, MIN_ROOM_METRES } from "./runSettings";
 import type { ExportFormat } from "./protocol";
 
 const RESTART_ICON =

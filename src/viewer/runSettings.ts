@@ -1,6 +1,9 @@
 import {
   DEFAULT_LIGHT_SCHEDULE,
   DEFAULT_ROOM,
+  MAX_ROOM_METRES,
+  MIN_ROOM_METRES,
+  MIN_STARTING_RESERVE,
   SOURCE_KINDS,
   setupFromOptions,
   type FloorPlace,
@@ -9,9 +12,6 @@ import {
   type LightSchedule,
   type RoomSetup,
 } from "../engine";
-
-export const MIN_ROOM_METRES = 0.1;
-export const MAX_ROOM_METRES = 5;
 
 /** What a run starts with. The URL holds it, so a restart is a fresh page load. */
 export interface RunSettings {
@@ -32,8 +32,6 @@ export interface StartingReserves {
 }
 
 const RESERVES = ["energy", "hydration"] as const;
-/** A reserve can't start empty, as the fly would be dead before the run began. */
-const MIN_STARTING_RESERVE = 0.01;
 
 export function randomSeed(): number {
   return Math.floor(Math.random() * 2 ** 31);

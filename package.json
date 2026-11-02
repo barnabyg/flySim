@@ -10,6 +10,7 @@
     "prestart": "npm install --no-audit --no-fund",
     "start": "vite --open",
     "dev": "vite",
+    "batch": "node --import ./src/batch/resolveTypeScript.ts src/batch/cli.ts",
     "build": "vite build",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
