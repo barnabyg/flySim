@@ -318,29 +318,31 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
     };
   }
 
+  /** A transition's hazard and what makes it up, given the fly's state this step. */
+  function hazardOf(transition: TransitionId, state: InternalState) {
+    const contributions = driverContributions(transition, state, currentSenses(), parameters);
+    let hazard = 0;
+    for (const driver of DRIVERS) hazard += contributions[driver];
+    return { transition, hazard, contributions };
+  }
+
+  function withStrip(parts: ReturnType<typeof hazardOf>): TransitionState {
+    return { ...parts, fireProbabilityNextMinute: 1 - Math.exp(-parts.hazard * 60) };
+  }
+
   function transitionState(transition: TransitionId): TransitionState {
-    const contributions = driverContributions(
-      transition,
-      internalState(),
-      currentSenses(),
-      parameters,
-    );
-    const hazard = DRIVERS.reduce((sum, driver) => sum + contributions[driver], 0);
-    return {
-      transition,
-      hazard,
-      contributions,
-      fireProbabilityNextMinute: 1 - Math.exp(-hazard * 60),
-    };
+    return withStrip(hazardOf(transition, internalState()));
   }
 
   function fireDueTransition(): void {
+    // The state can't change until a transition fires, so it is worked out once.
+    const state = internalState();
     for (const item of pending) {
-      const state = transitionState(item.definition.id);
-      item.accumulatedHazard += state.hazard * STEP_SECONDS;
+      const parts = hazardOf(item.definition.id, state);
+      item.accumulatedHazard += parts.hazard * STEP_SECONDS;
       if (item.accumulatedHazard >= item.triggerLevel) {
         firedTransitions.push({
-          ...state,
+          ...withStrip(parts),
           step: step + 1,
           timeSeconds: (step + 1) * STEP_SECONDS,
           from: item.definition.from,
