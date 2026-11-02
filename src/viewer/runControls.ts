@@ -33,6 +33,11 @@ function sourceLabel(kind: SourceKind, present: boolean): string {
 const DISTURB_ICON =
   '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M9.500 1L3 9h4l-1 6 7-8.500H9z" fill="currentColor"/></svg>';
 
+export interface RunControls {
+  /** Stops the controls that change the run, once its fly has died. Restarting still works. */
+  disableChanges(): void;
+}
+
 export interface RunControlHandlers {
   onDisturb(): void;
   onRestart(): void;
@@ -73,7 +78,7 @@ export function createRunControls(
   room: RoomSetup,
   lightSchedule: LightSchedule,
   handlers: RunControlHandlers,
-): void {
+): RunControls {
   const lightsOffHour = (lightSchedule.lightsOnHour + lightSchedule.lightHours) % 24;
   container.innerHTML = `
     <button id="disturb" class="icon-button" type="button" aria-label="Disturb" title="Disturb">${DISTURB_ICON}</button>
@@ -208,4 +213,14 @@ export function createRunControls(
       heightMetres: height.valueAsNumber,
     });
   });
+
+  return {
+    disableChanges: () => {
+      stopRepeating();
+      const changers = container.querySelectorAll<HTMLButtonElement | HTMLInputElement>(
+        "#disturb, .source-presence, #light-form input, #light-form button",
+      );
+      for (const control of changers) control.disabled = true;
+    },
+  };
 }

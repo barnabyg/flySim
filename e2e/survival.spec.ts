@@ -61,6 +61,19 @@ test("without water the fly dies, the run stops, and restart still works", async
   expect((await currentSample(page))?.transitions).toEqual([]);
   expect((await runRecord(page)).death?.cause).toBe("desiccation");
 
+  // The run can't change any more, so neither can what the Room shows.
+  await expect(page.locator("#food-presence")).toBeDisabled();
+  await expect(page.locator("#disturb")).toBeDisabled();
+  const food = await page.evaluate(() => window.flySim.sources().food);
+  if (!food) throw new Error("the food isn't showing");
+  await page.mouse.move(food.client.x, food.client.y);
+  await page.mouse.down();
+  await page.mouse.move(food.client.x + 100, food.client.y, { steps: 5 });
+  await page.mouse.up();
+  // The press orbits the camera instead, which leaves the food where it was.
+  expect((await page.evaluate(() => window.flySim.sources().food))?.place).toEqual(food.place);
+  expect((await runRecord(page)).interventions.map((each) => each.type)).toEqual(["remove-source"]);
+
   await page.locator("#restart").click();
   // The same seed, alive again.
   await expect.poll(async () => (await currentSample(page))?.death, { timeout: 30_000 }).toBeNull();

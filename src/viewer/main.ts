@@ -86,30 +86,36 @@ const timeControls = createTimeControls(
     },
   },
 );
-createRunControls(requireElement("#run-controls", HTMLElement), seed, room, lightSchedule, {
-  onDisturb: () => {
-    simulation.intervene({ type: "disturb" });
+const runControls = createRunControls(
+  requireElement("#run-controls", HTMLElement),
+  seed,
+  room,
+  lightSchedule,
+  {
+    onDisturb: () => {
+      simulation.intervene({ type: "disturb" });
+    },
+    onLightScheduleChange: (newSchedule) => {
+      simulation.intervene({ type: "light-schedule", lightSchedule: newSchedule });
+    },
+    onRestart: () => {
+      restartWith({});
+    },
+    onNewSeed: () => {
+      restartWith({ seed: randomSeed() });
+    },
+    onRoomChange: (newRoom) => {
+      restartWith({ room: newRoom });
+    },
+    onFieldsToggle: (visible) => {
+      fieldOverlay.setVisible(visible);
+    },
+    onSourcePresenceChange: (kind, present) => {
+      changing.set(kind, present ? (lastPlaces.get(kind) ?? null) : null);
+      simulation.intervene({ type: present ? "restore-source" : "remove-source", source: kind });
+    },
   },
-  onLightScheduleChange: (newSchedule) => {
-    simulation.intervene({ type: "light-schedule", lightSchedule: newSchedule });
-  },
-  onRestart: () => {
-    restartWith({});
-  },
-  onNewSeed: () => {
-    restartWith({ seed: randomSeed() });
-  },
-  onRoomChange: (newRoom) => {
-    restartWith({ room: newRoom });
-  },
-  onFieldsToggle: (visible) => {
-    fieldOverlay.setVisible(visible);
-  },
-  onSourcePresenceChange: (kind, present) => {
-    changing.set(kind, present ? (lastPlaces.get(kind) ?? null) : null);
-    simulation.intervene({ type: present ? "restore-source" : "remove-source", source: kind });
-  },
-});
+);
 const deathNotice = requireElement("#death", HTMLElement);
 /**
  * The latest schedule asked for. A change applies to the fly at the next step, which is
@@ -127,6 +133,8 @@ simulation.onFrame((sample, fired, interventions) => {
   if (sample.death && deathNotice.hidden) {
     deathNotice.hidden = false;
     deathNotice.textContent = `The fly has died of ${CAUSES[sample.death.cause]}.`;
+    // The run won't change any more, so nothing the Room shows should either.
+    runControls.disableChanges();
   }
   driverPanel.update(sample, fired);
   ribbon.update(sample, fired, interventions);
@@ -171,7 +179,7 @@ createSourceDragging({
   view,
   canvas,
   room,
-  camera: () => views.mainMonitoringCamera(),
+  camera: () => (simulation.latest()?.death ? undefined : views.mainMonitoringCamera()),
   shownPlace,
   setOrbitEnabled: (enabled) => {
     views.setOrbitEnabled(enabled);
