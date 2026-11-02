@@ -1,7 +1,7 @@
 # Fly Behaviour Simulator
 ## Project proposal — behavioural ecology sandbox
 
-**Status:** Concept proposal  
+**Status:** Superseded. This is historical background from before the code existed. Where it differs, the [spec (#2)](https://github.com/barnabyg/flySim/issues/2), [GLOSSARY.md](../GLOSSARY.md) and [docs/adr](adr) win. In particular, the Room is 3D, the viewer is plain TypeScript and three.js, behaviour switches through competing Transition Hazards rather than a softmax ([ADR 0001](adr/0001-competing-hazards-with-slow-hidden-state.md)), and the code lives in `src/engine` and `src/viewer`. Its research references and evidence labels still apply.  
 **Initial reference species:** Adult *Drosophila melanogaster* (fruit fly)  
 **Product type:** Interactive, experiment-driven simulation  
 **Core question:** What makes a fly begin, continue, stop or resume an activity when its environment and internal needs change?

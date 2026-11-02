@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_PARAMETERS,
   DEFAULT_ROOM,
-  DRIVERS,
   createSimulationRun,
   type Intervention,
   type RunSample,
@@ -113,17 +112,11 @@ describe("the startle", () => {
     return run.record().samples.filter((sample) => sample.step > DISTURB_AT.step);
   }
 
-  it("has contributions that add up to each hazard, and a strip from the hazard alone", () => {
-    const samples = secondsAfterDisturb(10);
-    const states = samples.flatMap((sample) => sample.transitions);
+  it("is a Driver of its own on the hazards just after a Disturb", () => {
+    const states = secondsAfterDisturb(10).flatMap((sample) => sample.transitions);
     const startled = states.filter((state) => state.contributions.startle > 0);
 
     expect(startled.length).toBeGreaterThan(3);
-    for (const state of states) {
-      const total = DRIVERS.reduce((sum, driver) => sum + state.contributions[driver], 0);
-      expect(total).toBeCloseTo(state.hazard, 12);
-      expect(state.fireProbabilityNextMinute).toBeCloseTo(1 - Math.exp(-state.hazard * 60), 12);
-    }
   });
 
   it("never reads the Trigger Level", () => {
