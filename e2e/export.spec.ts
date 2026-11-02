@@ -69,3 +69,85 @@ test("the export control downloads the run as gzipped JSON, tagged and with its 
   expect(file.samples.length).toBe(Math.floor(record.step / record.stepsPerSecond / 5) + 1);
   for (const sample of file.samples) expect(sample.step % (5 * record.stepsPerSecond)).toBe(0);
 });
+
+test("the export control downloads the samples, transitions and Interventions as CSV tables", async ({
+  page,
+}) => {
+  await openApp(page, 42);
+  await expect.poll(() => currentTime(page)).toBeGreaterThan(20);
+  await page.locator("#water-presence").click();
+  await expect.poll(() => currentTime(page)).toBeGreaterThan(90);
+  await page.locator("#pause").click();
+
+  const downloads = await exportAs(page, "csv", 10, 3);
+  const record = await runRecord(page);
+  const at = Math.floor(record.step / record.stepsPerSecond);
+  const names = downloads.map((each) => each.suggestedFilename()).sort();
+  expect(names).toEqual(
+    ["interventions", "samples", "transitions"].map(
+      (table) => `fly-sim-seed-42-at-${at}s-${table}.csv.gz`,
+    ),
+  );
+  const tables = Object.fromEntries(
+    await Promise.all(
+      downloads.map(async (each) => {
+        const table = /-(\w+)\.csv\.gz$/.exec(each.suggestedFilename())?.[1] ?? "";
+        const [header = "", ...rows] = (await gunzipped(each)).trimEnd().split("\n");
+        const columns = header.split(",");
+        const objects = rows.map((row): Record<string, string> =>
+          Object.fromEntries(row.split(",").map((value, index) => [columns[index] ?? "", value])),
+        );
+        return [table, { columns, rows: objects }] as const;
+      }),
+    ),
+  );
+
+  const { samples, transitions, interventions } = tables;
+  if (!samples || !transitions || !interventions) throw new Error("missing a table");
+  expect(samples.columns.slice(0, 4)).toEqual(["seed", "model_version", "step", "time_s"]);
+  expect(samples.columns).toEqual(
+    expect.arrayContaining(["behaviour", "vigilance_state", "sleep_depth", "hunger", "thirst"]),
+  );
+  expect(samples.rows).toHaveLength(Math.floor(at / 10) + 1);
+  const first = record.samples[0];
+  expect(samples.rows[0]).toMatchObject({
+    seed: "42",
+    model_version: record.modelVersion,
+    step: "0",
+    behaviour: first?.behaviour,
+    x: String(first?.position.x),
+  });
+
+  expect(transitions.columns).toEqual(
+    expect.arrayContaining(["step", "from", "to", "trigger_level", "hazard", "startle"]),
+  );
+  expect(transitions.rows).toHaveLength(record.firedTransitions.length);
+  const fired = record.firedTransitions[0];
+  expect(transitions.rows[0]).toMatchObject({
+    step: String(fired?.step),
+    from: fired?.from,
+    to: fired?.to,
+    trigger_level: String(fired?.triggerLevel),
+  });
+
+  expect(interventions.columns).toEqual([
+    "seed",
+    "model_version",
+    "step",
+    "time_s",
+    "type",
+    "source",
+    "x",
+    "y",
+    "lights_on_h",
+    "light_hours",
+  ]);
+  expect(interventions.rows).toEqual([
+    expect.objectContaining({
+      seed: "42",
+      step: String(record.interventions[0]?.step),
+      type: "remove-source",
+      source: "water",
+    }),
+  ]);
+});

@@ -49,3 +49,4 @@ export {
   type RunExport,
   type RunExportReading,
 } from "./runExport";
+export { RUN_TABLE_NAMES, exportTables, type RunTableName, type RunTables } from "./runTables";

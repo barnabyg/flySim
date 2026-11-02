@@ -1,8 +1,10 @@
 import {
   STEPS_PER_SECOND,
   createSimulationRun,
+  RUN_TABLE_NAMES,
   exportFileName,
   exportRun,
+  exportTables,
   type RunExport,
   type SimulationRun,
   type SimulationSetup,
@@ -74,6 +76,13 @@ const EXPORTERS: Readonly<
   Record<ExportFormat, (file: RunExport) => readonly { name: string; text: string }[]>
 > = {
   json: (file) => [{ name: exportFileName(file, "", "json.gz"), text: JSON.stringify(file) }],
+  csv: (file) => {
+    const tables = exportTables(file);
+    return RUN_TABLE_NAMES.map((name) => ({
+      name: exportFileName(file, name, "csv.gz"),
+      text: tables[name],
+    }));
+  },
 };
 
 /**

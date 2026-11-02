@@ -134,6 +134,7 @@ export function createRunControls(
         <label>Sample every (s)<input id="sample-interval" type="number" min="1" step="1" value="${DEFAULT_SAMPLE_INTERVAL_SECONDS}" required /></label>
         <div class="settings-buttons">
           <button id="export-json" type="submit" value="json" title="Download the run as gzipped JSON">JSON</button>
+          <button id="export-csv" type="submit" value="csv" title="Download the run's samples, transitions and Interventions as gzipped CSV tables">CSV</button>
         </div>
       </form>
     </details>`;

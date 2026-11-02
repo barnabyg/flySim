@@ -8,7 +8,7 @@ import type {
 } from "../engine";
 
 /** The forms a run can be exported in. */
-export type ExportFormat = "json";
+export type ExportFormat = "json" | "csv";
 
 /** A gzipped file ready to download. */
 export interface ExportedFile {
