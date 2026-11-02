@@ -22,10 +22,10 @@ describe("Transition Hazards", () => {
     const [state] = createSimulationRun({ room: DEFAULT_ROOM, seed: 1 }).current().transitions;
 
     expect(state?.transition).toBe("immobility-to-walking");
-    expect(state?.contributions.spontaneous).toBeCloseTo(0.002, 12);
+    expect(state?.contributions.spontaneous).toBeCloseTo(0.0003, 12);
     expect(state?.contributions.arousal).toBeCloseTo(0.0625, 12);
     expect(state?.contributions.light).toBeCloseTo(0.002, 12);
-    expect(state?.hazard).toBeCloseTo(0.0665, 12);
+    expect(state?.hazard).toBeCloseTo(0.0648, 12);
   });
 
   it("has per-Driver contributions that combine to the hazard throughout a run", () => {
@@ -77,9 +77,9 @@ describe("red strip probability", () => {
     });
     expect(halfLifeRun.current().transitions[0]?.fireProbabilityNextMinute).toBeCloseTo(0.5, 12);
 
-    // The default initial hazard of 0.0665 per second gives 1 - exp(-3.99).
+    // The default initial hazard of 0.0648 per second gives 1 - exp(-3.888).
     const defaultRun = createSimulationRun({ room: DEFAULT_ROOM, seed: 1 });
-    expect(defaultRun.current().transitions[0]?.fireProbabilityNextMinute).toBeCloseTo(0.9815, 5);
+    expect(defaultRun.current().transitions[0]?.fireProbabilityNextMinute).toBeCloseTo(0.979514, 5);
   });
 
   // Different Trigger Level streams change when transitions fire and nothing else. So

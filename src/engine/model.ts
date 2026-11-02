@@ -85,8 +85,9 @@ export interface InternalState {
 
 /**
  * Model values for Phases 1 and 2. They are roughly tuned so that about 10 simulated minutes
- * shows all four awake behaviours and a longer run shows sleep. They are not validated:
- * every relationship here is Provisional.
+ * shows all four awake behaviours, a settled fly often stays still and awake for more than
+ * 5 minutes, and a day shows a morning, siesta, evening and night of sleep. They are not
+ * validated: every relationship here is Provisional.
  */
 export interface ModelParameters {
   /** Arousal relaxes towards this level during Immobility. */
@@ -178,19 +179,19 @@ export const DEFAULT_PARAMETERS: ModelParameters = {
   arousalTimeConstantSeconds: 120,
   arousalNoise: 0.015,
   initialArousal: 0.5,
-  startWalkingSpontaneousRate: 0.002,
+  startWalkingSpontaneousRate: 0.0003,
   startWalkingArousalRate: 0.25,
   startWalkingLightRate: 0.002,
   stopWalkingSpontaneousRate: 0.02,
   stopWalkingLowArousalRate: 0.06,
-  startGroomingSpontaneousRate: 0.004,
-  startGroomingArousalRate: 0.05,
+  startGroomingSpontaneousRate: 0.001,
+  startGroomingArousalRate: 0.04,
   stopGroomingSpontaneousRate: 0.04,
   walkAfterGroomingSpontaneousRate: 0.005,
   walkAfterGroomingArousalRate: 0.03,
-  takeOffFromImmobilitySpontaneousRate: 0.003,
+  takeOffFromImmobilitySpontaneousRate: 0.002,
   takeOffFromImmobilityArousalRate: 0.02,
-  takeOffFromWalkingSpontaneousRate: 0.012,
+  takeOffFromWalkingSpontaneousRate: 0.018,
   takeOffFromWalkingArousalRate: 0.06,
   landingContactRate: 100,
   sleepPressureRiseTimeConstantSeconds: 28_800,

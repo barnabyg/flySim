@@ -13,6 +13,9 @@ const LIGHT_ICON =
 const DARK_ICON =
   '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M10.500 2A6.500 6.500 0 1 0 14 11a5.500 5.500 0 0 1-3.500-9z" fill="currentColor"/></svg>';
 
+/** Holding Disturb repeats it this often, which can keep the fly awake for a night at 1000×. */
+const DISTURB_REPEAT_MILLISECONDS = 50;
+
 const DISTURB_ICON =
   '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M9.500 1L3 9h4l-1 6 7-8.500H9z" fill="currentColor"/></svg>';
 
@@ -107,8 +110,26 @@ export function createRunControls(
     handlers.onLightScheduleChange(schedule);
   }
 
-  disturb.addEventListener("click", () => {
+  // A press disturbs at once and holding it repeats, so the fly can be kept from sleeping.
+  let repeating: ReturnType<typeof setInterval> | undefined;
+  function stopRepeating(): void {
+    clearInterval(repeating);
+    repeating = undefined;
+  }
+  disturb.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) return;
     handlers.onDisturb();
+    stopRepeating();
+    repeating = setInterval(() => {
+      handlers.onDisturb();
+    }, DISTURB_REPEAT_MILLISECONDS);
+  });
+  for (const type of ["pointerup", "pointerleave", "pointercancel"] as const) {
+    disturb.addEventListener(type, stopRepeating);
+  }
+  disturb.addEventListener("click", (event) => {
+    // A pointer press has already disturbed, so only a keyboard's click is left to handle.
+    if (event.detail === 0) handlers.onDisturb();
   });
   restart.addEventListener("click", () => {
     handlers.onRestart();
