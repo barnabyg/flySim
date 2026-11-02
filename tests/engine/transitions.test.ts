@@ -10,6 +10,8 @@ import {
 } from "../../src/engine";
 import { recordOf } from "./helpers";
 
+const HOUR = 3600;
+
 /** Only the original two transitions can fire, so nothing competes with them. */
 const IMMOBILITY_AND_WALKING_ONLY = {
   ...DEFAULT_PARAMETERS,
@@ -38,8 +40,8 @@ describe("Transition Hazards", () => {
 
   it("has per-Driver contributions that add up to the hazard, and a strip from the hazard alone", () => {
     // Half a day reaches sleep, and a Disturb part-way through adds a startle.
-    const { samples, firedTransitions } = recordOf(2, 12 * 3600, {
-      interventions: [{ step: 6 * 3600 * STEPS_PER_SECOND, type: "disturb" }],
+    const { samples, firedTransitions } = recordOf(2, 12 * HOUR, {
+      interventions: [{ step: 6 * HOUR * STEPS_PER_SECOND, type: "disturb" }],
     });
     const states = [...samples.flatMap((sample) => sample.transitions), ...firedTransitions];
 
@@ -58,7 +60,7 @@ describe("Transition Hazards", () => {
   });
 
   it("changes Driver contributions as the run goes on", () => {
-    const { samples } = recordOf(2, 3600);
+    const { samples } = recordOf(2, HOUR);
     const arousalContributions = new Set(
       samples.flatMap((sample) => sample.transitions.map((state) => state.contributions.arousal)),
     );
@@ -76,7 +78,7 @@ describe("Transition Hazards", () => {
     };
     const fromImmobility = Array.from({ length: 20 }, (_, seed) => {
       const run = createSimulationRun({ room: DEFAULT_ROOM, seed, parameters });
-      run.advanceSeconds(3600);
+      run.advanceSeconds(HOUR);
       return run.firedTransitions.filter((fired) => fired.from === "immobility");
     }).flat();
     const walkingShare =
@@ -205,11 +207,9 @@ describe("red strip probability", () => {
   function samplesComparedBeforeFiring(parameters: ModelParameters, firingsToSkip: number): number {
     let compared = 0;
     for (let seed = 0; seed < 20; seed++) {
-      const [first, second] = [100, 200].map((triggerStream) => {
-        const run = createSimulationRun({ room: DEFAULT_ROOM, seed, parameters, triggerStream });
-        run.advanceSeconds(1800);
-        return run.record();
-      });
+      const [first, second] = [100, 200].map((triggerStream) =>
+        recordOf(seed, 1800, { parameters, triggerStream }),
+      );
       const firstFiring = first?.firedTransitions[firingsToSkip];
       const secondFiring = second?.firedTransitions[firingsToSkip];
       if (!first || !second || !firstFiring || !secondFiring) throw new Error("expected firings");

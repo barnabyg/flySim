@@ -117,21 +117,34 @@ function noShares(): Record<Behaviour, number> {
 }
 
 /**
- * Behaviours seed 5 shows long enough at each speed to check their colour. Flights last
- * about half a second, too short to fill any of a column at 1000×.
+ * How long to watch seed 5 at each speed, and the behaviours it then shows long enough to
+ * check their colour. Flights last about half a second, too short to fill any of a column
+ * at 1000×.
  */
-const CHECKED_BEHAVIOURS: Readonly<Record<number, readonly Behaviour[]>> = {
-  60: ["immobility", "grooming", "walking", "flying"],
-  1000: ["immobility", "grooming", "walking", "sleeping"],
-};
+const RIBBON_RUNS: readonly {
+  speed: number;
+  watchMilliseconds: number;
+  checked: readonly Behaviour[];
+}[] = [
+  {
+    speed: 60,
+    watchMilliseconds: 20_000,
+    checked: ["immobility", "grooming", "walking", "flying"],
+  },
+  {
+    speed: 1000,
+    watchMilliseconds: 10_000,
+    checked: ["immobility", "grooming", "walking", "sleeping"],
+  },
+];
 
-for (const speed of [60, 1000]) {
+for (const { speed, watchMilliseconds, checked } of RIBBON_RUNS) {
   test(`the ribbon shows each behaviour in its colour, matching the record at ${speed}×`, async ({
     page,
   }) => {
     await openApp(page, 5);
     await setSpeed(page, speed);
-    await page.waitForTimeout(speed === 1000 ? 10_000 : 20_000);
+    await page.waitForTimeout(watchMilliseconds);
     await page.locator("#pause").click();
     await page.waitForTimeout(300);
 
@@ -157,7 +170,7 @@ for (const speed of [60, 1000]) {
       return shares;
     };
 
-    let checked = 0;
+    let columns = 0;
     const peak = noShares();
     ribbon.columns.forEach((column, x) => {
       const start = ribbon.windowStart + x * secondsPerColumn;
@@ -170,12 +183,12 @@ for (const speed of [60, 1000]) {
         );
         peak[behaviour] = Math.max(peak[behaviour], expected[behaviour]);
       }
-      checked += 1;
+      columns += 1;
     });
 
-    expect(checked).toBeGreaterThan(100);
+    expect(columns).toBeGreaterThan(100);
     // A behaviour can only be checked where it fills a good part of some column.
-    for (const behaviour of CHECKED_BEHAVIOURS[speed] ?? []) {
+    for (const behaviour of checked) {
       expect(peak[behaviour], `${behaviour}'s largest share of a column`).toBeGreaterThan(0.2);
     }
   });

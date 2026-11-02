@@ -1,12 +1,6 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import {
-  DEFAULT_ROOM,
-  DRIVERS,
-  createSimulationRun,
-  type Behaviour,
-  type FiredTransition,
-  type RunRecord,
-} from "../../src/engine";
+import { DRIVERS, type Behaviour, type FiredTransition, type RunRecord } from "../../src/engine";
+import { recordOf } from "./helpers";
 
 const HOUR = 3600;
 /** The conventional cut-off at which a lab scores an Inactivity Bout as sleep. */
@@ -36,11 +30,7 @@ describe("where true sleep and Scored Sleep disagree", () => {
   let bouts: Bout[] = [];
 
   beforeAll(() => {
-    records = SEEDS.map((seed) => {
-      const run = createSimulationRun({ room: DEFAULT_ROOM, seed, maxRecordedSamples: 1 });
-      run.advanceSeconds(24 * HOUR);
-      return run.record();
-    });
+    records = SEEDS.map((seed) => recordOf(seed, 24 * HOUR, { maxRecordedSamples: 1 }));
     bouts = records.flatMap((record) => boutsOf(record.firedTransitions));
   }, 300_000);
 
