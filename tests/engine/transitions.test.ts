@@ -3,6 +3,7 @@ import {
   DEFAULT_PARAMETERS,
   DEFAULT_ROOM,
   DRIVERS,
+  STEPS_PER_SECOND,
   createSimulationRun,
   type Behaviour,
   type ModelParameters,
@@ -35,14 +36,24 @@ describe("Transition Hazards", () => {
     expect(state?.hazard).toBeCloseTo(0.0648, 12);
   });
 
-  it("has per-Driver contributions that combine to the hazard throughout a run", () => {
-    const { samples, firedTransitions } = recordOf(2, 3600);
+  it("has per-Driver contributions that add up to the hazard, and a strip from the hazard alone", () => {
+    // Half a day reaches sleep, and a Disturb part-way through adds a startle.
+    const { samples, firedTransitions } = recordOf(2, 12 * 3600, {
+      interventions: [{ step: 6 * 3600 * STEPS_PER_SECOND, type: "disturb" }],
+    });
     const states = [...samples.flatMap((sample) => sample.transitions), ...firedTransitions];
 
-    expect(states.length).toBeGreaterThan(3000);
+    const fired = new Set(firedTransitions.map((state) => state.transition));
+    expect(fired).toContain("immobility-to-sleeping");
+    expect(fired).toContain("sleeping-to-immobility");
+    // Every Driver plays a part somewhere, so leaving any out of the hazard shows up here.
+    for (const driver of DRIVERS) {
+      expect(states.some((state) => state.contributions[driver] > 0)).toBe(true);
+    }
     for (const state of states) {
       const total = DRIVERS.reduce((sum, driver) => sum + state.contributions[driver], 0);
       expect(total).toBeCloseTo(state.hazard, 12);
+      expect(state.fireProbabilityNextMinute).toBeCloseTo(1 - Math.exp(-state.hazard * 60), 12);
     }
   });
 

@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_PARAMETERS,
   DEFAULT_ROOM,
-  DRIVERS,
   createSimulationRun,
   type RunSample,
   type Surface,
@@ -87,7 +86,7 @@ describe("Sleep Depth", () => {
     });
   });
 
-  it("shrinks the wake bar through its Drivers, whose contributions still add up", () => {
+  it("shrinks the wake bar through its spontaneous Driver", () => {
     const states = long.samples.flatMap((sample) =>
       sample.behaviour === "sleeping"
         ? sample.transitions.map((state) => ({ state, depth: sample.sleepDepth ?? 0 }))
@@ -95,8 +94,6 @@ describe("Sleep Depth", () => {
     );
 
     for (const { state, depth } of states) {
-      const total = DRIVERS.reduce((sum, driver) => sum + state.contributions[driver], 0);
-      expect(total).toBeCloseTo(state.hazard, 12);
       expect(state.contributions.spontaneous).toBeCloseTo(
         DEFAULT_PARAMETERS.wakeSpontaneousRate *
           (1 - DEFAULT_PARAMETERS.wakeSleepDepthReduction * depth),
@@ -240,17 +237,12 @@ describe("sleep", () => {
     expect(comparisons).toBeGreaterThan(50);
   });
 
-  it("splits the sleep hazards into per-Driver contributions, with sleep pressure among them", () => {
+  it("has sleep pressure among the Drivers of the sleep hazards", () => {
     const states = samples.flatMap((sample) => sample.transitions);
     const sleepStates = states.filter((state) => state.transition.includes("sleeping"));
 
     expect(sleepStates.length).toBeGreaterThan(1000);
-    for (const state of sleepStates) {
-      const total = DRIVERS.reduce((sum, driver) => sum + state.contributions[driver], 0);
-      expect(total).toBeCloseTo(state.hazard, 12);
-      expect(state.contributions.sleepPressure).toBeGreaterThan(0);
-      expect(state.fireProbabilityNextMinute).toBeCloseTo(1 - Math.exp(-state.hazard * 60), 12);
-    }
+    for (const state of sleepStates) expect(state.contributions.sleepPressure).toBeGreaterThan(0);
   });
 
   it("shows no movement while the fly sleeps", () => {
