@@ -12,8 +12,6 @@ const HOUR = 3600;
 const SEEDS = [31, 32, 33, 34, 35];
 /** Long enough to see the day after deprivation and the start of the one after that. */
 const RUN_HOURS = 54;
-/** Pressure is compared an hour before lights-on, late in each deprivation. */
-const PRESSURE_AT_HOUR = 23;
 /** Frequent enough to wake the fly from the light sleep it falls into. */
 const DISTURB_EVERY_SECONDS = 60;
 
@@ -29,7 +27,8 @@ function deprivation(fromHour: number, toHour: number): Intervention[] {
 interface Outcome {
   readonly fired: readonly FiredTransition[];
   readonly interventions: RunRecord["interventions"];
-  readonly sleepPressureLate: number;
+  /** Sleep pressure from the run record on each hour, from the start of the run. */
+  readonly sleepPressureByHour: readonly number[];
 }
 
 function runWith(seed: number, interventions: readonly Intervention[]): Outcome {
@@ -39,13 +38,16 @@ function runWith(seed: number, interventions: readonly Intervention[]): Outcome 
     interventions,
     maxRecordedSamples: 1,
   });
-  run.advanceSeconds(PRESSURE_AT_HOUR * HOUR);
-  const sleepPressureLate = run.current().sleepPressure;
-  run.advanceSeconds((RUN_HOURS - PRESSURE_AT_HOUR) * HOUR);
+  // The record keeps only its latest sample, so it is read as the run reaches each hour.
+  const sleepPressureByHour: number[] = [];
+  for (let hour = 0; hour < RUN_HOURS; hour++) {
+    sleepPressureByHour.push(run.record().samples.at(-1)?.sleepPressure ?? NaN);
+    run.advanceSeconds(HOUR);
+  }
   return {
     fired: run.firedTransitions,
     interventions: run.record().interventions,
-    sleepPressureLate,
+    sleepPressureByHour,
   };
 }
 
@@ -91,10 +93,26 @@ describe("rebound after lost sleep", () => {
   });
 
   it("holds sleep pressure higher during deprivation than at the same time undisturbed", () => {
+    const pressure = (outcomes: readonly Outcome[], index: number, hour: number): number =>
+      outcomes[index]?.sleepPressureByHour[hour] ?? NaN;
     SEEDS.forEach((_, index) => {
-      const without = undisturbed[index]?.sleepPressureLate ?? NaN;
-      expect(lostNight[index]?.sleepPressureLate).toBeGreaterThan(without + 0.3);
-      expect(lostHalfNight[index]?.sleepPressureLate).toBeGreaterThan(without + 0.2);
+      // From an hour in, when a fly left alone may have slept, to the end of the deprivation.
+      for (let hour = 13; hour < 24; hour++) {
+        expect(pressure(lostNight, index, hour)).toBeGreaterThanOrEqual(
+          pressure(undisturbed, index, hour),
+        );
+      }
+      for (let hour = 19; hour < 24; hour++) {
+        expect(pressure(lostHalfNight, index, hour)).toBeGreaterThanOrEqual(
+          pressure(undisturbed, index, hour),
+        );
+      }
+      expect(pressure(lostNight, index, 23)).toBeGreaterThan(
+        pressure(undisturbed, index, 23) + 0.3,
+      );
+      expect(pressure(lostHalfNight, index, 23)).toBeGreaterThan(
+        pressure(undisturbed, index, 23) + 0.2,
+      );
     });
   });
 
