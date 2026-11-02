@@ -27,7 +27,7 @@ export interface BodyNoise {
   readonly sleepDepth: RandomStream;
 }
 
-/** The state at the start of a run, used to what the fly senses where it starts. */
+/** The state at the start of a run. The fly starts used to what it senses where it starts. */
 export function initialBodyState(parameters: ModelParameters, senses: Senses): BodyState {
   return {
     arousal: parameters.initialArousal,
