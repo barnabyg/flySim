@@ -16,6 +16,7 @@ import {
 import { DEFAULT_PARAMETERS, type ModelParameters } from "./parameters";
 import {
   STEPS_PER_SECOND,
+  SQRT_STEP_SECONDS,
   STEP_SECONDS,
   adaptToSenses,
   advanceBodyState,
@@ -46,8 +47,6 @@ import {
 } from "./roomContents";
 
 export const MODEL_VERSION = "0.5.0";
-
-const SQRT_STEP_SECONDS = Math.sqrt(STEP_SECONDS);
 
 const DRIVER_NOISE_STREAM = 1;
 const MOVEMENT_STREAM = 2;

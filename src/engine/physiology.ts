@@ -13,7 +13,7 @@ import type { RandomStream } from "./random";
 export const STEPS_PER_SECOND = 50;
 
 export const STEP_SECONDS = 1 / STEPS_PER_SECOND;
-const SQRT_STEP_SECONDS = Math.sqrt(STEP_SECONDS);
+export const SQRT_STEP_SECONDS = Math.sqrt(STEP_SECONDS);
 const STEP_HOURS = STEP_SECONDS / 3600;
 
 const MIN_STARTLE = 1e-6;
