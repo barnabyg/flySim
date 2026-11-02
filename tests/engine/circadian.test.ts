@@ -156,37 +156,45 @@ describe("the circadian clock", () => {
     return ((sample.circadianPhaseHours - target + 36) % 24) - 12;
   }
 
-  it("moves gradually towards a shifted schedule, rather than jumping", () => {
-    // From the second lights-on, the light comes on 6 hours later.
-    const shifted = { lightsOnHour: 12, lightHours: 12 };
-    const run = createSimulationRun({
-      room: DEFAULT_ROOM,
-      seed: 21,
-      interventions: [{ step: DAY * 50, type: "light-schedule", lightSchedule: shifted }],
-      maxRecordedSamples: 1,
-    });
-    run.advanceSeconds(DAY);
-    const hourly: number[] = [];
-    for (let hour = 0; hour <= 8 * 24; hour++) {
-      hourly.push(offsetFrom(shifted, run.current()));
-      run.advanceSeconds(HOUR);
-    }
-    const daily = hourly.filter((_, hour) => hour % 24 === 0);
+  // From the second lights-on, the light comes on 6 hours later or 6 hours earlier.
+  it.each([
+    ["later", 12, 6],
+    ["earlier", 0, -6],
+  ])(
+    "moves gradually towards a schedule shifted %s, rather than jumping",
+    (_, lightsOnHour, start) => {
+      const shifted = { lightsOnHour, lightHours: 12 };
+      const run = createSimulationRun({
+        room: DEFAULT_ROOM,
+        seed: 21,
+        interventions: [{ step: DAY * 50, type: "light-schedule", lightSchedule: shifted }],
+        maxRecordedSamples: 1,
+      });
+      run.advanceSeconds(DAY);
+      const hourly: number[] = [];
+      for (let hour = 0; hour <= 8 * 24; hour++) {
+        hourly.push(offsetFrom(shifted, run.current()));
+        run.advanceSeconds(HOUR);
+      }
+      const daily = hourly.filter((_, hour) => hour % 24 === 0);
 
-    expect(daily[0]).toBeCloseTo(6, 1);
-    hourly.forEach((offset, hour) => {
-      const next = hourly[hour + 1];
-      if (next !== undefined) expect(Math.abs(next - offset)).toBeLessThan(0.5);
-    });
-    daily.forEach((offset, day) => {
-      const next = daily[day + 1];
-      if (next === undefined) return;
-      expect(next).toBeLessThan(offset);
-      expect(offset - next).toBeLessThan(3);
-    });
-    expect(Math.abs(daily[1] ?? NaN)).toBeGreaterThan(2);
-    expect(Math.abs(daily.at(-1) ?? NaN)).toBeLessThan(1);
-  });
+      // Measured as how far the clock is from the new schedule, on the same side throughout.
+      const sign = Math.sign(start);
+      expect(daily[0]).toBeCloseTo(start, 1);
+      hourly.forEach((offset, hour) => {
+        const next = hourly[hour + 1];
+        if (next !== undefined) expect(Math.abs(next - offset)).toBeLessThan(0.5);
+      });
+      daily.forEach((offset, day) => {
+        const next = daily[day + 1];
+        if (next === undefined) return;
+        expect(sign * next).toBeLessThan(sign * offset);
+        expect(sign * (offset - next)).toBeLessThan(3);
+      });
+      expect(Math.abs(daily[1] ?? NaN)).toBeGreaterThan(2);
+      expect(Math.abs(daily.at(-1) ?? NaN)).toBeLessThan(1);
+    },
+  );
 
   it("keeps running in constant darkness", () => {
     const samples = samplesOf(3 * DAY, { lightsOnHour: 6, lightHours: 0 });
