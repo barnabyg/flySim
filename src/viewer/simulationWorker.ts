@@ -1,10 +1,14 @@
 import {
   STEPS_PER_SECOND,
   createSimulationRun,
+  exportFileName,
+  exportRun,
+  type RunExport,
   type SimulationRun,
   type SimulationSetup,
 } from "../engine";
-import type { FromSimulation, ToSimulation } from "./protocol";
+import { gzip } from "./gzip";
+import type { ExportFormat, ExportedFile, FromSimulation, ToSimulation } from "./protocol";
 
 const TICK_MILLISECONDS = 16;
 /** The longest one tick may spend advancing, which keeps messages flowing at high speeds. */
@@ -22,8 +26,8 @@ let stepsOwed = 0;
 let firedSent = 0;
 let interventionsSent = 0;
 
-function send(message: FromSimulation): void {
-  postMessage(message);
+function send(message: FromSimulation, transfer: Transferable[] = []): void {
+  postMessage(message, { transfer });
 }
 
 function tick(): void {
@@ -65,6 +69,34 @@ function sendFrame(): void {
   interventionsSent = interventionsReached;
 }
 
+/** Each export format's files, before they are zipped. */
+const EXPORTERS: Readonly<
+  Record<ExportFormat, (file: RunExport) => readonly { name: string; text: string }[]>
+> = {
+  json: (file) => [{ name: exportFileName(file, "", "json.gz"), text: JSON.stringify(file) }],
+};
+
+/**
+ * Exports the run here rather than in the viewer, as a long run's record is too big to pass over
+ * without stalling the page. The run waits while its record is converted, and goes on while the
+ * files are zipped.
+ */
+async function sendExport(
+  requestId: number,
+  format: ExportFormat,
+  sampleIntervalSeconds: number,
+): Promise<void> {
+  if (!run) return;
+  const file = exportRun(run.record(), sampleIntervalSeconds);
+  const files: ExportedFile[] = await Promise.all(
+    EXPORTERS[format](file).map(async ({ name, text }) => ({ name, data: await gzip(text) })),
+  );
+  send(
+    { type: "export", requestId, files },
+    files.map((each) => each.data),
+  );
+}
+
 onmessage = (event: MessageEvent<ToSimulation>) => {
   const message = event.data;
   switch (message.type) {
@@ -98,6 +130,9 @@ onmessage = (event: MessageEvent<ToSimulation>) => {
         const interventions = [...run.interventions];
         send({ type: "replay", requestId: message.requestId, setup: { ...setup, interventions } });
       }
+      break;
+    case "request-export":
+      void sendExport(message.requestId, message.format, message.sampleIntervalSeconds);
       break;
   }
 };

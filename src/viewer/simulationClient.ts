@@ -6,7 +6,7 @@ import type {
   RunSample,
   SimulationSetup,
 } from "../engine";
-import type { FromSimulation, ToSimulation } from "./protocol";
+import type { ExportFormat, ExportedFile, FromSimulation, ToSimulation } from "./protocol";
 
 export type FrameListener = (
   sample: RunSample,
@@ -24,6 +24,8 @@ export interface SimulationClient {
   record(): Promise<RunRecord>;
   /** The setup that replays the run, with every Intervention so far. */
   replaySetup(): Promise<SimulationSetup>;
+  /** The run so far as gzipped files, with samples the given number of seconds apart. */
+  exportRun(format: ExportFormat, sampleIntervalSeconds: number): Promise<readonly ExportedFile[]>;
 }
 
 /** A request to the worker, which the client gives an id to match its reply. */
@@ -91,6 +93,11 @@ export function startSimulation(setup: SimulationSetup, speed: number): Simulati
       const reply = await request({ type: "request-replay" });
       if (reply.type !== "replay") throw new Error(`Expected a replay, not a ${reply.type}`);
       return reply.setup;
+    },
+    exportRun: async (format, sampleIntervalSeconds) => {
+      const reply = await request({ type: "request-export", format, sampleIntervalSeconds });
+      if (reply.type !== "export") throw new Error(`Expected an export, not a ${reply.type}`);
+      return reply.files;
     },
   };
 }

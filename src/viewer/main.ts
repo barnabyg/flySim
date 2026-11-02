@@ -10,6 +10,7 @@ import {
   type RunSample,
   type SourceKind,
 } from "../engine";
+import { download } from "./download";
 import { createDriverPanel, type FlashedTransition } from "./driverPanel";
 import { createFieldOverlay } from "./fieldOverlay";
 import { createRibbon } from "./ribbon";
@@ -126,6 +127,11 @@ const runControls = createRunControls(
     },
     onFieldsToggle: (visible) => {
       fieldOverlay.setVisible(visible);
+    },
+    onExport: (format, sampleIntervalSeconds) => {
+      void simulation.exportRun(format, sampleIntervalSeconds).then((files) => {
+        for (const file of files) download(file.name, file.data);
+      });
     },
     onSourcePresenceChange: (kind, present) => {
       changing.set(kind, present ? (lastPlaces.get(kind) ?? null) : null);

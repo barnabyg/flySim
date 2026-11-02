@@ -1,5 +1,12 @@
-import { SOURCE_KINDS, type LightSchedule, type RoomSetup, type SourceKind } from "../engine";
+import {
+  DEFAULT_SAMPLE_INTERVAL_SECONDS,
+  SOURCE_KINDS,
+  type LightSchedule,
+  type RoomSetup,
+  type SourceKind,
+} from "../engine";
 import { MAX_ROOM_METRES, MIN_ROOM_METRES } from "./runSettings";
+import type { ExportFormat } from "./protocol";
 
 const RESTART_ICON =
   '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.5-3.5M12 1v4H8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -32,6 +39,9 @@ function sourceLabel(kind: SourceKind, present: boolean): string {
   return present ? `Remove the ${kind}` : `Put the ${kind} back`;
 }
 
+const EXPORT_ICON =
+  '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M8 2v8M4.5 6.5L8 10l3.5-3.5M2.5 13.5h11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
 const DISTURB_ICON =
   '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M9.500 1L3 9h4l-1 6 7-8.500H9z" fill="currentColor"/></svg>';
 
@@ -51,6 +61,7 @@ export interface RunControlHandlers {
   onLightScheduleChange(lightSchedule: LightSchedule): void;
   onFieldsToggle(visible: boolean): void;
   onSourcePresenceChange(kind: SourceKind, present: boolean): void;
+  onExport(format: ExportFormat, sampleIntervalSeconds: number): void;
 }
 
 const pad = (value: number): string => String(value).padStart(2, "0");
@@ -116,7 +127,16 @@ export function createRunControls(
       (kind) =>
         `<button id="${kind}-presence" class="icon-button source-presence" type="button" aria-pressed="false" aria-label="${sourceLabel(kind, true)}" title="${sourceLabel(kind, true)}">${SOURCE_ICONS[kind]}</button>`,
     ).join("")}
-    <button id="fields" class="icon-button" type="button" aria-pressed="false" aria-label="Show the fields" title="Show what the fly could smell and feel">${FIELDS_ICON}</button>`;
+    <button id="fields" class="icon-button" type="button" aria-pressed="false" aria-label="Show the fields" title="Show what the fly could smell and feel">${FIELDS_ICON}</button>
+    <details id="export-settings" class="settings">
+      <summary class="icon-button" aria-label="Export the run" title="Export the run">${EXPORT_ICON}</summary>
+      <form id="export-form" class="settings-form">
+        <label>Sample every (s)<input id="sample-interval" type="number" min="1" step="1" value="${DEFAULT_SAMPLE_INTERVAL_SECONDS}" required /></label>
+        <div class="settings-buttons">
+          <button id="export-json" type="submit" value="json" title="Download the run as gzipped JSON">JSON</button>
+        </div>
+      </form>
+    </details>`;
 
   const disturb = container.querySelector<HTMLButtonElement>("#disturb");
   const restart = container.querySelector<HTMLButtonElement>("#restart");
@@ -234,6 +254,18 @@ export function createRunControls(
       changeLight({ lightsOnHour: hoursFrom(lightsOnInput) || 0, lightHours });
     });
   }
+  const exportSettings = container.querySelector<HTMLDetailsElement>("#export-settings");
+  const exportForm = container.querySelector<HTMLFormElement>("#export-form");
+  const sampleInterval = container.querySelector<HTMLInputElement>("#sample-interval");
+  if (!exportSettings || !exportForm || !sampleInterval)
+    throw new Error("Malformed export controls");
+  exportForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const format = (event.submitter as HTMLButtonElement | null)?.value as ExportFormat | undefined;
+    if (!format) return;
+    exportSettings.removeAttribute("open");
+    handlers.onExport(format, sampleInterval.valueAsNumber);
+  });
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     handlers.onRoomChange({

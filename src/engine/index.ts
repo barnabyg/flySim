@@ -38,3 +38,14 @@ export {
   type TransitionState,
 } from "./simulationRun";
 export { setupFromOptions, type SetupOptions } from "./setupOptions";
+export {
+  DEFAULT_SAMPLE_INTERVAL_SECONDS,
+  EXPORT_FORMAT,
+  RECORD_FORMAT_VERSION,
+  RunExportError,
+  exportFileName,
+  exportRun,
+  readRunExport,
+  type RunExport,
+  type RunExportReading,
+} from "./runExport";
