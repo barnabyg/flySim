@@ -1,5 +1,6 @@
 import type {
   FiredTransition,
+  FloorPlace,
   Intervention,
   InterventionAction,
   LightSchedule,
@@ -31,6 +32,7 @@ export function startSimulation(
   room: RoomSetup,
   speed: number,
   lightSchedule: LightSchedule,
+  food: FloorPlace | undefined,
 ): SimulationClient {
   const worker = new Worker(new URL("./simulationWorker.ts", import.meta.url), { type: "module" });
   const listeners: FrameListener[] = [];
@@ -58,7 +60,7 @@ export function startSimulation(
     }
   };
 
-  send({ type: "start", seed, room, speed, lightSchedule });
+  send({ type: "start", seed, room, speed, lightSchedule, food });
 
   return {
     latest: () => latest,

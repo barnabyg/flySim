@@ -32,7 +32,7 @@ function requireElement<T extends Element>(selector: string, type: new () => T):
 }
 
 const settings = settingsFromUrl(location.search, SPEEDS, INITIAL_SPEED);
-const { room, seed, lightSchedule } = settings;
+const { room, seed, lightSchedule, food } = settings;
 let speed = settings.speed;
 
 function restartWith(changes: Partial<RunSettings>): void {
@@ -46,7 +46,7 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 
 const roomScene = createRoomScene(room);
-const simulation = startSimulation(seed, room, speed, lightSchedule);
+const simulation = startSimulation(seed, room, speed, lightSchedule, food);
 
 const driverPanel = createDriverPanel(requireElement("#drivers", HTMLElement));
 const ribbon = createRibbon(requireElement("#ribbon", HTMLCanvasElement));
@@ -110,6 +110,7 @@ renderer.setAnimationLoop(() => {
   const sample = simulation.latest();
   if (sample) {
     roomScene.updateFly(sample);
+    roomScene.placeFood(sample.food.place);
     roomScene.updateLighting(lightLevel(shownSchedule, sample.timeOfDayHours));
   }
   views.render();

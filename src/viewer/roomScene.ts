@@ -1,5 +1,11 @@
 import * as THREE from "three";
-import type { Position, RoomSetup, RunSample } from "../engine";
+import {
+  SOURCE_RADIUS_METRES,
+  type FloorPlace,
+  type Position,
+  type RoomSetup,
+  type RunSample,
+} from "../engine";
 import { createFlyModel, type FlyModel } from "./flyModel";
 
 /** Fine markings that would only be noise from the monitoring camera's distance. */
@@ -14,6 +20,9 @@ const DAY_TINT = new THREE.Color(0xffffff);
 const DAY_BACKGROUND = new THREE.Color(0x14161a);
 const NIGHT_BACKGROUND = new THREE.Color(0x07080c);
 const HEMISPHERE_INTENSITY = 2;
+/** Above the floor's markings, and far below the fly's feet, which stand on the floor. */
+const SOURCE_HEIGHT_METRES = 0.0001;
+export const FOOD_COLOUR = 0xd8c050;
 
 /** Engine positions have z up, and the scene has y up. */
 function toScene(position: Position): THREE.Vector3 {
@@ -113,10 +122,35 @@ function createRoomMesh(room: RoomSetup): THREE.Object3D {
   return group;
 }
 
+/**
+ * A source drawn as a flat patch on the floor at true size, with a darker rim so it reads
+ * from the monitoring camera's distance.
+ */
+function createSource(colour: number): THREE.Object3D {
+  const group = new THREE.Group();
+  const patch = new THREE.Mesh(
+    new THREE.CircleGeometry(SOURCE_RADIUS_METRES, 48),
+    new THREE.MeshLambertMaterial({ color: colour }),
+  );
+  patch.rotation.x = -Math.PI / 2;
+  group.add(patch);
+  const rim = new THREE.Mesh(
+    new THREE.RingGeometry(0.9 * SOURCE_RADIUS_METRES, SOURCE_RADIUS_METRES, 48),
+    new THREE.MeshBasicMaterial({ color: new THREE.Color(colour).multiplyScalar(0.55) }),
+  );
+  rim.rotation.x = -Math.PI / 2;
+  rim.position.y = SOURCE_HEIGHT_METRES / 2;
+  group.add(rim);
+  return group;
+}
+
 export interface RoomScene {
   readonly scene: THREE.Scene;
   readonly fly: FlyModel;
+  readonly food: THREE.Object3D;
   updateFly(sample: RunSample): void;
+  /** Puts the food where it is shown to be. */
+  placeFood(place: FloorPlace): void;
   /** Sets how bright the Room looks, from the overhead light's level. */
   updateLighting(lightLevel: number): void;
 }
@@ -134,6 +168,8 @@ export function createRoomScene(room: RoomSetup): RoomScene {
   overhead.position.set(room.widthMetres / 2, room.heightMetres * 0.95, room.depthMetres / 2);
   scene.add(overhead);
   scene.add(createRoomMesh(room));
+  const food = createSource(FOOD_COLOUR);
+  scene.add(food);
 
   const fly = createFlyModel();
   scene.add(fly.object);
@@ -144,6 +180,10 @@ export function createRoomScene(room: RoomSetup): RoomScene {
   return {
     scene,
     fly,
+    food,
+    placeFood: (place) => {
+      food.position.copy(toScene({ ...place, z: SOURCE_HEIGHT_METRES }));
+    },
     updateLighting: (lightLevel) => {
       const brightness = NIGHT_BRIGHTNESS + (1 - NIGHT_BRIGHTNESS) * lightLevel;
       hemisphere.intensity = HEMISPHERE_INTENSITY * brightness;

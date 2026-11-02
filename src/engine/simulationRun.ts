@@ -4,6 +4,7 @@ import {
   DRIVERS,
   TRANSITIONS,
   driverContributions,
+  hungerOf,
   vigilanceStateOf,
   type Behaviour,
   type DriverId,
@@ -29,8 +30,14 @@ import {
   type Surface,
 } from "./movement";
 import { createRandomStream } from "./random";
+import {
+  createRoomContents,
+  defaultFoodPlace,
+  type FloorPlace,
+  type SourceState,
+} from "./roomContents";
 
-export const MODEL_VERSION = "0.4.0";
+export const MODEL_VERSION = "0.5.0";
 
 /** The simulation always advances in fixed steps of this rate. */
 export const STEPS_PER_SECOND = 50;
@@ -62,6 +69,8 @@ export interface SimulationSetup {
   readonly room: RoomSetup;
   readonly seed: number;
   readonly parameters?: ModelParameters;
+  /** Where the food is on the floor. The default is away from the middle of the Room. */
+  readonly food?: FloorPlace;
   /** The default is 12:12. The run starts at lights-on, and interventions can change it. */
   readonly lightSchedule?: LightSchedule;
   /** Interventions to apply at given steps, on top of any made during the run. */
@@ -103,6 +112,8 @@ export interface RunSample extends MovementPose, InternalState {
   readonly speedMetresPerSecond: number;
   /** The transitions available from the current behaviour. */
   readonly transitions: readonly TransitionState[];
+  /** The food as it is now. The fly gets it only through its senses. */
+  readonly food: SourceState;
 }
 
 export interface FiredTransition extends TransitionState {
@@ -116,6 +127,7 @@ export interface FiredTransition extends TransitionState {
   readonly sleepPressure: number;
   /** Sleep Depth when the transition fired, or null if the fly was awake. */
   readonly sleepDepth: number | null;
+  readonly hunger: number;
 }
 
 export interface RunRecord {
@@ -123,6 +135,8 @@ export interface RunRecord {
   readonly seed: number;
   readonly room: RoomSetup;
   readonly parameters: ModelParameters;
+  /** Where the food started. */
+  readonly food: FloorPlace;
   /** The schedule the run started with. Later ones are among its interventions. */
   readonly lightSchedule: LightSchedule;
   readonly stepsPerSecond: number;
@@ -175,6 +189,8 @@ function validateAction(action: InterventionAction): void {
 export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   const { room, seed, maxRecordedSamples = Infinity } = setup;
   const parameters = setup.parameters ?? DEFAULT_PARAMETERS;
+  const initialFoodPlace = setup.food ?? defaultFoodPlace(room);
+  const contents = createRoomContents(room, initialFoodPlace);
   const initialLightSchedule = setup.lightSchedule ?? DEFAULT_LIGHT_SCHEDULE;
   validateLightSchedule(initialLightSchedule);
   let lightSchedule = initialLightSchedule;
@@ -203,6 +219,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   let sleepDepth: number | null = null;
   let circadianPhaseHours = 0;
   let startle = 0;
+  let energy = parameters.initialEnergy;
   const movement = createMovement(room, movementNoise);
   const stepsOnSurface = new Map<Surface, number>();
   const stepsInBehaviour = new Map<Behaviour, number>();
@@ -226,13 +243,30 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
 
   /** The only route from the world to the fly's hazards. */
   function currentSenses(): Senses {
-    return { touchingSurface: movement.hasArrived(), lightLevel: currentLightLevel() };
+    const { position, surface } = movement.pose();
+    return {
+      touchingSurface: movement.hasArrived(),
+      lightLevel: currentLightLevel(),
+      touchingFood: contents.touchingFood(position, surface),
+    };
+  }
+
+  function internalState(): InternalState {
+    return {
+      arousal,
+      sleepPressure,
+      sleepDepth,
+      circadianPhaseHours,
+      startle,
+      energy,
+      hunger: hungerOf(energy),
+    };
   }
 
   function transitionState(transition: TransitionId): TransitionState {
     const contributions = driverContributions(
       transition,
-      { arousal, sleepPressure, sleepDepth, circadianPhaseHours, startle },
+      internalState(),
       currentSenses(),
       parameters,
     );
@@ -260,6 +294,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
           vigilanceState: vigilanceStateOf(item.definition.to),
           sleepPressure,
           sleepDepth,
+          hunger: hungerOf(energy),
         });
         behaviour = item.definition.to;
         sleepDepth = behaviour === "sleeping" ? parameters.sleepDepthAtOnset : null;
@@ -283,6 +318,8 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
         return parameters.arousalTargetFlying;
       case "sleeping":
         return parameters.arousalTargetSleeping;
+      case "feeding":
+        return parameters.arousalTargetFeeding;
     }
   }
 
@@ -291,6 +328,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       case "immobility":
       case "grooming":
       case "sleeping":
+      case "feeding":
         return 0;
       case "walking":
         return parameters.walkingSpeedMetresPerSecond;
@@ -356,6 +394,26 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
     }
   }
 
+  function energyUse(): number {
+    switch (behaviour) {
+      case "immobility":
+      case "grooming":
+      case "feeding":
+        return parameters.energyUseResting;
+      case "walking":
+        return parameters.energyUseWalking;
+      case "flying":
+        return parameters.energyUseFlying;
+      case "sleeping":
+        return parameters.energyUseSleeping;
+    }
+  }
+
+  function updateEnergy(): void {
+    const intake = behaviour === "feeding" ? parameters.feedingIntake : 0;
+    energy = Math.min(1, Math.max(0, energy + (intake - energyUse()) * STEP_SECONDS));
+  }
+
   function updateStartle(): void {
     startle *= Math.exp(-STEP_SECONDS / parameters.startleTimeConstantSeconds);
     // Ends a faded startle outright, so that it leaves no trace in later hazards.
@@ -381,12 +439,9 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       vigilanceState: vigilanceStateOf(behaviour),
       ...movement.pose(),
       speedMetresPerSecond: currentSpeed(),
-      arousal,
-      sleepPressure,
-      sleepDepth,
-      circadianPhaseHours,
-      startle,
+      ...internalState(),
       transitions: pending.map((item) => transitionState(item.definition.id)),
+      food: contents.food(),
     };
   }
 
@@ -405,6 +460,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       updateSleepDepth();
       updateCircadianClock();
       updateStartle();
+      updateEnergy();
       if (behaviour === "walking") walk();
       if (behaviour === "flying")
         movement.fly(parameters.flightSpeedMetresPerSecond * STEP_SECONDS);
@@ -439,6 +495,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       seed,
       room,
       parameters,
+      food: initialFoodPlace,
       lightSchedule: initialLightSchedule,
       stepsPerSecond: STEPS_PER_SECOND,
       samples: [...samples],

@@ -1,6 +1,7 @@
 import {
   DEFAULT_LIGHT_SCHEDULE,
   DEFAULT_ROOM,
+  type FloorPlace,
   type LightSchedule,
   type RoomSetup,
 } from "../engine";
@@ -14,6 +15,8 @@ export interface RunSettings {
   readonly room: RoomSetup;
   readonly speed: number;
   readonly lightSchedule: LightSchedule;
+  /** Where the food starts, or undefined for the engine's default. */
+  readonly food?: FloorPlace;
 }
 
 export function randomSeed(): number {
@@ -37,6 +40,15 @@ function lightHours(parameter: string | null): number {
   return Math.min(24, Math.max(0, parsed));
 }
 
+/** A place written as "x,y" in metres, if it is on the Room's floor. */
+function floorPlace(parameter: string | null, room: RoomSetup): FloorPlace | undefined {
+  const [x, y] = (parameter ?? "").split(",").map(numberFrom);
+  if (x === undefined || y === undefined || !Number.isFinite(x) || !Number.isFinite(y)) {
+    return undefined;
+  }
+  return x >= 0 && x <= room.widthMetres && y >= 0 && y <= room.depthMetres ? { x, y } : undefined;
+}
+
 export function settingsFromUrl(
   search: string,
   speeds: readonly number[],
@@ -45,22 +57,25 @@ export function settingsFromUrl(
   const parameters = new URLSearchParams(search);
   const seed = numberFrom(parameters.get("seed"));
   const speed = numberFrom(parameters.get("speed"));
+  const room = {
+    widthMetres: roomSize(parameters.get("width"), DEFAULT_ROOM.widthMetres),
+    depthMetres: roomSize(parameters.get("depth"), DEFAULT_ROOM.depthMetres),
+    heightMetres: roomSize(parameters.get("height"), DEFAULT_ROOM.heightMetres),
+  };
+  const food = floorPlace(parameters.get("food"), room);
   return {
     seed: Number.isInteger(seed) ? seed : randomSeed(),
-    room: {
-      widthMetres: roomSize(parameters.get("width"), DEFAULT_ROOM.widthMetres),
-      depthMetres: roomSize(parameters.get("depth"), DEFAULT_ROOM.depthMetres),
-      heightMetres: roomSize(parameters.get("height"), DEFAULT_ROOM.heightMetres),
-    },
+    room,
     speed: speeds.includes(speed) ? speed : defaultSpeed,
     lightSchedule: {
       ...DEFAULT_LIGHT_SCHEDULE,
       lightHours: lightHours(parameters.get("lightHours")),
     },
+    ...(food && { food }),
   };
 }
 
-export function urlForSettings({ seed, room, speed, lightSchedule }: RunSettings): string {
+export function urlForSettings({ seed, room, speed, lightSchedule, food }: RunSettings): string {
   const parameters = new URLSearchParams({
     seed: String(seed),
     width: String(room.widthMetres),
@@ -69,5 +84,7 @@ export function urlForSettings({ seed, room, speed, lightSchedule }: RunSettings
     speed: String(speed),
     lightHours: String(lightSchedule.lightHours),
   });
+  // A new Room size may leave a place off its floor, which then falls back to the default.
+  if (food) parameters.set("food", `${food.x},${food.y}`);
   return `?${parameters.toString()}`;
 }

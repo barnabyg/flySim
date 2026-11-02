@@ -1,5 +1,6 @@
 import type {
   FiredTransition,
+  FloorPlace,
   Intervention,
   InterventionAction,
   LightSchedule,
@@ -15,6 +16,7 @@ export type ToSimulation =
       readonly room: RoomSetup;
       readonly speed: number;
       readonly lightSchedule: LightSchedule;
+      readonly food: FloorPlace | undefined;
     }
   | { readonly type: "set-speed"; readonly speed: number }
   | { readonly type: "set-paused"; readonly paused: boolean }

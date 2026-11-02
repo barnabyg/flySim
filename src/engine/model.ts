@@ -1,9 +1,16 @@
-export type Behaviour = "immobility" | "grooming" | "walking" | "flying" | "sleeping";
+export type Behaviour = "immobility" | "grooming" | "walking" | "flying" | "sleeping" | "feeding";
 
 export type VigilanceState = "awake" | "asleep";
 
 export type DriverId =
-  "spontaneous" | "arousal" | "contact" | "light" | "sleepPressure" | "circadian" | "startle";
+  | "spontaneous"
+  | "arousal"
+  | "contact"
+  | "light"
+  | "sleepPressure"
+  | "circadian"
+  | "startle"
+  | "hunger";
 
 export type TransitionId =
   | "immobility-to-walking"
@@ -15,7 +22,10 @@ export type TransitionId =
   | "walking-to-flying"
   | "flying-to-immobility"
   | "immobility-to-sleeping"
-  | "sleeping-to-immobility";
+  | "sleeping-to-immobility"
+  | "immobility-to-feeding"
+  | "walking-to-feeding"
+  | "feeding-to-immobility";
 
 export interface TransitionDefinition {
   readonly id: TransitionId;
@@ -29,6 +39,7 @@ export const BEHAVIOURS: readonly Behaviour[] = [
   "walking",
   "flying",
   "sleeping",
+  "feeding",
 ];
 
 export const DRIVERS: readonly DriverId[] = [
@@ -39,6 +50,7 @@ export const DRIVERS: readonly DriverId[] = [
   "sleepPressure",
   "circadian",
   "startle",
+  "hunger",
 ];
 
 export const TRANSITIONS: readonly TransitionDefinition[] = [
@@ -52,6 +64,9 @@ export const TRANSITIONS: readonly TransitionDefinition[] = [
   { id: "flying-to-immobility", from: "flying", to: "immobility" },
   { id: "immobility-to-sleeping", from: "immobility", to: "sleeping" },
   { id: "sleeping-to-immobility", from: "sleeping", to: "immobility" },
+  { id: "immobility-to-feeding", from: "immobility", to: "feeding" },
+  { id: "walking-to-feeding", from: "walking", to: "feeding" },
+  { id: "feeding-to-immobility", from: "feeding", to: "immobility" },
 ];
 
 /** Sleep is a behaviour, and the fly's true Vigilance State is derived from it. */
@@ -65,6 +80,8 @@ export interface Senses {
   readonly touchingSurface: boolean;
   /** How bright the Room is here, from 0 to 1. */
   readonly lightLevel: number;
+  /** Whether its feet are on the food. */
+  readonly touchingFood: boolean;
 }
 
 /** The fly's hidden state that Drivers read. */
@@ -81,13 +98,23 @@ export interface InternalState {
   readonly circadianPhaseHours: number;
   /** What's left of the latest disturbance, from 1 when it happens down to 0. */
   readonly startle: number;
+  /** The energy reserve, from 0 when empty to 1 when full. It falls with use and rises with intake. */
+  readonly energy: number;
+  /** Rises as the energy reserve falls, from 0 when full to 1 when empty. */
+  readonly hunger: number;
+}
+
+/** Hunger rises as the energy reserve falls. */
+export function hungerOf(energy: number): number {
+  return 1 - energy;
 }
 
 /**
- * Model values for Phases 1 and 2. They are roughly tuned so that about 10 simulated minutes
+ * Model values for Phases 1 to 3. They are roughly tuned so that about 10 simulated minutes
  * shows all four awake behaviours, a settled fly often stays in awake Immobility for more than
- * 5 minutes, and a day shows a morning, siesta, evening and night of sleep. They are not
- * validated: every relationship here is Provisional.
+ * 5 minutes, a day shows a morning, siesta, evening and night of sleep, and a part-fed fly
+ * finds food within hours. They are not validated: every relationship here is Provisional,
+ * including energy use, intake and how Hunger acts.
  */
 export interface ModelParameters {
   /** Arousal relaxes towards this level during Immobility. */
@@ -100,6 +127,8 @@ export interface ModelParameters {
   readonly arousalTargetFlying: number;
   /** Arousal relaxes towards this level during sleep. */
   readonly arousalTargetSleeping: number;
+  /** Arousal relaxes towards this level while feeding. */
+  readonly arousalTargetFeeding: number;
   readonly arousalTimeConstantSeconds: number;
   /** Size of arousal's random drift, per square root of a second. */
   readonly arousalNoise: number;
@@ -109,6 +138,8 @@ export interface ModelParameters {
   readonly startWalkingArousalRate: number;
   /** Light the fly senses acts at once, unlike its slow effect on the clock. */
   readonly startWalkingLightRate: number;
+  /** Scaled by Hunger squared, so a part-fed fly still settles for minutes at a time. */
+  readonly startWalkingHungerRate: number;
   readonly stopWalkingSpontaneousRate: number;
   readonly stopWalkingLowArousalRate: number;
   /** Grooming has no contamination model, so nothing about dirt drives these. */
@@ -117,6 +148,7 @@ export interface ModelParameters {
   readonly stopGroomingSpontaneousRate: number;
   readonly walkAfterGroomingSpontaneousRate: number;
   readonly walkAfterGroomingArousalRate: number;
+  readonly walkAfterGroomingHungerRate: number;
   readonly takeOffFromImmobilitySpontaneousRate: number;
   readonly takeOffFromImmobilityArousalRate: number;
   readonly takeOffFromWalkingSpontaneousRate: number;
@@ -168,6 +200,20 @@ export interface ModelParameters {
   readonly walkingTurnNoise: number;
   /** About 1 m/s. Flight frequency and speed are both Provisional. */
   readonly flightSpeedMetresPerSecond: number;
+  /** Part-fed, so that a default run is likely to feed within its first hours. */
+  readonly initialEnergy: number;
+  /** Shares of a full energy reserve used per second, by what the fly is doing. */
+  readonly energyUseResting: number;
+  readonly energyUseWalking: number;
+  readonly energyUseFlying: number;
+  readonly energyUseSleeping: number;
+  /** Feeding can start only on the food. Scaled by Hunger. */
+  readonly startFeedingHungerRate: number;
+  /** Scaled by the fourth power of how far Hunger has fallen, so a bout ends as the fly fills. */
+  readonly stopFeedingSatietyRate: number;
+  readonly stopFeedingStartleRate: number;
+  /** The share of a full energy reserve taken in per second of feeding. */
+  readonly feedingIntake: number;
 }
 
 export const DEFAULT_PARAMETERS: ModelParameters = {
@@ -176,12 +222,14 @@ export const DEFAULT_PARAMETERS: ModelParameters = {
   arousalTargetWalking: 0.75,
   arousalTargetFlying: 0.9,
   arousalTargetSleeping: 0.02,
+  arousalTargetFeeding: 0.3,
   arousalTimeConstantSeconds: 120,
   arousalNoise: 0.015,
   initialArousal: 0.5,
   startWalkingSpontaneousRate: 0.0003,
   startWalkingArousalRate: 0.25,
   startWalkingLightRate: 0.002,
+  startWalkingHungerRate: 0.005,
   stopWalkingSpontaneousRate: 0.02,
   stopWalkingLowArousalRate: 0.06,
   startGroomingSpontaneousRate: 0.001,
@@ -189,6 +237,7 @@ export const DEFAULT_PARAMETERS: ModelParameters = {
   stopGroomingSpontaneousRate: 0.04,
   walkAfterGroomingSpontaneousRate: 0.005,
   walkAfterGroomingArousalRate: 0.03,
+  walkAfterGroomingHungerRate: 0.02,
   takeOffFromImmobilitySpontaneousRate: 0.002,
   takeOffFromImmobilityArousalRate: 0.02,
   takeOffFromWalkingSpontaneousRate: 0.018,
@@ -221,6 +270,15 @@ export const DEFAULT_PARAMETERS: ModelParameters = {
   walkingSpeedMetresPerSecond: 0.02,
   walkingTurnNoise: 0.8,
   flightSpeedMetresPerSecond: 1,
+  initialEnergy: 0.6,
+  energyUseResting: 5e-6,
+  energyUseWalking: 1.2e-5,
+  energyUseFlying: 5e-5,
+  energyUseSleeping: 3e-6,
+  startFeedingHungerRate: 1,
+  stopFeedingSatietyRate: 0.15,
+  stopFeedingStartleRate: 2,
+  feedingIntake: 0.004,
 };
 
 const NO_CONTRIBUTIONS: Readonly<Record<DriverId, number>> = {
@@ -231,6 +289,7 @@ const NO_CONTRIBUTIONS: Readonly<Record<DriverId, number>> = {
   sleepPressure: 0,
   circadian: 0,
   startle: 0,
+  hunger: 0,
 };
 
 /**
@@ -256,7 +315,8 @@ export function driverContributions(
   senses: Senses,
   parameters: ModelParameters,
 ): Record<DriverId, number> {
-  const { arousal, sleepPressure, sleepDepth, circadianPhaseHours, startle } = state;
+  const { arousal, sleepPressure, sleepDepth, circadianPhaseHours, startle, hunger } = state;
+  const onFood = senses.touchingFood ? 1 : 0;
   switch (transition) {
     case "immobility-to-walking":
       return {
@@ -265,6 +325,7 @@ export function driverContributions(
         arousal: parameters.startWalkingArousalRate * arousal * arousal,
         light: parameters.startWalkingLightRate * senses.lightLevel,
         startle: parameters.startWalkingStartleRate * startle,
+        hunger: parameters.startWalkingHungerRate * hunger * hunger,
       };
     case "immobility-to-grooming":
       return {
@@ -280,6 +341,7 @@ export function driverContributions(
         spontaneous: parameters.walkAfterGroomingSpontaneousRate,
         arousal: parameters.walkAfterGroomingArousalRate * arousal,
         startle: parameters.walkAfterGroomingStartleRate * startle,
+        hunger: parameters.walkAfterGroomingHungerRate * hunger * hunger,
       };
     case "immobility-to-flying":
       return {
@@ -331,5 +393,14 @@ export function driverContributions(
         startle: parameters.wakeStartleRate * startle * easeOfWaking * easeOfWaking,
       };
     }
+    case "immobility-to-feeding":
+    case "walking-to-feeding":
+      return { ...NO_CONTRIBUTIONS, hunger: parameters.startFeedingHungerRate * hunger * onFood };
+    case "feeding-to-immobility":
+      return {
+        ...NO_CONTRIBUTIONS,
+        hunger: parameters.stopFeedingSatietyRate * (1 - hunger) ** 4,
+        startle: parameters.stopFeedingStartleRate * startle,
+      };
   }
 }

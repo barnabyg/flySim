@@ -28,14 +28,16 @@ const IMMOBILITY_AND_WALKING_ONLY = {
 describe("Transition Hazards", () => {
   it("splits a known hazard into its per-Driver contributions", () => {
     // At step 0, arousal is 0.5, so arousal contributes 0.25 * 0.5^2 = 0.0625 per second,
-    // and the run starts at lights-on, so light adds 0.002.
+    // the run starts at lights-on, so light adds 0.002, and Hunger is 0.4, so it adds
+    // 0.005 * 0.4^2 = 0.0008.
     const [state] = createSimulationRun({ room: DEFAULT_ROOM, seed: 1 }).current().transitions;
 
     expect(state?.transition).toBe("immobility-to-walking");
     expect(state?.contributions.spontaneous).toBeCloseTo(0.0003, 12);
     expect(state?.contributions.arousal).toBeCloseTo(0.0625, 12);
     expect(state?.contributions.light).toBeCloseTo(0.002, 12);
-    expect(state?.hazard).toBeCloseTo(0.0648, 12);
+    expect(state?.contributions.hunger).toBeCloseTo(0.0008, 12);
+    expect(state?.hazard).toBeCloseTo(0.0656, 12);
   });
 
   it("has per-Driver contributions that add up to the hazard, and a strip from the hazard alone", () => {
@@ -90,7 +92,10 @@ describe("Transition Hazards", () => {
   });
 
   it("gives the same hazard at the same arousal however long the bout has lasted", () => {
-    const { samples, firedTransitions } = recordOf(23, 7200);
+    // Hunger moves too, and feeding moves it a lot, so only arousal is left to vary here.
+    const { samples, firedTransitions } = recordOf(23, 7200, {
+      parameters: { ...DEFAULT_PARAMETERS, startWalkingHungerRate: 0 },
+    });
     const timeInBout = (timeSeconds: number): number => {
       const started = firedTransitions.findLast((fired) => fired.timeSeconds <= timeSeconds);
       return timeSeconds - (started?.timeSeconds ?? 0);
@@ -111,7 +116,8 @@ describe("Transition Hazards", () => {
       const a = immobile[i - 1];
       const b = immobile[i];
       if (!a || !b) throw new Error("missing sample");
-      if (Math.abs(a.timeInBout - b.timeInBout) > 30) {
+      // Where samples are sparse, neighbours can differ in arousal enough to differ in hazard.
+      if (Math.abs(a.timeInBout - b.timeInBout) > 30 && b.arousal - a.arousal < 0.002) {
         comparisons += 1;
         expect(Math.abs(a.hazard - b.hazard)).toBeLessThan(0.001);
       }
@@ -193,13 +199,14 @@ describe("red strip probability", () => {
         startWalkingSpontaneousRate: Math.LN2 / 60,
         startWalkingArousalRate: 0,
         startWalkingLightRate: 0,
+        startWalkingHungerRate: 0,
       },
     });
     expect(halfLifeRun.current().transitions[0]?.fireProbabilityNextMinute).toBeCloseTo(0.5, 12);
 
-    // The default initial hazard of 0.0648 per second gives 1 - exp(-3.888).
+    // The default initial hazard of 0.0656 per second gives 1 - exp(-3.936).
     const defaultRun = createSimulationRun({ room: DEFAULT_ROOM, seed: 1 });
-    expect(defaultRun.current().transitions[0]?.fireProbabilityNextMinute).toBeCloseTo(0.979514, 5);
+    expect(defaultRun.current().transitions[0]?.fireProbabilityNextMinute).toBeCloseTo(0.980474, 5);
   });
 
   // Different Trigger Level streams change when transitions fire and nothing else. So

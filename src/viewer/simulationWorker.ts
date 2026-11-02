@@ -62,6 +62,7 @@ onmessage = (event: MessageEvent<ToSimulation>) => {
         room: message.room,
         seed: message.seed,
         lightSchedule: message.lightSchedule,
+        ...(message.food && { food: message.food }),
         maxRecordedSamples: MAX_RECORDED_SAMPLES,
       });
       lastTickTime = performance.now();

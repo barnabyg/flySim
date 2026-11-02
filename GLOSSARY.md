@@ -30,6 +30,18 @@ _Avoid_: Time of day (when the internal reading is meant)
 A Driver created by a Disturb that fades within seconds and pushes the fly to act, with less effect the deeper it sleeps.
 _Avoid_: Escape, shock
 
+**Energy Reserve**:
+The fly's store of energy, from empty to full. It falls with what the fly does, faster in walking and flight and slower in sleep, and rises only while it feeds.
+_Avoid_: Nutrition, food level, satiety
+
+**Hunger**:
+A Driver that rises as the Energy Reserve falls. It raises the hazards that start walking and feeding, and its fall is what ends a bout of Feeding.
+_Avoid_: Appetite, starvation (when the state is meant)
+
+**Feeding**:
+The behaviour of taking in food through the extended proboscis. It can start only while the fly touches the Food Source, and ends as Hunger falls, not after a set time.
+_Avoid_: Eating, foraging (when the behaviour itself is meant)
+
 **Immobility**:
 The fly's true lack of any body movement, as known by the model. A grooming fly is not immobile.
 _Avoid_: Stillness, standing still, rest
@@ -51,6 +63,10 @@ _Avoid_: Threshold, cutoff
 **Room**:
 The box-shaped world the user watches, containing the fly and features such as food, water and light sources.
 _Avoid_: Arena, sandbox, chamber
+
+**Food Source**:
+A patch of food on the Room's floor, at a place a Simulation Run's setup gives. It never runs out, and the fly touches it only by standing on it.
+_Avoid_: Food item, bait, feeder
 
 **Light Schedule**:
 When the Room's overhead light is on each day. A Simulation Run's setup gives the schedule it starts with, and an Intervention can change it during the run, including to always on or always off. A default run has 12 hours of light and 12 of dark and starts at lights-on.
