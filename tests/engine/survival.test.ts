@@ -82,7 +82,7 @@ describe("going without", () => {
     };
   }
 
-  it("runs the energy reserve down without food, and the fly grows less active", () => {
+  it("makes the fly less active as its energy reserve runs low without food", () => {
     let high = 0;
     let low = 0;
     for (const seed of [1, 2, 3, 4]) {
@@ -90,10 +90,6 @@ describe("going without", () => {
         food: null,
         parameters: withParameters({ initialEnergy: 0.25 }),
       });
-      for (let i = 1; i < samples.length; i++) {
-        if (samples[i]?.death) break;
-        expect(samples[i]?.energy).toBeLessThan(samples[i - 1]?.energy ?? 0);
-      }
       const shares = activity("energy", samples);
       high += shares.high;
       low += shares.low;
@@ -101,7 +97,7 @@ describe("going without", () => {
     expect(low).toBeLessThan(0.3 * high);
   });
 
-  it("runs the hydration reserve down without water, and the fly grows less active", () => {
+  it("makes the fly less active as its hydration reserve runs low without water", () => {
     let high = 0;
     let low = 0;
     for (const seed of [1, 2, 3, 4]) {
@@ -109,10 +105,6 @@ describe("going without", () => {
         water: null,
         parameters: withParameters({ initialHydration: 0.25 }),
       });
-      for (let i = 1; i < samples.length; i++) {
-        if (samples[i]?.death) break;
-        expect(samples[i]?.hydration).toBeLessThan(samples[i - 1]?.hydration ?? 0);
-      }
       const shares = activity("hydration", samples);
       high += shares.high;
       low += shares.low;

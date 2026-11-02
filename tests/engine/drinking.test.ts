@@ -59,8 +59,8 @@ describe("the hydration reserve and Thirst", () => {
   });
 
   it("runs the reserve down without water, which raises Thirst", () => {
-    const parameters = { ...DEFAULT_PARAMETERS, startDrinkingThirstRate: 0 };
-    const { samples } = recordOf(3, 2 * HOUR, { parameters });
+    // With the water removed, the fly takes nothing in.
+    const { samples } = recordOf(3, 2 * HOUR, { water: null });
     const [first] = samples;
     const last = samples.at(-1);
     if (!first || !last) throw new Error("no samples");
@@ -68,7 +68,9 @@ describe("the hydration reserve and Thirst", () => {
     expect(last.hydration).toBeLessThan(first.hydration);
     expect(last.thirst).toBeGreaterThan(first.thirst);
     for (let i = 1; i < samples.length; i++) {
-      expect(samples[i]?.hydration).toBeLessThan(samples[i - 1]?.hydration ?? 0);
+      const [before, after] = [samples[i - 1], samples[i]];
+      expect(after?.hydration).toBeLessThan(before?.hydration ?? 0);
+      expect(after?.thirst).toBeGreaterThan(before?.thirst ?? 1);
     }
   });
 });
