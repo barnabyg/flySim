@@ -1,15 +1,15 @@
 export {
   BEHAVIOURS,
-  DEFAULT_PARAMETERS,
   DRIVERS,
   TRANSITIONS,
   type Behaviour,
   type DriverId,
-  type ModelParameters,
   type Senses,
   type TransitionId,
   type VigilanceState,
 } from "./model";
+export { DEFAULT_PARAMETERS, type ModelParameters } from "./parameters";
+export { STEPS_PER_SECOND } from "./physiology";
 export { DEFAULT_LIGHT_SCHEDULE, lightLevel, type LightSchedule } from "./lightSchedule";
 export {
   SOURCE_KINDS,
@@ -23,7 +23,6 @@ export { SURFACES, type Position, type RoomSetup, type Surface } from "./movemen
 export {
   DEFAULT_ROOM,
   MODEL_VERSION,
-  STEPS_PER_SECOND,
   createSimulationRun,
   type Death,
   type FiredTransition,

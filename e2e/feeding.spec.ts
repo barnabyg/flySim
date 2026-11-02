@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { BEHAVIOUR_COLOURS } from "../src/viewer/palette";
-import { currentSample, openApp, runRecord } from "./helpers";
+import { currentSample, openApp, runRecord, twoFramesInOneBout } from "./helpers";
 
 /** Opens a run whose food is right under the fly's starting place, so it feeds at once. */
 async function openOnFood(page: Page, seed: number, speed = 60): Promise<void> {
@@ -111,16 +111,7 @@ test("a feeding fly stays on the food with its legs still", async ({ page }) => 
   await expect
     .poll(async () => (await currentSample(page))?.behaviour, { timeout: 30_000 })
     .toBe("feeding");
-  const frame = () =>
-    page.evaluate(() => ({
-      behaviour: window.flySim.current()?.behaviour,
-      position: window.flySim.flyScenePosition(),
-      feet: window.flySim.view().flyFeet,
-    }));
-  const before = await frame();
-  await page.waitForTimeout(400);
-  const after = await frame();
-  if (after.behaviour !== "feeding") test.skip(true, "the bout ended while watching");
+  const { before, after } = await twoFramesInOneBout(page, "feeding");
 
   expect(after.position).toEqual(before.position);
   expect(after.feet).toEqual(before.feet);

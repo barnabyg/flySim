@@ -52,9 +52,8 @@ describe("the energy reserve and Hunger", () => {
   });
 
   it("runs the reserve down without food, which raises Hunger", () => {
-    // The fly can't start feeding, so it takes nothing in.
-    const parameters = { ...DEFAULT_PARAMETERS, startFeedingHungerRate: 0 };
-    const { samples } = recordOf(3, 2 * HOUR, { parameters });
+    // With the food removed, the fly takes nothing in.
+    const { samples } = recordOf(3, 2 * HOUR, { food: null });
     const [first] = samples;
     const last = samples.at(-1);
     if (!first || !last) throw new Error("no samples");
@@ -62,7 +61,9 @@ describe("the energy reserve and Hunger", () => {
     expect(last.energy).toBeLessThan(first.energy);
     expect(last.hunger).toBeGreaterThan(first.hunger);
     for (let i = 1; i < samples.length; i++) {
-      expect(samples[i]?.energy).toBeLessThanOrEqual(samples[i - 1]?.energy ?? 0);
+      const [before, after] = [samples[i - 1], samples[i]];
+      expect(after?.energy).toBeLessThanOrEqual(before?.energy ?? 0);
+      expect(after?.hunger).toBeGreaterThanOrEqual(before?.hunger ?? 1);
     }
   });
 });
