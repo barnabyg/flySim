@@ -1,4 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
+import { BEHAVIOURS, type Behaviour } from "../src/engine";
+import { BEHAVIOUR_COLOURS, SLEEP_DEPTH_COLOURS } from "../src/viewer/palette";
 import { currentTime, openApp, runRecord } from "./helpers";
 
 const SPEEDS_INDEX: Readonly<Record<number, string>> = { 1: "0", 60: "6", 1000: "10" };
@@ -102,7 +104,26 @@ async function readRibbon(page: Page) {
   });
 }
 
-const BEHAVIOUR_COLOURS = { immobility: "#4f7cac", walking: "#e0a030" };
+/** Sleep is drawn in shades of Sleep Depth, so its share is all of those colours together. */
+function coloursOf(behaviour: Behaviour): readonly string[] {
+  return behaviour === "sleeping" ? SLEEP_DEPTH_COLOURS : [BEHAVIOUR_COLOURS[behaviour]];
+}
+
+function noShares(): Record<Behaviour, number> {
+  return Object.fromEntries(BEHAVIOURS.map((behaviour) => [behaviour, 0])) as Record<
+    Behaviour,
+    number
+  >;
+}
+
+/**
+ * Behaviours seed 5 shows long enough at each speed to check their colour. Flights last
+ * about half a second, too short to fill any of a column at 1000×.
+ */
+const CHECKED_BEHAVIOURS: Readonly<Record<number, readonly Behaviour[]>> = {
+  60: ["immobility", "grooming", "walking", "flying"],
+  1000: ["immobility", "grooming", "walking", "sleeping"],
+};
 
 for (const speed of [60, 1000]) {
   test(`the ribbon shows each behaviour in its colour, matching the record at ${speed}×`, async ({
@@ -118,14 +139,14 @@ for (const speed of [60, 1000]) {
     const record = await runRecord(page);
     const secondsPerColumn = (ribbon.windowEnd - ribbon.windowStart) / ribbon.columns.length;
 
-    // Independently works out the share of walking in a column from the run record.
-    const walkingShare = (start: number, end: number): number => {
+    // Independently works out the share of each behaviour in a column from the run record.
+    const sharesOf = (start: number, end: number): Record<Behaviour, number> => {
+      const shares = noShares();
       let behaviour = record.firedTransitions[0]?.from ?? "immobility";
       let from = 0;
-      let walking = 0;
       const addSpan = (to: number): void => {
         const overlap = Math.min(to, end) - Math.max(from, start);
-        if (behaviour === "walking" && overlap > 0) walking += overlap;
+        if (overlap > 0) shares[behaviour] += overlap / (end - start);
       };
       for (const fired of record.firedTransitions) {
         addSpan(fired.timeSeconds);
@@ -133,25 +154,30 @@ for (const speed of [60, 1000]) {
         from = fired.timeSeconds;
       }
       addSpan(end);
-      return walking / (end - start);
+      return shares;
     };
 
     let checked = 0;
-    let sawWalking = false;
-    let sawImmobility = false;
+    const peak = noShares();
     ribbon.columns.forEach((column, x) => {
       const start = ribbon.windowStart + x * secondsPerColumn;
       if (start < 0) return;
-      const expected = walkingShare(start, start + secondsPerColumn);
-      expect(Math.abs((column[BEHAVIOUR_COLOURS.walking] ?? 0) - expected)).toBeLessThan(0.1);
-      sawWalking ||= (column[BEHAVIOUR_COLOURS.walking] ?? 0) > 0;
-      sawImmobility ||= (column[BEHAVIOUR_COLOURS.immobility] ?? 0) > 0;
+      const expected = sharesOf(start, start + secondsPerColumn);
+      for (const behaviour of BEHAVIOURS) {
+        const drawn = coloursOf(behaviour).reduce((sum, colour) => sum + (column[colour] ?? 0), 0);
+        expect(Math.abs(drawn - expected[behaviour]), `${behaviour} at column ${x}`).toBeLessThan(
+          0.1,
+        );
+        peak[behaviour] = Math.max(peak[behaviour], expected[behaviour]);
+      }
       checked += 1;
     });
 
     expect(checked).toBeGreaterThan(100);
-    expect(sawWalking).toBe(true);
-    expect(sawImmobility).toBe(true);
+    // A behaviour can only be checked where it fills a good part of some column.
+    for (const behaviour of CHECKED_BEHAVIOURS[speed] ?? []) {
+      expect(peak[behaviour], `${behaviour}'s largest share of a column`).toBeGreaterThan(0.2);
+    }
   });
 }
 
