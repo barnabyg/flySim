@@ -27,7 +27,7 @@ const FOOT_LIFT = 0.25 * MILLIMETRE;
 const TUCKED_FOOT_HEIGHT = 0.2 * MILLIMETRE;
 const TUCKED_FOOT_WIDTH = 0.55 * MILLIMETRE;
 const RUBS_PER_SECOND = 5;
-/** How often an extended proboscis pumps as the fly takes food in. */
+/** How often an extended proboscis pumps as the fly takes in food or water. */
 const PUMPS_PER_SECOND = 3;
 
 const LEG_COLOUR = 0x2a1c10;
@@ -306,10 +306,10 @@ export function createFlyModel(): FlyModel {
     for (const wing of wings) wing.visible = !flying;
     for (const blur of wingBlurs) blur.visible = flying;
     const grooming = sample.behaviour === "grooming";
-    const feeding = sample.behaviour === "feeding";
-    proboscis.visible = feeding;
+    const takingIn = sample.behaviour === "feeding" || sample.behaviour === "drinking";
+    proboscis.visible = takingIn;
     // Pumps by pressing down a little and lifting again, keeping the labellum on the surface.
-    proboscis.scale.y = feeding
+    proboscis.scale.y = takingIn
       ? 1 + 0.08 * Math.sin(2 * Math.PI * PUMPS_PER_SECOND * sample.timeSeconds)
       : 1;
     // When walking stops, all six feet go down where they are, and then nothing moves.

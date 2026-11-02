@@ -6,18 +6,25 @@ export interface FloorPlace {
   readonly y: number;
 }
 
+/** What the fly can take from the floor. Both are unlimited. */
+export type SourceKind = "food" | "water";
+
+export const SOURCE_KINDS: readonly SourceKind[] = ["food", "water"];
+
 /**
- * How far the food reaches across the floor from its centre, about the size of a dish.
+ * How far a source reaches across the floor from its centre, about the size of a dish.
  * The fly touches it whenever its feet are on the floor within this distance.
  */
 export const SOURCE_RADIUS_METRES = 0.025;
 
 /**
- * Out towards a corner, beyond where the fly starts, so that it has to find the food rather
- * than starting beside it.
+ * Out towards opposite corners, beyond where the fly starts, so that it has to find each
+ * rather than starting beside it.
  */
-export function defaultFoodPlace(room: RoomSetup): FloorPlace {
-  return { x: 0.12 * room.widthMetres, y: 0.25 * room.depthMetres };
+export function defaultPlace(kind: SourceKind, room: RoomSetup): FloorPlace {
+  return kind === "food"
+    ? { x: 0.12 * room.widthMetres, y: 0.25 * room.depthMetres }
+    : { x: 0.88 * room.widthMetres, y: 0.75 * room.depthMetres };
 }
 
 export function validateFloorPlace(room: RoomSetup, { x, y }: FloorPlace): void {
@@ -39,27 +46,34 @@ export function odourField(food: FloorPlace | null, rangeMetres: number, at: Pos
 
 /** What is in the Room besides the fly. The fly learns of it only through its senses. */
 export interface RoomContents {
-  /** Whether feet at this place on this surface are touching the food. */
-  touchingFood(position: Position, surface: Surface | null): boolean;
+  /** Whether feet at this place on this surface are touching a source. */
+  touching(kind: SourceKind, position: Position, surface: Surface | null): boolean;
   /** The Odour Field here. */
   odourAt(position: Position): number;
-  /** Where the food is, or null if the Room has none. */
-  food(): FloorPlace | null;
+  /** Where a source is, or null if the Room has none. */
+  place(kind: SourceKind): FloorPlace | null;
 }
 
 export function createRoomContents(
   room: RoomSetup,
-  food: FloorPlace | null,
+  places: Readonly<Record<SourceKind, FloorPlace | null>>,
   odourRangeMetres: number,
 ): RoomContents {
-  if (food) validateFloorPlace(room, food);
+  for (const kind of SOURCE_KINDS) {
+    const place = places[kind];
+    if (place) validateFloorPlace(room, place);
+  }
 
   return {
-    touchingFood: (position, surface) =>
-      food !== null &&
-      surface === "floor" &&
-      Math.hypot(position.x - food.x, position.y - food.y) <= SOURCE_RADIUS_METRES,
-    odourAt: (position) => odourField(food, odourRangeMetres, position),
-    food: () => food,
+    touching: (kind, position, surface) => {
+      const place = places[kind];
+      return (
+        place !== null &&
+        surface === "floor" &&
+        Math.hypot(position.x - place.x, position.y - place.y) <= SOURCE_RADIUS_METRES
+      );
+    },
+    odourAt: (position) => odourField(places.food, odourRangeMetres, position),
+    place: (kind) => places[kind],
   };
 }

@@ -5,6 +5,7 @@ import {
   TRANSITIONS,
   driverContributions,
   hungerOf,
+  thirstOf,
   turningScale,
   vigilanceStateOf,
   type Behaviour,
@@ -31,7 +32,7 @@ import {
   type Surface,
 } from "./movement";
 import { createRandomStream } from "./random";
-import { createRoomContents, defaultFoodPlace, type FloorPlace } from "./roomContents";
+import { createRoomContents, defaultPlace, type FloorPlace } from "./roomContents";
 
 export const MODEL_VERSION = "0.5.0";
 
@@ -70,6 +71,8 @@ export interface SimulationSetup {
    * from the middle of the Room.
    */
   readonly food?: FloorPlace | null;
+  /** Where the water is, or null for a Room without water. The default is apart from the food. */
+  readonly water?: FloorPlace | null;
   /** The default is 12:12. The run starts at lights-on, and interventions can change it. */
   readonly lightSchedule?: LightSchedule;
   /** Interventions to apply at given steps, on top of any made during the run. */
@@ -113,6 +116,8 @@ export interface RunSample extends MovementPose, InternalState {
   readonly transitions: readonly TransitionState[];
   /** Where the food is now, or null if there is none. The fly gets it only through its senses. */
   readonly food: FloorPlace | null;
+  /** Where the water is now, or null if there is none. */
+  readonly water: FloorPlace | null;
 }
 
 export interface FiredTransition extends TransitionState {
@@ -127,6 +132,7 @@ export interface FiredTransition extends TransitionState {
   /** Sleep Depth when the transition fired, or null if the fly was awake. */
   readonly sleepDepth: number | null;
   readonly hunger: number;
+  readonly thirst: number;
 }
 
 export interface RunRecord {
@@ -136,6 +142,8 @@ export interface RunRecord {
   readonly parameters: ModelParameters;
   /** Where the food started, or null if there was none. */
   readonly food: FloorPlace | null;
+  /** Where the water started, or null if there was none. */
+  readonly water: FloorPlace | null;
   /** The schedule the run started with. Later ones are among its interventions. */
   readonly lightSchedule: LightSchedule;
   readonly stepsPerSecond: number;
@@ -188,8 +196,11 @@ function validateAction(action: InterventionAction): void {
 export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   const { room, seed, maxRecordedSamples = Infinity } = setup;
   const parameters = setup.parameters ?? DEFAULT_PARAMETERS;
-  const initialFoodPlace = setup.food === undefined ? defaultFoodPlace(room) : setup.food;
-  const contents = createRoomContents(room, initialFoodPlace, parameters.odourRangeMetres);
+  const initialPlaces = {
+    food: setup.food === undefined ? defaultPlace("food", room) : setup.food,
+    water: setup.water === undefined ? defaultPlace("water", room) : setup.water,
+  };
+  const contents = createRoomContents(room, initialPlaces, parameters.odourRangeMetres);
   const initialLightSchedule = setup.lightSchedule ?? DEFAULT_LIGHT_SCHEDULE;
   validateLightSchedule(initialLightSchedule);
   let lightSchedule = initialLightSchedule;
@@ -219,6 +230,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   let circadianPhaseHours = 0;
   let startle = 0;
   let energy = parameters.initialEnergy;
+  let hydration = parameters.initialHydration;
   let recentOdour = 0;
   const movement = createMovement(room, movementNoise);
   const stepsOnSurface = new Map<Surface, number>();
@@ -258,7 +270,8 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
     return {
       touchingSurface: movement.hasArrived(),
       lightLevel: currentLightLevel(),
-      touchingFood: contents.touchingFood(position, surface),
+      touchingFood: contents.touching("food", position, surface),
+      touchingWater: contents.touching("water", position, surface),
       odour: contents.odourAt(position),
     };
   }
@@ -272,6 +285,8 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       startle,
       energy,
       hunger: hungerOf(energy),
+      hydration,
+      thirst: thirstOf(hydration),
       recentOdour,
     };
   }
@@ -308,6 +323,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
           sleepPressure,
           sleepDepth,
           hunger: hungerOf(energy),
+          thirst: thirstOf(hydration),
         });
         behaviour = item.definition.to;
         sleepDepth = behaviour === "sleeping" ? parameters.sleepDepthAtOnset : null;
@@ -334,6 +350,8 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
         return parameters.arousalTargetSleeping;
       case "feeding":
         return parameters.arousalTargetFeeding;
+      case "drinking":
+        return parameters.arousalTargetDrinking;
     }
   }
 
@@ -343,6 +361,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       case "grooming":
       case "sleeping":
       case "feeding":
+      case "drinking":
         return 0;
       case "walking":
         return parameters.walkingSpeedMetresPerSecond;
@@ -413,6 +432,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       case "immobility":
       case "grooming":
       case "feeding":
+      case "drinking":
         return parameters.energyUseResting;
       case "walking":
         return parameters.energyUseWalking;
@@ -426,6 +446,27 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   function updateEnergy(): void {
     const intake = behaviour === "feeding" ? parameters.feedingIntake : 0;
     energy = Math.min(1, Math.max(0, energy + (intake - energyUse()) * STEP_SECONDS));
+  }
+
+  function waterLoss(): number {
+    switch (behaviour) {
+      case "immobility":
+      case "grooming":
+      case "feeding":
+      case "drinking":
+        return parameters.waterLossResting;
+      case "walking":
+        return parameters.waterLossWalking;
+      case "flying":
+        return parameters.waterLossFlying;
+      case "sleeping":
+        return parameters.waterLossSleeping;
+    }
+  }
+
+  function updateHydration(): void {
+    const intake = behaviour === "drinking" ? parameters.drinkingIntake : 0;
+    hydration = Math.min(1, Math.max(0, hydration + (intake - waterLoss()) * STEP_SECONDS));
   }
 
   function updateRecentOdour(senses: Senses): void {
@@ -464,7 +505,8 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       speedMetresPerSecond: currentSpeed(),
       ...internalState(),
       transitions: pending.map((item) => transitionState(item.definition.id)),
-      food: contents.food(),
+      food: contents.place("food"),
+      water: contents.place("water"),
     };
   }
 
@@ -485,6 +527,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       updateCircadianClock();
       updateStartle();
       updateEnergy();
+      updateHydration();
       const senses = currentSenses();
       if (behaviour === "walking") walk(senses);
       updateRecentOdour(senses);
@@ -523,7 +566,8 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       seed,
       room,
       parameters,
-      food: initialFoodPlace,
+      food: initialPlaces.food,
+      water: initialPlaces.water,
       lightSchedule: initialLightSchedule,
       stepsPerSecond: STEPS_PER_SECOND,
       samples: [...samples],

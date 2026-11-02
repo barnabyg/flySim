@@ -29,21 +29,24 @@ describe("Transition Hazards", () => {
   it("splits a known hazard into its per-Driver contributions", () => {
     // At step 0, arousal is 0.5, so arousal contributes 0.25 * 0.5^2 = 0.0625 per second,
     // the run starts at lights-on, so light adds 0.002, and Hunger is 0.4, so it adds
-    // 0.005 * 0.4^2 = 0.0008.
+    // 0.03 * 0.4^4 = 0.000768.
     const [state] = createSimulationRun({ room: DEFAULT_ROOM, seed: 1 }).current().transitions;
 
     expect(state?.transition).toBe("immobility-to-walking");
     expect(state?.contributions.spontaneous).toBeCloseTo(0.0003, 12);
     expect(state?.contributions.arousal).toBeCloseTo(0.0625, 12);
     expect(state?.contributions.light).toBeCloseTo(0.002, 12);
-    expect(state?.contributions.hunger).toBeCloseTo(0.0008, 12);
-    expect(state?.hazard).toBeCloseTo(0.0656, 12);
+    expect(state?.contributions.hunger).toBeCloseTo(0.000768, 12);
+    expect(state?.hazard).toBeCloseTo(0.065568, 12);
   });
 
   it("has per-Driver contributions that add up to the hazard, and a strip from the hazard alone", () => {
-    // Half a day reaches sleep, and a Disturb part-way through adds a startle.
+    // Half a day reaches sleep, a Disturb part-way through adds a startle, and water under
+    // the fly at the start brings in Thirst.
+    const { position } = createSimulationRun({ room: DEFAULT_ROOM, seed: 2 }).current();
     const { samples, firedTransitions } = recordOf(2, 12 * HOUR, {
       interventions: [{ step: 6 * HOUR * STEPS_PER_SECOND, type: "disturb" }],
+      water: { x: position.x, y: position.y },
     });
     const states = [...samples.flatMap((sample) => sample.transitions), ...firedTransitions];
 
@@ -204,9 +207,9 @@ describe("red strip probability", () => {
     });
     expect(halfLifeRun.current().transitions[0]?.fireProbabilityNextMinute).toBeCloseTo(0.5, 12);
 
-    // The default initial hazard of 0.0656 per second gives 1 - exp(-3.936).
+    // The default initial hazard of 0.065568 per second gives 1 - exp(-3.93408).
     const defaultRun = createSimulationRun({ room: DEFAULT_ROOM, seed: 1 });
-    expect(defaultRun.current().transitions[0]?.fireProbabilityNextMinute).toBeCloseTo(0.980474, 5);
+    expect(defaultRun.current().transitions[0]?.fireProbabilityNextMinute).toBeCloseTo(0.980436, 5);
   });
 
   // Different Trigger Level streams change when transitions fire and nothing else. So

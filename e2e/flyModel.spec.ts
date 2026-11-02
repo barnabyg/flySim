@@ -54,7 +54,8 @@ test("the fly's legs match what it is doing", async ({ page }) => {
 test("wings blur only in flight, and a ground shadow shows height off the floor", async ({
   page,
 }) => {
-  await openApp(page);
+  // A seed that flies early, so a flight comes within the time allowed.
+  await openApp(page, 43);
   // A flight lasts a second or two, which is a few frames at this speed even when rendering is slow.
   await page.locator("#speed").fill("3");
   // Pairs each frame's pose with the sample it was drawn from, until it has seen them all.

@@ -157,12 +157,15 @@ describe("the light's effect on the fly", () => {
 
   it("makes the fly less active as soon as the light goes out", () => {
     // The same seeds and hours, with the light put out two hours into the day or left on.
+    // Trips to food and water would swamp the light's effect in so few runs, so there are none.
     const walkingShare = (lightSchedule?: LightSchedule): number => {
       let walking = 0;
       for (const seed of [41, 42, 43, 44, 45, 46]) {
         const run = createSimulationRun({
           room: DEFAULT_ROOM,
           seed,
+          food: null,
+          water: null,
           interventions: lightSchedule
             ? [{ step: 2 * HOUR * STEPS_PER_SECOND, type: "light-schedule", lightSchedule }]
             : [],

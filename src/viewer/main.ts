@@ -41,7 +41,7 @@ function requireElement<T extends Element>(selector: string, type: new () => T):
 }
 
 const settings = settingsFromUrl(location.search, SPEEDS, INITIAL_SPEED);
-const { room, seed, lightSchedule, food } = settings;
+const { room, seed, lightSchedule, sources } = settings;
 let speed = settings.speed;
 
 function restartWith(changes: Partial<RunSettings>): void {
@@ -60,7 +60,7 @@ const roomScene = createRoomScene(room);
 // The worker runs the default parameters, so the overlay draws the same fields.
 const fieldOverlay = createFieldOverlay(room, DEFAULT_PARAMETERS);
 roomScene.scene.add(fieldOverlay.object);
-const simulation = startSimulation(seed, room, speed, lightSchedule, food);
+const simulation = startSimulation(seed, room, speed, lightSchedule, sources);
 
 const driverPanel = createDriverPanel(requireElement("#drivers", HTMLElement));
 const ribbon = createRibbon(requireElement("#ribbon", HTMLCanvasElement));
@@ -127,7 +127,8 @@ renderer.setAnimationLoop(() => {
   const sample = simulation.latest();
   if (sample) {
     roomScene.updateFly(sample);
-    roomScene.placeFood(sample.food);
+    roomScene.placeSource("food", sample.food);
+    roomScene.placeSource("water", sample.water);
     fieldOverlay.placeFood(sample.food);
     roomScene.updateLighting(lightLevel(shownSchedule, sample.timeOfDayHours));
   }

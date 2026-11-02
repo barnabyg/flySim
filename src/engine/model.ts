@@ -1,4 +1,5 @@
-export type Behaviour = "immobility" | "grooming" | "walking" | "flying" | "sleeping" | "feeding";
+export type Behaviour =
+  "immobility" | "grooming" | "walking" | "flying" | "sleeping" | "feeding" | "drinking";
 
 export type VigilanceState = "awake" | "asleep";
 
@@ -11,7 +12,8 @@ export type DriverId =
   | "circadian"
   | "startle"
   | "hunger"
-  | "odour";
+  | "odour"
+  | "thirst";
 
 export type TransitionId =
   | "immobility-to-walking"
@@ -26,7 +28,10 @@ export type TransitionId =
   | "sleeping-to-immobility"
   | "immobility-to-feeding"
   | "walking-to-feeding"
-  | "feeding-to-immobility";
+  | "feeding-to-immobility"
+  | "immobility-to-drinking"
+  | "walking-to-drinking"
+  | "drinking-to-immobility";
 
 export interface TransitionDefinition {
   readonly id: TransitionId;
@@ -41,6 +46,7 @@ export const BEHAVIOURS: readonly Behaviour[] = [
   "flying",
   "sleeping",
   "feeding",
+  "drinking",
 ];
 
 export const DRIVERS: readonly DriverId[] = [
@@ -53,6 +59,7 @@ export const DRIVERS: readonly DriverId[] = [
   "startle",
   "hunger",
   "odour",
+  "thirst",
 ];
 
 export const TRANSITIONS: readonly TransitionDefinition[] = [
@@ -69,6 +76,9 @@ export const TRANSITIONS: readonly TransitionDefinition[] = [
   { id: "immobility-to-feeding", from: "immobility", to: "feeding" },
   { id: "walking-to-feeding", from: "walking", to: "feeding" },
   { id: "feeding-to-immobility", from: "feeding", to: "immobility" },
+  { id: "immobility-to-drinking", from: "immobility", to: "drinking" },
+  { id: "walking-to-drinking", from: "walking", to: "drinking" },
+  { id: "drinking-to-immobility", from: "drinking", to: "immobility" },
 ];
 
 /** Sleep is a behaviour, and the fly's true Vigilance State is derived from it. */
@@ -84,6 +94,8 @@ export interface Senses {
   readonly lightLevel: number;
   /** Whether its feet are on the food. */
   readonly touchingFood: boolean;
+  /** Whether its feet are on the water. */
+  readonly touchingWater: boolean;
   /** The Odour Field where the fly is, from 0 to 1. It senses nothing of where the food is. */
   readonly odour: number;
 }
@@ -106,6 +118,10 @@ export interface InternalState {
   readonly energy: number;
   /** Rises as the energy reserve falls, from 0 when full to 1 when empty. */
   readonly hunger: number;
+  /** The hydration reserve, from 0 when empty to 1 when full. It falls over time and rises with drinking. */
+  readonly hydration: number;
+  /** Rises as the hydration reserve falls, from 0 when full to 1 when empty. */
+  readonly thirst: number;
   /**
    * The odour the fly has sensed lately, which follows what it senses with a short lag.
    * Comparing the two tells it whether the odour is rising or falling as it walks.
@@ -118,12 +134,17 @@ export function hungerOf(energy: number): number {
   return 1 - energy;
 }
 
+/** Thirst rises as the hydration reserve falls. */
+export function thirstOf(hydration: number): number {
+  return 1 - hydration;
+}
+
 /**
  * Model values for Phases 1 to 3. They are roughly tuned so that about 10 simulated minutes
  * shows all four awake behaviours, a settled fly often stays in awake Immobility for more than
  * 5 minutes, a day shows a morning, siesta, evening and night of sleep, and a part-fed fly
  * finds food within hours. They are not validated: every relationship here is Provisional,
- * including energy use, intake and how Hunger acts.
+ * including energy use, water loss, intake and how Hunger, Thirst and odour act.
  */
 export interface ModelParameters {
   /** Arousal relaxes towards this level during Immobility. */
@@ -138,6 +159,8 @@ export interface ModelParameters {
   readonly arousalTargetSleeping: number;
   /** Arousal relaxes towards this level while feeding. */
   readonly arousalTargetFeeding: number;
+  /** Arousal relaxes towards this level while drinking. */
+  readonly arousalTargetDrinking: number;
   readonly arousalTimeConstantSeconds: number;
   /** Size of arousal's random drift, per square root of a second. */
   readonly arousalNoise: number;
@@ -147,7 +170,10 @@ export interface ModelParameters {
   readonly startWalkingArousalRate: number;
   /** Light the fly senses acts at once, unlike its slow effect on the clock. */
   readonly startWalkingLightRate: number;
-  /** Scaled by Hunger squared, so a part-fed fly still settles for minutes at a time. */
+  /**
+   * Scaled by the fourth power of Hunger, so a part-fed fly still settles for minutes at a
+   * time and a hungry one is restless.
+   */
   readonly startWalkingHungerRate: number;
   /** Scaled by the odour sensed and by Hunger, which sets how much the odour matters. */
   readonly startWalkingOdourRate: number;
@@ -219,13 +245,30 @@ export interface ModelParameters {
   readonly energyUseWalking: number;
   readonly energyUseFlying: number;
   readonly energyUseSleeping: number;
-  /** Feeding can start only on the food. Scaled by Hunger. */
+  /**
+   * Feeding can start only on the food. Scaled by the cube of Hunger, so a fly that has just
+   * fed and is still standing on the food rarely starts again.
+   */
   readonly startFeedingHungerRate: number;
   /** Scaled by the fourth power of how far Hunger has fallen, so a bout ends as the fly fills. */
   readonly stopFeedingSatietyRate: number;
   readonly stopFeedingStartleRate: number;
   /** The share of a full energy reserve taken in per second of feeding. */
   readonly feedingIntake: number;
+  /** Part-hydrated, so that a default run is likely to drink within its first hours. */
+  readonly initialHydration: number;
+  /** Shares of a full hydration reserve lost per second, by what the fly is doing. */
+  readonly waterLossResting: number;
+  readonly waterLossWalking: number;
+  readonly waterLossFlying: number;
+  readonly waterLossSleeping: number;
+  /** Drinking can start only on the water. Scaled by the cube of Thirst, as feeding is. */
+  readonly startDrinkingThirstRate: number;
+  /** Scaled by the fourth power of how far Thirst has fallen, so a bout ends as the fly fills. */
+  readonly stopDrinkingSatietyRate: number;
+  readonly stopDrinkingStartleRate: number;
+  /** The share of a full hydration reserve taken in per second of drinking. */
+  readonly drinkingIntake: number;
   /** How far the Odour Field reaches from the food, in any direction. 0 switches it off. */
   readonly odourRangeMetres: number;
   /** How quickly the recently sensed odour catches up with what the fly senses now. */
@@ -248,13 +291,14 @@ export const DEFAULT_PARAMETERS: ModelParameters = {
   arousalTargetFlying: 0.9,
   arousalTargetSleeping: 0.02,
   arousalTargetFeeding: 0.3,
+  arousalTargetDrinking: 0.3,
   arousalTimeConstantSeconds: 120,
   arousalNoise: 0.015,
   initialArousal: 0.5,
   startWalkingSpontaneousRate: 0.0003,
   startWalkingArousalRate: 0.25,
   startWalkingLightRate: 0.002,
-  startWalkingHungerRate: 0.005,
+  startWalkingHungerRate: 0.03,
   startWalkingOdourRate: 0.02,
   stopWalkingSpontaneousRate: 0.02,
   stopWalkingLowArousalRate: 0.06,
@@ -263,7 +307,7 @@ export const DEFAULT_PARAMETERS: ModelParameters = {
   stopGroomingSpontaneousRate: 0.04,
   walkAfterGroomingSpontaneousRate: 0.005,
   walkAfterGroomingArousalRate: 0.03,
-  walkAfterGroomingHungerRate: 0.02,
+  walkAfterGroomingHungerRate: 0.06,
   walkAfterGroomingOdourRate: 0.02,
   takeOffFromImmobilitySpontaneousRate: 0.002,
   takeOffFromImmobilityArousalRate: 0.02,
@@ -306,6 +350,15 @@ export const DEFAULT_PARAMETERS: ModelParameters = {
   stopFeedingSatietyRate: 0.15,
   stopFeedingStartleRate: 2,
   feedingIntake: 0.004,
+  initialHydration: 0.6,
+  waterLossResting: 9e-6,
+  waterLossWalking: 1.5e-5,
+  waterLossFlying: 4e-5,
+  waterLossSleeping: 6e-6,
+  startDrinkingThirstRate: 1,
+  stopDrinkingSatietyRate: 0.15,
+  stopDrinkingStartleRate: 2,
+  drinkingIntake: 0.006,
   odourRangeMetres: 0.3,
   odourAdaptationSeconds: 1,
   odourDetectionFloor: 0.01,
@@ -323,6 +376,7 @@ const NO_CONTRIBUTIONS: Readonly<Record<DriverId, number>> = {
   startle: 0,
   hunger: 0,
   odour: 0,
+  thirst: 0,
 };
 
 /**
@@ -364,8 +418,10 @@ export function driverContributions(
   senses: Senses,
   parameters: ModelParameters,
 ): Record<DriverId, number> {
-  const { arousal, sleepPressure, sleepDepth, circadianPhaseHours, startle, hunger } = state;
+  const { arousal, sleepPressure, sleepDepth, circadianPhaseHours, startle, hunger, thirst } =
+    state;
   const onFood = senses.touchingFood ? 1 : 0;
+  const onWater = senses.touchingWater ? 1 : 0;
   switch (transition) {
     case "immobility-to-walking":
       return {
@@ -374,7 +430,7 @@ export function driverContributions(
         arousal: parameters.startWalkingArousalRate * arousal * arousal,
         light: parameters.startWalkingLightRate * senses.lightLevel,
         startle: parameters.startWalkingStartleRate * startle,
-        hunger: parameters.startWalkingHungerRate * hunger * hunger,
+        hunger: parameters.startWalkingHungerRate * hunger ** 4,
         odour: parameters.startWalkingOdourRate * senses.odour * hunger,
       };
     case "immobility-to-grooming":
@@ -391,7 +447,7 @@ export function driverContributions(
         spontaneous: parameters.walkAfterGroomingSpontaneousRate,
         arousal: parameters.walkAfterGroomingArousalRate * arousal,
         startle: parameters.walkAfterGroomingStartleRate * startle,
-        hunger: parameters.walkAfterGroomingHungerRate * hunger * hunger,
+        hunger: parameters.walkAfterGroomingHungerRate * hunger ** 4,
         odour: parameters.walkAfterGroomingOdourRate * senses.odour * hunger,
       };
     case "immobility-to-flying":
@@ -446,12 +502,27 @@ export function driverContributions(
     }
     case "immobility-to-feeding":
     case "walking-to-feeding":
-      return { ...NO_CONTRIBUTIONS, hunger: parameters.startFeedingHungerRate * hunger * onFood };
+      return {
+        ...NO_CONTRIBUTIONS,
+        hunger: parameters.startFeedingHungerRate * hunger ** 3 * onFood,
+      };
     case "feeding-to-immobility":
       return {
         ...NO_CONTRIBUTIONS,
         hunger: parameters.stopFeedingSatietyRate * (1 - hunger) ** 4,
         startle: parameters.stopFeedingStartleRate * startle,
+      };
+    case "immobility-to-drinking":
+    case "walking-to-drinking":
+      return {
+        ...NO_CONTRIBUTIONS,
+        thirst: parameters.startDrinkingThirstRate * thirst ** 3 * onWater,
+      };
+    case "drinking-to-immobility":
+      return {
+        ...NO_CONTRIBUTIONS,
+        thirst: parameters.stopDrinkingSatietyRate * (1 - thirst) ** 4,
+        startle: parameters.stopDrinkingStartleRate * startle,
       };
   }
 }

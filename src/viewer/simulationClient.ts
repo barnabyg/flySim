@@ -4,6 +4,7 @@ import type {
   Intervention,
   InterventionAction,
   LightSchedule,
+  SourceKind,
   RoomSetup,
   RunRecord,
   RunSample,
@@ -32,7 +33,7 @@ export function startSimulation(
   room: RoomSetup,
   speed: number,
   lightSchedule: LightSchedule,
-  food: FloorPlace | undefined,
+  sources: Partial<Readonly<Record<SourceKind, FloorPlace>>>,
 ): SimulationClient {
   const worker = new Worker(new URL("./simulationWorker.ts", import.meta.url), { type: "module" });
   const listeners: FrameListener[] = [];
@@ -60,7 +61,7 @@ export function startSimulation(
     }
   };
 
-  send({ type: "start", seed, room, speed, lightSchedule, food });
+  send({ type: "start", seed, room, speed, lightSchedule, sources });
 
   return {
     latest: () => latest,

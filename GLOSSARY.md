@@ -42,6 +42,18 @@ _Avoid_: Appetite, starvation (when the state is meant)
 The behaviour of taking in food through the extended proboscis. It can start only while the fly touches the Food Source, and ends as Hunger falls, not after a set time.
 _Avoid_: Eating, foraging (when the behaviour itself is meant)
 
+**Hydration Reserve**:
+The fly's store of water, from empty to full. It falls all the time, faster in walking and flight and slower in sleep, and rises only while it drinks.
+_Avoid_: Water level, moisture
+
+**Thirst**:
+A Driver that rises as the Hydration Reserve falls. It raises the hazards that start drinking, and its fall is what ends a bout of Drinking.
+_Avoid_: Dehydration (when the Driver is meant)
+
+**Drinking**:
+The behaviour of taking in water through the extended proboscis. It can start only while the fly touches the Water Source, and ends as Thirst falls, not after a set time.
+_Avoid_: Watering, hydrating
+
 **Immobility**:
 The fly's true lack of any body movement, as known by the model. A grooming fly is not immobile.
 _Avoid_: Stillness, standing still, rest
@@ -71,6 +83,10 @@ _Avoid_: Food item, bait, feeder
 **Odour Field**:
 A steady, simplified spread of odour from the Food Source, with no airflow or turbulence, strongest at the food and gone beyond a set range in any direction. The fly senses it only where it is, and a hungry fly steers up it by comparing what it senses now with what it sensed a moment ago, so it can wander past food it can't smell. It is Provisional.
 _Avoid_: Scent map, smell gradient, plume (which implies airflow)
+
+**Water Source**:
+A patch of water on the Room's floor, at a place a Simulation Run's setup gives, apart from the Food Source by default. It never runs out, and the fly touches it only by standing on it.
+_Avoid_: Water dish, drinker
 
 **Light Schedule**:
 When the Room's overhead light is on each day. A Simulation Run's setup gives the schedule it starts with, and an Intervention can change it during the run, including to always on or always off. A default run has 12 hours of light and 12 of dark and starts at lights-on.

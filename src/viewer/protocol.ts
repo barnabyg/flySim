@@ -4,6 +4,7 @@ import type {
   Intervention,
   InterventionAction,
   LightSchedule,
+  SourceKind,
   RunRecord,
   RunSample,
   RoomSetup,
@@ -16,7 +17,7 @@ export type ToSimulation =
       readonly room: RoomSetup;
       readonly speed: number;
       readonly lightSchedule: LightSchedule;
-      readonly food: FloorPlace | undefined;
+      readonly sources: Partial<Readonly<Record<SourceKind, FloorPlace>>>;
     }
   | { readonly type: "set-speed"; readonly speed: number }
   | { readonly type: "set-paused"; readonly paused: boolean }

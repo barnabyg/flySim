@@ -1,7 +1,9 @@
 import {
   DEFAULT_LIGHT_SCHEDULE,
   DEFAULT_ROOM,
+  SOURCE_KINDS,
   type FloorPlace,
+  type SourceKind,
   type LightSchedule,
   type RoomSetup,
 } from "../engine";
@@ -15,8 +17,8 @@ export interface RunSettings {
   readonly room: RoomSetup;
   readonly speed: number;
   readonly lightSchedule: LightSchedule;
-  /** Where the food starts, or undefined for the engine's default. */
-  readonly food?: FloorPlace;
+  /** Where the food and water start, where they aren't at the engine's defaults. */
+  readonly sources: Partial<Readonly<Record<SourceKind, FloorPlace>>>;
 }
 
 export function randomSeed(): number {
@@ -62,7 +64,11 @@ export function settingsFromUrl(
     depthMetres: roomSize(parameters.get("depth"), DEFAULT_ROOM.depthMetres),
     heightMetres: roomSize(parameters.get("height"), DEFAULT_ROOM.heightMetres),
   };
-  const food = floorPlace(parameters.get("food"), room);
+  const sources: Partial<Record<SourceKind, FloorPlace>> = {};
+  for (const kind of SOURCE_KINDS) {
+    const place = floorPlace(parameters.get(kind), room);
+    if (place) sources[kind] = place;
+  }
   return {
     seed: Number.isInteger(seed) ? seed : randomSeed(),
     room,
@@ -71,11 +77,11 @@ export function settingsFromUrl(
       ...DEFAULT_LIGHT_SCHEDULE,
       lightHours: lightHours(parameters.get("lightHours")),
     },
-    ...(food && { food }),
+    sources,
   };
 }
 
-export function urlForSettings({ seed, room, speed, lightSchedule, food }: RunSettings): string {
+export function urlForSettings({ seed, room, speed, lightSchedule, sources }: RunSettings): string {
   const parameters = new URLSearchParams({
     seed: String(seed),
     width: String(room.widthMetres),
@@ -85,6 +91,9 @@ export function urlForSettings({ seed, room, speed, lightSchedule, food }: RunSe
     lightHours: String(lightSchedule.lightHours),
   });
   // A new Room size may leave a place off its floor, which then falls back to the default.
-  if (food) parameters.set("food", `${food.x},${food.y}`);
+  for (const kind of SOURCE_KINDS) {
+    const place = sources[kind];
+    if (place) parameters.set(kind, `${place.x},${place.y}`);
+  }
   return `?${parameters.toString()}`;
 }

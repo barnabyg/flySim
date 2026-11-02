@@ -1,7 +1,9 @@
 import * as THREE from "three";
 import {
+  SOURCE_KINDS,
   SOURCE_RADIUS_METRES,
   type FloorPlace,
+  type SourceKind,
   type Position,
   type RoomSetup,
   type RunSample,
@@ -22,7 +24,11 @@ const NIGHT_BACKGROUND = new THREE.Color(0x07080c);
 const HEMISPHERE_INTENSITY = 2;
 /** Above the floor's markings, and far below the fly's feet, which stand on the floor. */
 const SOURCE_HEIGHT_METRES = 0.0001;
-export const FOOD_COLOUR = 0xd8c050;
+/** Straw-yellow food and blue water, which the amber ring and grey Room can't be taken for. */
+export const SOURCE_COLOURS: Readonly<Record<SourceKind, number>> = {
+  food: 0xd8c050,
+  water: 0x3f8fd8,
+};
 
 /** Engine positions have z up, and the scene has y up. */
 function toScene(position: Position): THREE.Vector3 {
@@ -153,10 +159,9 @@ function createSource(colour: number): THREE.Object3D {
 export interface RoomScene {
   readonly scene: THREE.Scene;
   readonly fly: FlyModel;
-  readonly food: THREE.Object3D;
   updateFly(sample: RunSample): void;
-  /** Puts the food where it is shown to be, or hides it if there is none. */
-  placeFood(place: FloorPlace | null): void;
+  /** Puts a source where it is shown to be, or hides it if there is none. */
+  placeSource(kind: SourceKind, place: FloorPlace | null): void;
   /** Sets how bright the Room looks, from the overhead light's level. */
   updateLighting(lightLevel: number): void;
 }
@@ -174,8 +179,13 @@ export function createRoomScene(room: RoomSetup): RoomScene {
   overhead.position.set(room.widthMetres / 2, room.heightMetres * 0.95, room.depthMetres / 2);
   scene.add(overhead);
   scene.add(createRoomMesh(room));
-  const food = createSource(FOOD_COLOUR);
-  scene.add(food);
+  const sources = new Map(
+    SOURCE_KINDS.map((kind) => {
+      const source = createSource(SOURCE_COLOURS[kind]);
+      scene.add(source);
+      return [kind, source];
+    }),
+  );
 
   const fly = createFlyModel();
   scene.add(fly.object);
@@ -186,10 +196,11 @@ export function createRoomScene(room: RoomSetup): RoomScene {
   return {
     scene,
     fly,
-    food,
-    placeFood: (place) => {
-      food.visible = place !== null;
-      if (place) food.position.copy(toScene({ ...place, z: SOURCE_HEIGHT_METRES }));
+    placeSource: (kind, place) => {
+      const source = sources.get(kind);
+      if (!source) return;
+      source.visible = place !== null;
+      if (place) source.position.copy(toScene({ ...place, z: SOURCE_HEIGHT_METRES }));
     },
     updateLighting: (lightLevel) => {
       const brightness = NIGHT_BRIGHTNESS + (1 - NIGHT_BRIGHTNESS) * lightLevel;

@@ -78,6 +78,8 @@ describe("Feeding", () => {
     for (let i = 1; i < samples.length; i++) {
       const [before, after] = [samples[i - 1], samples[i]];
       if (before?.behaviour !== "feeding" || after?.behaviour !== "feeding") continue;
+      // A full reserve can't rise any further, though the bout may not have ended yet.
+      if (before.energy === 1) continue;
       expect(after.energy).toBeGreaterThan(before.energy);
       expect(after.hunger).toBeLessThan(before.hunger);
     }
@@ -182,10 +184,12 @@ describe("Hunger and walking", () => {
 
   it("makes a hungry fly walk more", () => {
     const walkingShare = (initialEnergy: number) => {
-      const parameters = { ...DEFAULT_PARAMETERS, initialEnergy };
+      // Well hydrated, so that Thirst adds little to either.
+      const parameters = { ...DEFAULT_PARAMETERS, initialEnergy, initialHydration: 0.95 };
       let walking = 0;
       for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) {
-        walking += recordOf(seed, HOUR, { parameters }).timeInBehaviourSeconds.walking;
+        // Without food, a hungry fly can only keep looking.
+        walking += recordOf(seed, HOUR, { parameters, food: null }).timeInBehaviourSeconds.walking;
       }
       return walking;
     };

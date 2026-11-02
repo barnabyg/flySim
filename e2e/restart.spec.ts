@@ -52,7 +52,7 @@ test("restarting keeps the chosen time speed", async ({ page }) => {
 });
 
 test("the Room's size can be changed, and the fly stays within the new Room", async ({ page }) => {
-  await openApp(page, 123);
+  await openApp(page, 125);
   expect((await runRecord(page)).room).toEqual({
     widthMetres: 1,
     depthMetres: 1,
@@ -71,7 +71,7 @@ test("the Room's size can be changed, and the fly stays within the new Room", as
     depthMetres: 0.5,
     heightMetres: 0.2,
   });
-  expect(await page.evaluate(() => window.flySim.seed)).toBe(123);
+  expect(await page.evaluate(() => window.flySim.seed)).toBe(125);
 
   // The whole new Room is framed, not just the size in the record.
   const { roomCornersInMainView } = await page.evaluate(() => window.flySim.view());
