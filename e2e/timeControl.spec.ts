@@ -133,7 +133,8 @@ const RIBBON_RUNS: readonly {
   },
   {
     speed: 1000,
-    watchMilliseconds: 10_000,
+    // Long enough to fill over 100 of the ribbon's columns beside the footer's controls.
+    watchMilliseconds: 15_000,
     checked: ["immobility", "grooming", "walking", "sleeping"],
   },
 ];
