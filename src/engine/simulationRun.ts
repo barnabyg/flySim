@@ -327,10 +327,15 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
     sleepDepth = Math.min(1, Math.abs(next));
   }
 
+  /** Light reaches the clock only through the fly's senses, and can stop it but not reverse it. */
   function updateCircadianClock(): void {
-    const clockHoursPerHour =
+    const clockHoursPerHour = Math.max(
+      0,
       24 / parameters.circadianPeriodHours +
-      parameters.clockEntrainmentRate * currentSenses().lightLevel * lightPull(circadianPhaseHours);
+        parameters.clockEntrainmentRate *
+          currentSenses().lightLevel *
+          lightPull(circadianPhaseHours),
+    );
     circadianPhaseHours = (circadianPhaseHours + clockHoursPerHour * STEP_HOURS) % 24;
   }
 

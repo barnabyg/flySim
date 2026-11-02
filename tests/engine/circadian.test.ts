@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import {
+  DEFAULT_PARAMETERS,
   DEFAULT_ROOM,
   createSimulationRun,
   type FiredTransition,
@@ -195,6 +196,27 @@ describe("the circadian clock", () => {
       expect(Math.abs(daily.at(-1) ?? NaN)).toBeLessThan(1);
     },
   );
+
+  it("never runs backwards, however strongly light pulls it", () => {
+    // Constant light reaches the clock's whole night, where a strong pull would reverse it.
+    const run = createSimulationRun({
+      room: DEFAULT_ROOM,
+      seed: 21,
+      parameters: { ...DEFAULT_PARAMETERS, clockEntrainmentRate: 3 },
+      lightSchedule: { lightsOnHour: 6, lightHours: 24 },
+    });
+    run.advanceSeconds(DAY);
+    const { samples } = run.record();
+
+    samples.forEach((sample, index) => {
+      expect(sample.circadianPhaseHours).toBeGreaterThanOrEqual(0);
+      expect(sample.circadianPhaseHours).toBeLessThan(24);
+      const next = samples[index + 1];
+      if (next && next.circadianPhaseHours > 1) {
+        expect(next.circadianPhaseHours).toBeGreaterThanOrEqual(sample.circadianPhaseHours);
+      }
+    });
+  });
 
   it("keeps running in constant darkness", () => {
     const samples = samplesOf(3 * DAY, { lightsOnHour: 6, lightHours: 0 });
