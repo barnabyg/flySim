@@ -1,5 +1,6 @@
 import {
   DEFAULT_LIGHT_SCHEDULE,
+  DEFAULT_PARAMETERS,
   DEFAULT_ROOM,
   MAX_ROOM_METRES,
   MIN_ROOM_METRES,
@@ -126,6 +127,32 @@ export function urlForSettings({
     if (level !== undefined) parameters.set(reserve, String(level));
   }
   return `?${parameters.toString()}`;
+}
+
+/**
+ * The settings that match a setup as closely as the URL can say, so that Restart, the die and the
+ * URL go on from it. The setup itself may hold more, such as other parameters.
+ */
+export function settingsForSetup(setup: SimulationSetup, speed: number): RunSettings {
+  const { food, water, parameters } = setup;
+  const reserve = (level: number | undefined, fallback: number) =>
+    level === undefined || level === fallback ? undefined : level;
+  const energy = reserve(parameters?.initialEnergy, DEFAULT_PARAMETERS.initialEnergy);
+  const hydration = reserve(parameters?.initialHydration, DEFAULT_PARAMETERS.initialHydration);
+  return {
+    seed: setup.seed,
+    room: setup.room,
+    speed,
+    lightSchedule: {
+      ...DEFAULT_LIGHT_SCHEDULE,
+      lightHours: (setup.lightSchedule ?? DEFAULT_LIGHT_SCHEDULE).lightHours,
+    },
+    sources: { ...(food && { food }), ...(water && { water }) },
+    reserves: {
+      ...(energy !== undefined && { energy }),
+      ...(hydration !== undefined && { hydration }),
+    },
+  };
 }
 
 /** The run the settings start, without any Interventions. */

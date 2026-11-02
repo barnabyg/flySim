@@ -2,8 +2,11 @@ import * as THREE from "three";
 import {
   DEFAULT_LIGHT_SCHEDULE,
   DEFAULT_PARAMETERS,
+  MODEL_VERSION,
   SOURCE_KINDS,
   lightLevel,
+  readRunExport,
+  replaySetup,
   type FloorPlace,
   type LightSchedule,
   type RunRecord,
@@ -11,6 +14,7 @@ import {
   type SourceKind,
 } from "../engine";
 import { download } from "./download";
+import { readMaybeGzipped } from "./gzip";
 import { createDriverPanel, type FlashedTransition } from "./driverPanel";
 import { createFieldOverlay } from "./fieldOverlay";
 import { createRibbon } from "./ribbon";
@@ -19,6 +23,7 @@ import { createRunControls } from "./runControls";
 import { startReplay, takeReplay } from "./replay";
 import {
   randomSeed,
+  settingsForSetup,
   settingsFromUrl,
   setupForSettings,
   urlForSettings,
@@ -68,6 +73,33 @@ function restartWith(changes: Partial<RunSettings>): void {
 
 async function replay(): Promise<void> {
   startReplay(await simulation.replaySetup(), urlForSettings({ ...settings, speed }));
+}
+
+/**
+ * Replays an exported run from its start, as Replay does the current one, with the URL changed to
+ * match it where it can. It says why it won't replay a file, and asks first if another model
+ * version made it.
+ */
+async function openRun(file: File): Promise<void> {
+  let reading;
+  try {
+    // A file that can't be read as text is no export, which reading it as empty says.
+    reading = readRunExport(await readMaybeGzipped(file).catch(() => ""));
+  } catch (error) {
+    alert(error instanceof Error ? error.message : String(error));
+    return;
+  }
+  const { run, sameModelVersion } = reading;
+  if (
+    !sameModelVersion &&
+    !confirm(
+      `This run was made by model version ${run.modelVersion}, and this simulator's model is version ${MODEL_VERSION}, so the replay might not be the same run. Replay it anyway?`,
+    )
+  ) {
+    return;
+  }
+  const opened = replaySetup(run);
+  startReplay(opened, urlForSettings(settingsForSetup(opened, speed)));
 }
 
 const view = requireElement("#view", HTMLElement);
@@ -132,6 +164,9 @@ const runControls = createRunControls(
       void simulation.exportRun(format, sampleIntervalSeconds).then((files) => {
         for (const file of files) download(file.name, file.data);
       });
+    },
+    onOpen: (file) => {
+      void openRun(file);
     },
     onSourcePresenceChange: (kind, present) => {
       changing.set(kind, present ? (lastPlaces.get(kind) ?? null) : null);
