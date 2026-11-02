@@ -2,25 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_PARAMETERS,
   DEFAULT_ROOM,
-  DRIVERS,
   createSimulationRun,
-  type ModelParameters,
-  type RunRecord,
   type RunSample,
   type Surface,
 } from "../../src/engine";
+import { recordOf } from "./helpers";
 
 const HOUR = 3600;
-
-function recordOf(
-  seed: number,
-  simulatedSeconds: number,
-  parameters: ModelParameters = DEFAULT_PARAMETERS,
-): RunRecord {
-  const run = createSimulationRun({ room: DEFAULT_ROOM, seed, parameters });
-  run.advanceSeconds(simulatedSeconds);
-  return run.record();
-}
 
 /** The stretches of a record's samples for which the fly is asleep. */
 function sleepBouts(samples: readonly RunSample[]): RunSample[][] {
@@ -75,10 +63,12 @@ describe("Sleep Depth", () => {
   it("lowers the wake hazard as it rises", () => {
     // With only the spontaneous Driver left, depth is the only thing that can move the hazard.
     const { samples } = recordOf(5, 24 * HOUR, {
-      ...DEFAULT_PARAMETERS,
-      wakeLowSleepPressureRate: 0,
-      wakeCircadianRate: 0,
-      wakeLightRate: 0,
+      parameters: {
+        ...DEFAULT_PARAMETERS,
+        wakeLowSleepPressureRate: 0,
+        wakeCircadianRate: 0,
+        wakeLightRate: 0,
+      },
     });
     const asleep = samples
       .filter((sample) => sample.behaviour === "sleeping")
@@ -96,7 +86,7 @@ describe("Sleep Depth", () => {
     });
   });
 
-  it("shrinks the wake bar through its Drivers, whose contributions still add up", () => {
+  it("shrinks the wake bar through its spontaneous Driver", () => {
     const states = long.samples.flatMap((sample) =>
       sample.behaviour === "sleeping"
         ? sample.transitions.map((state) => ({ state, depth: sample.sleepDepth ?? 0 }))
@@ -104,8 +94,6 @@ describe("Sleep Depth", () => {
     );
 
     for (const { state, depth } of states) {
-      const total = DRIVERS.reduce((sum, driver) => sum + state.contributions[driver], 0);
-      expect(total).toBeCloseTo(state.hazard, 12);
       expect(state.contributions.spontaneous).toBeCloseTo(
         DEFAULT_PARAMETERS.wakeSpontaneousRate *
           (1 - DEFAULT_PARAMETERS.wakeSleepDepthReduction * depth),
@@ -202,11 +190,13 @@ describe("sleep", () => {
   it("gives the same sleep hazards at the same state however long the bout has lasted", () => {
     // Without Sleep Depth, the wake hazard depends on sleep pressure alone.
     const { samples, firedTransitions } = recordOf(1, 12 * HOUR, {
-      ...DEFAULT_PARAMETERS,
-      wakeSleepDepthReduction: 0,
-      fallAsleepCircadianRate: 0,
-      wakeCircadianRate: 0,
-      wakeLightRate: 0,
+      parameters: {
+        ...DEFAULT_PARAMETERS,
+        wakeSleepDepthReduction: 0,
+        fallAsleepCircadianRate: 0,
+        wakeCircadianRate: 0,
+        wakeLightRate: 0,
+      },
     });
     // Each record's bouts start at a firing, so the time since the last firing is time in bout.
     const timeInBout = (timeSeconds: number): number =>
@@ -247,17 +237,12 @@ describe("sleep", () => {
     expect(comparisons).toBeGreaterThan(50);
   });
 
-  it("splits the sleep hazards into per-Driver contributions, with sleep pressure among them", () => {
+  it("has sleep pressure among the Drivers of the sleep hazards", () => {
     const states = samples.flatMap((sample) => sample.transitions);
     const sleepStates = states.filter((state) => state.transition.includes("sleeping"));
 
     expect(sleepStates.length).toBeGreaterThan(1000);
-    for (const state of sleepStates) {
-      const total = DRIVERS.reduce((sum, driver) => sum + state.contributions[driver], 0);
-      expect(total).toBeCloseTo(state.hazard, 12);
-      expect(state.contributions.sleepPressure).toBeGreaterThan(0);
-      expect(state.fireProbabilityNextMinute).toBeCloseTo(1 - Math.exp(-state.hazard * 60), 12);
-    }
+    for (const state of sleepStates) expect(state.contributions.sleepPressure).toBeGreaterThan(0);
   });
 
   it("shows no movement while the fly sleeps", () => {

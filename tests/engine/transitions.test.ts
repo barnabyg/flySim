@@ -3,17 +3,25 @@ import {
   DEFAULT_PARAMETERS,
   DEFAULT_ROOM,
   DRIVERS,
+  STEPS_PER_SECOND,
   createSimulationRun,
   type Behaviour,
   type ModelParameters,
-  type RunRecord,
 } from "../../src/engine";
+import { recordOf } from "./helpers";
 
-function recordOf(seed: number, simulatedSeconds: number): RunRecord {
-  const run = createSimulationRun({ room: DEFAULT_ROOM, seed });
-  run.advanceSeconds(simulatedSeconds);
-  return run.record();
-}
+/** Only the original two transitions can fire, so nothing competes with them. */
+const IMMOBILITY_AND_WALKING_ONLY = {
+  ...DEFAULT_PARAMETERS,
+  takeOffFromImmobilitySpontaneousRate: 0,
+  takeOffFromImmobilityArousalRate: 0,
+  takeOffFromWalkingSpontaneousRate: 0,
+  takeOffFromWalkingArousalRate: 0,
+  startGroomingSpontaneousRate: 0,
+  startGroomingArousalRate: 0,
+  fallAsleepSleepPressureRate: 0,
+  fallAsleepCircadianRate: 0,
+};
 
 describe("Transition Hazards", () => {
   it("splits a known hazard into its per-Driver contributions", () => {
@@ -28,14 +36,24 @@ describe("Transition Hazards", () => {
     expect(state?.hazard).toBeCloseTo(0.0648, 12);
   });
 
-  it("has per-Driver contributions that combine to the hazard throughout a run", () => {
-    const { samples, firedTransitions } = recordOf(2, 3600);
+  it("has per-Driver contributions that add up to the hazard, and a strip from the hazard alone", () => {
+    // Half a day reaches sleep, and a Disturb part-way through adds a startle.
+    const { samples, firedTransitions } = recordOf(2, 12 * 3600, {
+      interventions: [{ step: 6 * 3600 * STEPS_PER_SECOND, type: "disturb" }],
+    });
     const states = [...samples.flatMap((sample) => sample.transitions), ...firedTransitions];
 
-    expect(states.length).toBeGreaterThan(3000);
+    const fired = new Set(firedTransitions.map((state) => state.transition));
+    expect(fired).toContain("immobility-to-sleeping");
+    expect(fired).toContain("sleeping-to-immobility");
+    // Every Driver plays a part somewhere, so leaving any out of the hazard shows up here.
+    for (const driver of DRIVERS) {
+      expect(states.some((state) => state.contributions[driver] > 0)).toBe(true);
+    }
     for (const state of states) {
       const total = DRIVERS.reduce((sum, driver) => sum + state.contributions[driver], 0);
       expect(total).toBeCloseTo(state.hazard, 12);
+      expect(state.fireProbabilityNextMinute).toBeCloseTo(1 - Math.exp(-state.hazard * 60), 12);
     }
   });
 
@@ -46,6 +64,106 @@ describe("Transition Hazards", () => {
     );
 
     expect(arousalContributions.size).toBeGreaterThan(1000);
+  });
+
+  it("shares firings between competing transitions in proportion to their hazards", () => {
+    // Constant hazards of 0.06 and 0.02 per second, so 3 in 4 firings should start walking.
+    const parameters = {
+      ...IMMOBILITY_AND_WALKING_ONLY,
+      startWalkingSpontaneousRate: 0.06,
+      startWalkingArousalRate: 0,
+      startGroomingSpontaneousRate: 0.02,
+    };
+    const fromImmobility = Array.from({ length: 20 }, (_, seed) => {
+      const run = createSimulationRun({ room: DEFAULT_ROOM, seed, parameters });
+      run.advanceSeconds(3600);
+      return run.firedTransitions.filter((fired) => fired.from === "immobility");
+    }).flat();
+    const walkingShare =
+      fromImmobility.filter((fired) => fired.to === "walking").length / fromImmobility.length;
+
+    expect(fromImmobility.length).toBeGreaterThan(500);
+    expect(walkingShare).toBeGreaterThan(0.7);
+    expect(walkingShare).toBeLessThan(0.8);
+  });
+
+  it("gives the same hazard at the same arousal however long the bout has lasted", () => {
+    const { samples, firedTransitions } = recordOf(23, 7200);
+    const timeInBout = (timeSeconds: number): number => {
+      const started = firedTransitions.findLast((fired) => fired.timeSeconds <= timeSeconds);
+      return timeSeconds - (started?.timeSeconds ?? 0);
+    };
+    const immobile = samples
+      .filter((sample) => sample.behaviour === "immobility")
+      .map((sample) => ({
+        arousal: sample.arousal,
+        hazard: sample.transitions[0]?.hazard ?? NaN,
+        timeInBout: timeInBout(sample.timeSeconds),
+      }))
+      .sort((a, b) => a.arousal - b.arousal);
+
+    // Neighbours in arousal should agree on hazard. Where their time in the bout
+    // differs a lot, any direct dependence on it would show up as a gap.
+    let comparisons = 0;
+    for (let i = 1; i < immobile.length; i++) {
+      const a = immobile[i - 1];
+      const b = immobile[i];
+      if (!a || !b) throw new Error("missing sample");
+      if (Math.abs(a.timeInBout - b.timeInBout) > 30) {
+        comparisons += 1;
+        expect(Math.abs(a.hazard - b.hazard)).toBeLessThan(0.001);
+      }
+    }
+    expect(comparisons).toBeGreaterThan(50);
+  });
+});
+
+describe("Trigger Levels", () => {
+  it("are drawn from an exponential distribution with mean 1", () => {
+    // Competing transitions would bias the level of whichever fires first, so only one competes.
+    const levels = Array.from({ length: 20 }, (_, seed) =>
+      recordOf(seed, 7200, { parameters: IMMOBILITY_AND_WALKING_ONLY }),
+    )
+      .flatMap((record) => record.firedTransitions)
+      .map((fired) => fired.triggerLevel);
+    const mean = levels.reduce((sum, level) => sum + level, 0) / levels.length;
+    const shareBelowOne = levels.filter((level) => level < 1).length / levels.length;
+
+    expect(levels.length).toBeGreaterThan(500);
+    expect(mean).toBeGreaterThan(0.9);
+    expect(mean).toBeLessThan(1.1);
+    // For an exponential with mean 1, P(level < 1) = 1 - 1/e = 0.632.
+    expect(shareBelowOne).toBeGreaterThan(0.58);
+    expect(shareBelowOne).toBeLessThan(0.68);
+  });
+
+  it("fire a transition when its accumulated hazard reaches the level", () => {
+    const { samples, firedTransitions } = recordOf(31, 7200);
+
+    // Integrate the once-a-second hazard over each bout that's long enough for
+    // the integral to be accurate, and compare it with the Trigger Level.
+    let checked = 0;
+    let boutStart = 0;
+    for (const fired of firedTransitions) {
+      const inBout = samples.filter(
+        (sample) => sample.timeSeconds > boutStart && sample.timeSeconds <= fired.timeSeconds,
+      );
+      if (inBout.length >= 20) {
+        const accumulated = inBout.reduce(
+          (sum, sample) =>
+            sum +
+            (sample.transitions.find((state) => state.transition === fired.transition)?.hazard ??
+              0),
+          0,
+        );
+        expect(Math.abs(accumulated - fired.triggerLevel)).toBeLessThan(
+          0.1 * fired.triggerLevel + 0.05,
+        );
+        checked += 1;
+      }
+      boutStart = fired.timeSeconds;
+    }
+    expect(checked).toBeGreaterThan(10);
   });
 });
 

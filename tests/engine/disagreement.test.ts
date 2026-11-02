@@ -102,8 +102,6 @@ describe("where true sleep and Scored Sleep disagree", () => {
     expect(records.every((record) => record.interventions.length === 0)).toBe(true);
     expect(left.length).toBeGreaterThan(5);
     for (const { ended } of left) {
-      const total = DRIVERS.reduce((sum, driver) => sum + ended.contributions[driver], 0);
-      expect(total).toBeCloseTo(ended.hazard, 12);
       expect(ended.hazard).toBeGreaterThan(0);
       expect(ended.contributions.startle).toBe(0);
       expect(ended.triggerLevel).toBeGreaterThan(0);
