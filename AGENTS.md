@@ -12,6 +12,7 @@ Default label vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `read
 
 Single-context: one `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
 
-## Verification
+## Code and verification
 
+- **Code map:** what lives where in `src/`, `tests/` and `e2e/`, including the worker path every new run input or command passes through. See the Code map section of `README.md`.
 - **Verify:** install, single-test and full verification commands. See the Verify it section of `README.md`.
