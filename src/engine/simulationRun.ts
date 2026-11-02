@@ -481,7 +481,9 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   }
 
   function updateEnergy(): void {
-    const intake = behaviour === "feeding" ? parameters.feedingIntake : 0;
+    // Only what the fly is touching can be taken in.
+    const intake =
+      behaviour === "feeding" && currentSenses().touchingFood ? parameters.feedingIntake : 0;
     energy = Math.min(1, Math.max(0, energy + (intake - energyUse()) * STEP_SECONDS));
   }
 
@@ -502,7 +504,8 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   }
 
   function updateHydration(): void {
-    const intake = behaviour === "drinking" ? parameters.drinkingIntake : 0;
+    const intake =
+      behaviour === "drinking" && currentSenses().touchingWater ? parameters.drinkingIntake : 0;
     hydration = Math.min(1, Math.max(0, hydration + (intake - waterLoss()) * STEP_SECONDS));
   }
 

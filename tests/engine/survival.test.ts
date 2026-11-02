@@ -190,3 +190,32 @@ describe("a default run", () => {
     });
   }
 });
+
+describe("losing contact mid-bout", () => {
+  for (const [source, behaviour, reserve] of [
+    ["food", "feeding", "energy"],
+    ["water", "drinking", "hydration"],
+  ] as const) {
+    it(`ends ${behaviour} at once when the ${source} is taken away, with nothing more taken in`, () => {
+      const start = startOf(4);
+      const run = createSimulationRun({
+        room: DEFAULT_ROOM,
+        seed: 4,
+        [source]: start,
+        parameters: withParameters({ initialEnergy: 0.3, initialHydration: 0.3 }),
+      });
+      while (run.current().behaviour !== behaviour) run.advanceSteps(1);
+      run.advanceSeconds(5);
+      run.intervene({ type: "remove-source", source });
+      const before = run.current()[reserve];
+      run.advanceSeconds(1);
+      const after = run.current();
+
+      expect(after.behaviour).not.toBe(behaviour);
+      expect(after[reserve]).toBeLessThanOrEqual(before);
+      const ended = run.firedTransitions.at(-1);
+      expect(ended?.from).toBe(behaviour);
+      expect(ended?.contributions.contact).toBeGreaterThan(0);
+    });
+  }
+});

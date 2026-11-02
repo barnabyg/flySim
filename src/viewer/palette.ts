@@ -50,7 +50,7 @@ export const BEHAVIOUR_NAMES: Readonly<Record<Behaviour, string>> = {
 export const DRIVER_NAMES: Readonly<Record<DriverId, string>> = {
   spontaneous: "Spontaneous",
   arousal: "Arousal",
-  contact: "Surface contact",
+  contact: "Contact",
   light: "Light",
   sleepPressure: "Sleep pressure",
   circadian: "Circadian Clock",

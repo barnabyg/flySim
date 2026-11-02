@@ -205,6 +205,8 @@ export interface ModelParameters {
   readonly takeOffFromWalkingArousalRate: number;
   /** Contact ends a flight almost at once, so a fly doesn't linger at a surface. */
   readonly landingContactRate: number;
+  /** Losing touch with the food or water, as when it is taken away, ends a bout almost at once. */
+  readonly lostContactRate: number;
   /** Sleep pressure relaxes towards 1 at this pace while awake. */
   readonly sleepPressureRiseTimeConstantSeconds: number;
   /** Sleep pressure relaxes towards 0 at this pace while asleep. */
@@ -350,6 +352,7 @@ export const DEFAULT_PARAMETERS: ModelParameters = {
   takeOffFromWalkingSpontaneousRate: 0.018,
   takeOffFromWalkingArousalRate: 0.06,
   landingContactRate: 100,
+  lostContactRate: 100,
   sleepPressureRiseTimeConstantSeconds: 28_800,
   sleepPressureFallTimeConstantSeconds: 21_600,
   initialSleepPressure: 0.1,
@@ -613,6 +616,7 @@ function unweakenedContributions(
         ...NO_CONTRIBUTIONS,
         hunger: parameters.stopFeedingSatietyRate * (1 - hunger) ** 4,
         startle: parameters.stopFeedingStartleRate * startle,
+        contact: senses.touchingFood ? 0 : parameters.lostContactRate,
       };
     case "immobility-to-drinking":
     case "walking-to-drinking":
@@ -625,6 +629,7 @@ function unweakenedContributions(
         ...NO_CONTRIBUTIONS,
         thirst: parameters.stopDrinkingSatietyRate * (1 - thirst) ** 4,
         startle: parameters.stopDrinkingStartleRate * startle,
+        contact: senses.touchingWater ? 0 : parameters.lostContactRate,
       };
   }
 }
