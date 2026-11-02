@@ -1,5 +1,5 @@
 import { expect, type Page } from "@playwright/test";
-import type { RunRecord, RunSample } from "../src/engine";
+import type { Behaviour, RunRecord, RunSample } from "../src/engine";
 
 export async function openApp(page: Page, seed = 42): Promise<void> {
   await page.goto(`/?seed=${seed}`);
@@ -17,6 +17,51 @@ export async function currentTime(page: Page): Promise<number> {
 
 export async function runRecord(page: Page): Promise<RunRecord> {
   return page.evaluate(() => window.flySim.record());
+}
+
+/** What the fly looks like in one frame, and the latest step when it was taken. */
+async function flyFrame(page: Page) {
+  return page.evaluate(() => ({
+    step: window.flySim.current()?.step ?? -1,
+    behaviour: window.flySim.view().flyPose.behaviour,
+    position: window.flySim.flyScenePosition(),
+    feet: window.flySim.view().flyFeet,
+  }));
+}
+
+type FlyFrame = Awaited<ReturnType<typeof flyFrame>>;
+
+/**
+ * Takes two frames 400 ms apart within one bout of a behaviour, so it returns frames from one bout
+ * or fails. If the bout ends between them, it reloads the run and tries again, so the run must
+ * start the bout soon after it loads, as one on the food or water does.
+ */
+export async function twoFramesInOneBout(
+  page: Page,
+  behaviour: Behaviour,
+): Promise<{ before: FlyFrame; after: FlyFrame }> {
+  let frames: { before: FlyFrame; after: FlyFrame } | undefined;
+  let attempts = 0;
+  await expect(async () => {
+    attempts += 1;
+    if (attempts > 1) await page.reload();
+    await expect
+      .poll(async () => (await currentSample(page))?.behaviour, { timeout: 20_000 })
+      .toBe(behaviour);
+    const before = await flyFrame(page);
+    await page.waitForTimeout(400);
+    const after = await flyFrame(page);
+    expect([before.behaviour, after.behaviour]).toEqual([behaviour, behaviour]);
+    expect(after.step).toBeGreaterThan(before.step);
+    // The bout the second frame shows began before the first frame, so both are in it.
+    const { firedTransitions } = await runRecord(page);
+    const bout = firedTransitions.filter((each) => each.step <= after.step).at(-1);
+    expect(bout?.to).toBe(behaviour);
+    expect(bout?.step).toBeLessThan(before.step);
+    frames = { before, after };
+  }).toPass({ timeout: 40_000 });
+  if (!frames) throw new Error("no frames");
+  return frames;
 }
 
 interface ScreenshotAnalysis {
