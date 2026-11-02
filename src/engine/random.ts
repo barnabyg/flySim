@@ -1,3 +1,5 @@
+import { cos, log } from "./exactMath";
+
 /** A seeded stream of random numbers: the engine's only source of randomness. */
 export interface RandomStream {
   /** Uniform on [0, 1). */
@@ -40,7 +42,7 @@ export function createRandomStream(seed: number, stream: number): RandomStream {
 
   return {
     uniform,
-    exponential: () => -Math.log(1 - uniform()),
-    normal: () => Math.sqrt(-2 * Math.log(1 - uniform())) * Math.cos(2 * Math.PI * uniform()),
+    exponential: () => -log(1 - uniform()),
+    normal: () => Math.sqrt(-2 * log(1 - uniform())) * cos(2 * Math.PI * uniform()),
   };
 }

@@ -1,3 +1,4 @@
+import { exp } from "./exactMath";
 import {
   BEHAVIOURS,
   DRIVERS,
@@ -46,7 +47,8 @@ import {
   type SourceKind,
 } from "./roomContents";
 
-export const MODEL_VERSION = "0.5.0";
+/** Changes whenever the same seed and setup could give a different run. */
+export const MODEL_VERSION = "0.6.0";
 
 const AROUSAL_NOISE_STREAM = 1;
 const MOVEMENT_STREAM = 2;
@@ -328,7 +330,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   }
 
   function withStrip(parts: ReturnType<typeof hazardOf>): TransitionState {
-    return { ...parts, fireProbabilityNextMinute: 1 - Math.exp(-parts.hazard * 60) };
+    return { ...parts, fireProbabilityNextMinute: 1 - exp(-parts.hazard * 60) };
   }
 
   function transitionState(transition: TransitionId): TransitionState {

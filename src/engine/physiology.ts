@@ -1,3 +1,4 @@
+import { cos, exp } from "./exactMath";
 import {
   hungerOf,
   thirstOf,
@@ -172,7 +173,7 @@ function nextSleepDepth(
  * moves the clock's night away from the light a little each day until the two agree.
  */
 function lightPull(circadianPhaseHours: number): number {
-  return circadianPhaseHours < 12 ? 0 : -Math.cos((Math.PI * (circadianPhaseHours - 12)) / 12);
+  return circadianPhaseHours < 12 ? 0 : -cos((Math.PI * (circadianPhaseHours - 12)) / 12);
 }
 
 /** Light reaches the clock only through the fly's senses, and can stop it but not reverse it. */
@@ -190,7 +191,7 @@ function nextCircadianPhase(
 }
 
 function nextStartle(startle: number, parameters: ModelParameters): number {
-  const next = startle * Math.exp(-STEP_SECONDS / parameters.startleTimeConstantSeconds);
+  const next = startle * exp(-STEP_SECONDS / parameters.startleTimeConstantSeconds);
   // Ends a faded startle outright, so that it leaves no trace in later hazards.
   return next < MIN_STARTLE ? 0 : next;
 }
