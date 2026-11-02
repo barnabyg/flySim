@@ -48,7 +48,7 @@ import {
 
 export const MODEL_VERSION = "0.5.0";
 
-const DRIVER_NOISE_STREAM = 1;
+const AROUSAL_NOISE_STREAM = 1;
 const MOVEMENT_STREAM = 2;
 const DEFAULT_TRIGGER_STREAM = 3;
 const SLEEP_DEPTH_NOISE_STREAM = 4;
@@ -215,7 +215,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   validateLightSchedule(initialLightSchedule);
   let lightSchedule = initialLightSchedule;
   const bodyNoise = {
-    arousal: createRandomStream(seed, DRIVER_NOISE_STREAM),
+    arousal: createRandomStream(seed, AROUSAL_NOISE_STREAM),
     sleepDepth: createRandomStream(seed, SLEEP_DEPTH_NOISE_STREAM),
   };
   const movementNoise = createRandomStream(seed, MOVEMENT_STREAM);
