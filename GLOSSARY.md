@@ -47,7 +47,7 @@ The fly's store of water, from empty to full. It falls all the time, faster in w
 _Avoid_: Water level, moisture
 
 **Thirst**:
-A Driver that rises as the Hydration Reserve falls. It raises the hazards that start drinking, and its fall is what ends a bout of Drinking.
+A Driver that rises as the Hydration Reserve falls. It raises the hazards that start drinking, holds back feeding, and sets how strongly the fly follows the Humidity Field. Its fall is what ends a bout of Drinking.
 _Avoid_: Dehydration (when the Driver is meant)
 
 **Drinking**:
@@ -87,6 +87,10 @@ _Avoid_: Scent map, smell gradient, plume (which implies airflow)
 **Water Source**:
 A patch of water on the Room's floor, at a place a Simulation Run's setup gives, apart from the Food Source by default. It never runs out, and the fly touches it only by standing on it.
 _Avoid_: Water dish, drinker
+
+**Humidity Field**:
+A steady, simplified rise in humidity around the Water Source above the Room's own constant humidity, gone beyond a set range in any direction. The fly senses it only where it is, and a thirsty fly steers up it as a hungry one does up the Odour Field, while a hydrated one barely does. It is Provisional.
+_Avoid_: Moisture map, water gradient
 
 **Light Schedule**:
 When the Room's overhead light is on each day. A Simulation Run's setup gives the schedule it starts with, and an Intervention can change it during the run, including to always on or always off. A default run has 12 hours of light and 12 of dark and starts at lights-on.

@@ -30,7 +30,9 @@ describe("Transition Hazards", () => {
     // At step 0, arousal is 0.5, so arousal contributes 0.25 * 0.5^2 = 0.0625 per second,
     // the run starts at lights-on, so light adds 0.002, and Hunger is 0.4, so it adds
     // 0.03 * 0.4^4 = 0.000768.
-    const [state] = createSimulationRun({ room: DEFAULT_ROOM, seed: 1 }).current().transitions;
+    // With no food or water in the Room, the fly senses neither odour nor raised humidity.
+    const empty = { room: DEFAULT_ROOM, seed: 1, food: null, water: null };
+    const [state] = createSimulationRun(empty).current().transitions;
 
     expect(state?.transition).toBe("immobility-to-walking");
     expect(state?.contributions.spontaneous).toBeCloseTo(0.0003, 12);
@@ -197,6 +199,8 @@ describe("red strip probability", () => {
     const halfLifeRun = createSimulationRun({
       room: DEFAULT_ROOM,
       seed: 1,
+      food: null,
+      water: null,
       parameters: {
         ...DEFAULT_PARAMETERS,
         startWalkingSpontaneousRate: Math.LN2 / 60,
@@ -208,7 +212,12 @@ describe("red strip probability", () => {
     expect(halfLifeRun.current().transitions[0]?.fireProbabilityNextMinute).toBeCloseTo(0.5, 12);
 
     // The default initial hazard of 0.065568 per second gives 1 - exp(-3.93408).
-    const defaultRun = createSimulationRun({ room: DEFAULT_ROOM, seed: 1 });
+    const defaultRun = createSimulationRun({
+      room: DEFAULT_ROOM,
+      seed: 1,
+      food: null,
+      water: null,
+    });
     expect(defaultRun.current().transitions[0]?.fireProbabilityNextMinute).toBeCloseTo(0.980436, 5);
   });
 

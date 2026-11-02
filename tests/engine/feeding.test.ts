@@ -5,6 +5,7 @@ import {
   createSimulationRun,
   type FloorPlace,
   SOURCE_RADIUS_METRES,
+  type ModelParameters,
   type SimulationSetup,
 } from "../../src/engine";
 import { recordOf } from "./helpers";
@@ -147,8 +148,7 @@ describe("Feeding", () => {
 
   it("doesn't end any sooner for having gone on longer (ADR-0001)", () => {
     // With no intake Hunger can't fall, so nothing but time in the bout could raise the hazard.
-    const parameters = { ...DEFAULT_PARAMETERS, feedingIntake: 0 };
-    const run = createSimulationRun(foodUnderFly(4, { parameters }));
+    const run = createSimulationRun(foodUnderFly(4, { feedingIntake: 0 }));
     run.advanceSeconds(10 * MINUTE);
     const hazards = run
       .record()
@@ -198,8 +198,14 @@ describe("Hunger and walking", () => {
   });
 });
 
-/** A setup with the food right under the fly's feet at the start. */
-function foodUnderFly(seed: number, setup: Partial<SimulationSetup> = {}): SimulationSetup {
+/** A setup with the food right under a hungry fly's feet at the start. */
+function foodUnderFly(seed: number, changes: Partial<ModelParameters> = {}): SimulationSetup {
   const { position } = createSimulationRun({ room: DEFAULT_ROOM, seed }).current();
-  return { room: DEFAULT_ROOM, seed, food: { x: position.x, y: position.y }, ...setup };
+  return {
+    room: DEFAULT_ROOM,
+    seed,
+    food: { x: position.x, y: position.y },
+    // Hungry, and well hydrated so that Thirst doesn't hold it back.
+    parameters: { ...DEFAULT_PARAMETERS, initialEnergy: 0.3, initialHydration: 0.9, ...changes },
+  };
 }

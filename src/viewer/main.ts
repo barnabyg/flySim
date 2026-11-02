@@ -129,7 +129,8 @@ renderer.setAnimationLoop(() => {
     roomScene.updateFly(sample);
     roomScene.placeSource("food", sample.food);
     roomScene.placeSource("water", sample.water);
-    fieldOverlay.placeFood(sample.food);
+    fieldOverlay.placeSource("food", sample.food);
+    fieldOverlay.placeSource("water", sample.water);
     roomScene.updateLighting(lightLevel(shownSchedule, sample.timeOfDayHours));
   }
   views.render();

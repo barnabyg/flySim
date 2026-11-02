@@ -14,6 +14,7 @@ export { DEFAULT_LIGHT_SCHEDULE, lightLevel, type LightSchedule } from "./lightS
 export {
   SOURCE_KINDS,
   SOURCE_RADIUS_METRES,
+  humidityField,
   odourField,
   type FloorPlace,
   type SourceKind,

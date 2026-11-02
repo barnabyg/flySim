@@ -200,7 +200,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
     food: setup.food === undefined ? defaultPlace("food", room) : setup.food,
     water: setup.water === undefined ? defaultPlace("water", room) : setup.water,
   };
-  const contents = createRoomContents(room, initialPlaces, parameters.odourRangeMetres);
+  const contents = createRoomContents(room, initialPlaces, parameters);
   const initialLightSchedule = setup.lightSchedule ?? DEFAULT_LIGHT_SCHEDULE;
   validateLightSchedule(initialLightSchedule);
   let lightSchedule = initialLightSchedule;
@@ -231,8 +231,10 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   let startle = 0;
   let energy = parameters.initialEnergy;
   let hydration = parameters.initialHydration;
-  let recentOdour = 0;
   const movement = createMovement(room, movementNoise);
+  // The fly starts used to what it senses where it starts.
+  let recentOdour = contents.odourAt(movement.pose().position);
+  let recentHumidity = contents.humidityAt(movement.pose().position);
   const stepsOnSurface = new Map<Surface, number>();
   const stepsInBehaviour = new Map<Behaviour, number>();
   let pending = drawTriggerLevels();
@@ -273,6 +275,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       touchingFood: contents.touching("food", position, surface),
       touchingWater: contents.touching("water", position, surface),
       odour: contents.odourAt(position),
+      humidity: contents.humidityAt(position),
     };
   }
 
@@ -288,6 +291,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       hydration,
       thirst: thirstOf(hydration),
       recentOdour,
+      recentHumidity,
     };
   }
 
@@ -469,9 +473,12 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
     hydration = Math.min(1, Math.max(0, hydration + (intake - waterLoss()) * STEP_SECONDS));
   }
 
-  function updateRecentOdour(senses: Senses): void {
+  /** What the fly has sensed lately follows what it senses now, which is how it notices change. */
+  function updateRecentSenses(senses: Senses): void {
     recentOdour +=
       ((senses.odour - recentOdour) / parameters.odourAdaptationSeconds) * STEP_SECONDS;
+    recentHumidity +=
+      ((senses.humidity - recentHumidity) / parameters.humidityAdaptationSeconds) * STEP_SECONDS;
   }
 
   function updateStartle(): void {
@@ -530,7 +537,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       updateHydration();
       const senses = currentSenses();
       if (behaviour === "walking") walk(senses);
-      updateRecentOdour(senses);
+      updateRecentSenses(senses);
       if (behaviour === "flying")
         movement.fly(parameters.flightSpeedMetresPerSecond * STEP_SECONDS);
       const surface = movement.surface();

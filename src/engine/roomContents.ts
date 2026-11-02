@@ -44,12 +44,40 @@ export function odourField(food: FloorPlace | null, rangeMetres: number, at: Pos
   return distance >= rangeMetres ? 0 : (1 - distance / rangeMetres) ** 2;
 }
 
+/** How far each field reaches, and how humid the Room is. */
+export interface FieldSettings {
+  readonly odourRangeMetres: number;
+  readonly humidityRangeMetres: number;
+  readonly globalHumidity: number;
+  readonly humidityRise: number;
+}
+
+/**
+ * A steady, simplified Humidity Field: the Room's own humidity everywhere, raised around the
+ * water by up to the rise at its centre, falling to nothing at the edge of its range. It is
+ * Provisional, and depends only on where the water is, never on the fly.
+ */
+export function humidityField(
+  water: FloorPlace | null,
+  settings: FieldSettings,
+  at: Position,
+): number {
+  const { humidityRangeMetres: range, globalHumidity, humidityRise } = settings;
+  if (!water || range <= 0) return globalHumidity;
+  const distance = Math.hypot(at.x - water.x, at.y - water.y, at.z);
+  return distance >= range
+    ? globalHumidity
+    : globalHumidity + humidityRise * (1 - distance / range) ** 2;
+}
+
 /** What is in the Room besides the fly. The fly learns of it only through its senses. */
 export interface RoomContents {
   /** Whether feet at this place on this surface are touching a source. */
   touching(kind: SourceKind, position: Position, surface: Surface | null): boolean;
   /** The Odour Field here. */
   odourAt(position: Position): number;
+  /** The Humidity Field here. */
+  humidityAt(position: Position): number;
   /** Where a source is, or null if the Room has none. */
   place(kind: SourceKind): FloorPlace | null;
 }
@@ -57,7 +85,7 @@ export interface RoomContents {
 export function createRoomContents(
   room: RoomSetup,
   places: Readonly<Record<SourceKind, FloorPlace | null>>,
-  odourRangeMetres: number,
+  settings: FieldSettings,
 ): RoomContents {
   for (const kind of SOURCE_KINDS) {
     const place = places[kind];
@@ -73,7 +101,8 @@ export function createRoomContents(
         Math.hypot(position.x - place.x, position.y - place.y) <= SOURCE_RADIUS_METRES
       );
     },
-    odourAt: (position) => odourField(places.food, odourRangeMetres, position),
+    odourAt: (position) => odourField(places.food, settings.odourRangeMetres, position),
+    humidityAt: (position) => humidityField(places.water, settings, position),
     place: (kind) => places[kind],
   };
 }

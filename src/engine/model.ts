@@ -13,7 +13,8 @@ export type DriverId =
   | "startle"
   | "hunger"
   | "odour"
-  | "thirst";
+  | "thirst"
+  | "humidity";
 
 export type TransitionId =
   | "immobility-to-walking"
@@ -60,6 +61,7 @@ export const DRIVERS: readonly DriverId[] = [
   "hunger",
   "odour",
   "thirst",
+  "humidity",
 ];
 
 export const TRANSITIONS: readonly TransitionDefinition[] = [
@@ -98,6 +100,8 @@ export interface Senses {
   readonly touchingWater: boolean;
   /** The Odour Field where the fly is, from 0 to 1. It senses nothing of where the food is. */
   readonly odour: number;
+  /** The Humidity Field where the fly is, from 0 to 1. It senses nothing of where the water is. */
+  readonly humidity: number;
 }
 
 /** The fly's hidden state that Drivers read. */
@@ -118,7 +122,10 @@ export interface InternalState {
   readonly energy: number;
   /** Rises as the energy reserve falls, from 0 when full to 1 when empty. */
   readonly hunger: number;
-  /** The hydration reserve, from 0 when empty to 1 when full. It falls over time and rises with drinking. */
+  /**
+   * The hydration reserve, from 0 when empty to 1 when full. It falls all the time and rises
+   * with drinking.
+   */
   readonly hydration: number;
   /** Rises as the hydration reserve falls, from 0 when full to 1 when empty. */
   readonly thirst: number;
@@ -127,6 +134,8 @@ export interface InternalState {
    * Comparing the two tells it whether the odour is rising or falling as it walks.
    */
   readonly recentOdour: number;
+  /** The humidity the fly has sensed lately, which it compares with what it senses now. */
+  readonly recentHumidity: number;
 }
 
 /** Hunger rises as the energy reserve falls. */
@@ -282,6 +291,23 @@ export interface ModelParameters {
    * falling odour makes it turn more, so it keeps on up the field and turns back down it.
    */
   readonly odourSteeringGain: number;
+  /** How far the Humidity Field reaches from the water, in any direction. 0 switches it off. */
+  readonly humidityRangeMetres: number;
+  /** The Room's humidity away from the water, which is the same everywhere and at all times. */
+  readonly globalHumidity: number;
+  /** How far above the Room's humidity the air is at the water. */
+  readonly humidityRise: number;
+  /** How quickly the recently sensed humidity catches up with what the fly senses now. */
+  readonly humidityAdaptationSeconds: number;
+  /** The change in humidity, over the adaptation time, that steers the fly fully. */
+  readonly humidityContrast: number;
+  /** How strongly a fully thirsty fly steers by humidity, in the same way as by odour. */
+  readonly humiditySteeringGain: number;
+  /** Scaled by how far the air is above the Room's humidity, and by Thirst. */
+  readonly startWalkingHumidityRate: number;
+  readonly walkAfterGroomingHumidityRate: number;
+  /** The share of Hunger's push to start feeding that full Thirst takes away. */
+  readonly feedingThirstInhibition: number;
 }
 
 export const DEFAULT_PARAMETERS: ModelParameters = {
@@ -364,6 +390,15 @@ export const DEFAULT_PARAMETERS: ModelParameters = {
   odourDetectionFloor: 0.01,
   odourContrast: 0.05,
   odourSteeringGain: 2,
+  humidityRangeMetres: 0.3,
+  globalHumidity: 0.4,
+  humidityRise: 0.4,
+  humidityAdaptationSeconds: 1,
+  humidityContrast: 0.01,
+  humiditySteeringGain: 2,
+  startWalkingHumidityRate: 0.02,
+  walkAfterGroomingHumidityRate: 0.02,
+  feedingThirstInhibition: 0.8,
 };
 
 const NO_CONTRIBUTIONS: Readonly<Record<DriverId, number>> = {
@@ -377,6 +412,7 @@ const NO_CONTRIBUTIONS: Readonly<Record<DriverId, number>> = {
   hunger: 0,
   odour: 0,
   thirst: 0,
+  humidity: 0,
 };
 
 /**
@@ -401,10 +437,24 @@ export function turningScale(
   senses: Senses,
   parameters: ModelParameters,
 ): number {
-  const change =
+  const odourChange =
     (senses.odour - state.recentOdour) / (state.recentOdour + parameters.odourDetectionFloor);
-  const rising = Math.tanh(change / parameters.odourContrast);
-  return Math.exp(-parameters.odourSteeringGain * state.hunger * rising);
+  const odourRising = Math.tanh(odourChange / parameters.odourContrast);
+  const humidityRising = Math.tanh(
+    (senses.humidity - state.recentHumidity) / parameters.humidityContrast,
+  );
+  // Hunger sets how much odour matters and Thirst how much humidity does.
+  return Math.exp(
+    -parameters.odourSteeringGain * state.hunger * odourRising -
+      parameters.humiditySteeringGain * state.thirst * humidityRising,
+  );
+}
+
+/** How far the air is above the Room's humidity, from 0 away from the water to 1 at it. */
+function dampness(senses: Senses, parameters: ModelParameters): number {
+  return parameters.humidityRise > 0
+    ? Math.max(0, (senses.humidity - parameters.globalHumidity) / parameters.humidityRise)
+    : 0;
 }
 
 /**
@@ -422,6 +472,7 @@ export function driverContributions(
     state;
   const onFood = senses.touchingFood ? 1 : 0;
   const onWater = senses.touchingWater ? 1 : 0;
+  const damp = dampness(senses, parameters);
   switch (transition) {
     case "immobility-to-walking":
       return {
@@ -432,6 +483,7 @@ export function driverContributions(
         startle: parameters.startWalkingStartleRate * startle,
         hunger: parameters.startWalkingHungerRate * hunger ** 4,
         odour: parameters.startWalkingOdourRate * senses.odour * hunger,
+        humidity: parameters.startWalkingHumidityRate * damp * thirst,
       };
     case "immobility-to-grooming":
       return {
@@ -449,6 +501,7 @@ export function driverContributions(
         startle: parameters.walkAfterGroomingStartleRate * startle,
         hunger: parameters.walkAfterGroomingHungerRate * hunger ** 4,
         odour: parameters.walkAfterGroomingOdourRate * senses.odour * hunger,
+        humidity: parameters.walkAfterGroomingHumidityRate * damp * thirst,
       };
     case "immobility-to-flying":
       return {
@@ -502,9 +555,14 @@ export function driverContributions(
     }
     case "immobility-to-feeding":
     case "walking-to-feeding":
+      // Thirst holds feeding back by weakening Hunger's push, so a thirsty fly drinks first.
       return {
         ...NO_CONTRIBUTIONS,
-        hunger: parameters.startFeedingHungerRate * hunger ** 3 * onFood,
+        hunger:
+          parameters.startFeedingHungerRate *
+          hunger ** 3 *
+          (1 - parameters.feedingThirstInhibition * thirst) *
+          onFood,
       };
     case "feeding-to-immobility":
       return {

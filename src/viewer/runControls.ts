@@ -88,7 +88,7 @@ export function createRunControls(
         </div>
       </form>
     </details>
-    <button id="fields" class="icon-button" type="button" aria-pressed="false" aria-label="Show the fields" title="Show what the fly could smell">${FIELDS_ICON}</button>`;
+    <button id="fields" class="icon-button" type="button" aria-pressed="false" aria-label="Show the fields" title="Show what the fly could smell and feel">${FIELDS_ICON}</button>`;
 
   const disturb = container.querySelector<HTMLButtonElement>("#disturb");
   const restart = container.querySelector<HTMLButtonElement>("#restart");
