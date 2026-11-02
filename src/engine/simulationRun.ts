@@ -30,7 +30,7 @@ import {
 } from "./movement";
 import { createRandomStream } from "./random";
 
-export const MODEL_VERSION = "0.3.0";
+export const MODEL_VERSION = "0.4.0";
 
 /** The simulation always advances in fixed steps of this rate. */
 export const STEPS_PER_SECOND = 50;
@@ -48,19 +48,21 @@ const SLEEP_DEPTH_NOISE_STREAM = 4;
 
 export const DEFAULT_ROOM: RoomSetup = { widthMetres: 1, depthMetres: 1, heightMetres: 0.6 };
 
-export type InterventionType = "disturb";
+/** Something the experimenter does to a run. */
+export type InterventionAction =
+  | { readonly type: "disturb" }
+  | { readonly type: "light-schedule"; readonly lightSchedule: LightSchedule };
 
-/** Something the experimenter does to a run, applied at the start of its step. */
-export interface Intervention {
-  readonly step: number;
-  readonly type: InterventionType;
-}
+export type InterventionType = InterventionAction["type"];
+
+/** An action applied at the start of its step. */
+export type Intervention = InterventionAction & { readonly step: number };
 
 export interface SimulationSetup {
   readonly room: RoomSetup;
   readonly seed: number;
   readonly parameters?: ModelParameters;
-  /** The default is 12:12. The run starts at lights-on and the schedule stays fixed. */
+  /** The default is 12:12. The run starts at lights-on, and interventions can change it. */
   readonly lightSchedule?: LightSchedule;
   /** Interventions to apply at given steps, on top of any made during the run. */
   readonly interventions?: readonly Intervention[];
@@ -90,6 +92,8 @@ export interface RunSample extends MovementPose, InternalState {
   readonly timeOfDayHours: number;
   /** The Room's overhead light, from 0 to 1. The fly gets it only through its senses. */
   readonly lightLevel: number;
+  /** The schedule in effect, which interventions may have changed since the run started. */
+  readonly lightSchedule: LightSchedule;
   /** What the fly can currently sense. */
   readonly senses: Senses;
   readonly behaviour: Behaviour;
@@ -119,6 +123,7 @@ export interface RunRecord {
   readonly seed: number;
   readonly room: RoomSetup;
   readonly parameters: ModelParameters;
+  /** The schedule the run started with. Later ones are among its interventions. */
   readonly lightSchedule: LightSchedule;
   readonly stepsPerSecond: number;
   /** One per simulated second, starting at step 0 unless older ones were dropped. */
@@ -141,7 +146,7 @@ export interface SimulationRun {
   /** All transitions so far, as a live view that grows as the run advances. */
   readonly firedTransitions: readonly FiredTransition[];
   /** Applies an intervention at the start of the next step, and returns it with that step. */
-  intervene(type: InterventionType): Intervention;
+  intervene(action: InterventionAction): Intervention;
   /** All interventions, as a live view in step order. */
   readonly interventions: readonly Intervention[];
   record(): RunRecord;
@@ -153,11 +158,26 @@ interface PendingTransition {
   accumulatedHazard: number;
 }
 
+/**
+ * Which way light moves the clock at each phase, from -1 for back to 1 for forwards.
+ * Light in the clock's day has no effect, so a clock in step with its schedule stays put.
+ * Light early in its night holds it back and light late in its night pushes it on, which
+ * moves the clock's night away from the light a little each day until the two agree.
+ */
+function lightPull(circadianPhaseHours: number): number {
+  return circadianPhaseHours < 12 ? 0 : -Math.cos((Math.PI * (circadianPhaseHours - 12)) / 12);
+}
+
+function validateAction(action: InterventionAction): void {
+  if (action.type === "light-schedule") validateLightSchedule(action.lightSchedule);
+}
+
 export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   const { room, seed, maxRecordedSamples = Infinity } = setup;
   const parameters = setup.parameters ?? DEFAULT_PARAMETERS;
-  const lightSchedule = setup.lightSchedule ?? DEFAULT_LIGHT_SCHEDULE;
-  validateLightSchedule(lightSchedule);
+  const initialLightSchedule = setup.lightSchedule ?? DEFAULT_LIGHT_SCHEDULE;
+  validateLightSchedule(initialLightSchedule);
+  let lightSchedule = initialLightSchedule;
   const driverNoise = createRandomStream(seed, DRIVER_NOISE_STREAM);
   const movementNoise = createRandomStream(seed, MOVEMENT_STREAM);
   const sleepDepthNoise = createRandomStream(seed, SLEEP_DEPTH_NOISE_STREAM);
@@ -168,8 +188,10 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
 
   const samples: RunSample[] = [];
   const firedTransitions: FiredTransition[] = [];
-  for (const { step: at } of setup.interventions ?? []) {
+  for (const intervention of setup.interventions ?? []) {
+    const { step: at } = intervention;
     if (!Number.isInteger(at) || at < 0) throw new Error(`No intervention can be at step ${at}`);
+    validateAction(intervention);
   }
   const interventions = [...(setup.interventions ?? [])].sort((a, b) => a.step - b.step);
   let nextIntervention = 0;
@@ -194,12 +216,17 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
     }));
   }
 
+  function currentTimeOfDay(): number {
+    return timeOfDayHours(initialLightSchedule.lightsOnHour, step * STEP_SECONDS);
+  }
+
+  function currentLightLevel(): number {
+    return lightLevel(lightSchedule, currentTimeOfDay());
+  }
+
   /** The only route from the world to the fly's hazards. */
   function currentSenses(): Senses {
-    return {
-      touchingSurface: movement.hasArrived(),
-      lightLevel: lightLevel(lightSchedule, step * STEP_SECONDS),
-    };
+    return { touchingSurface: movement.hasArrived(), lightLevel: currentLightLevel() };
   }
 
   function transitionState(transition: TransitionId): TransitionState {
@@ -301,7 +328,9 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   }
 
   function updateCircadianClock(): void {
-    const clockHoursPerHour = 24 / parameters.circadianPeriodHours;
+    const clockHoursPerHour =
+      24 / parameters.circadianPeriodHours +
+      parameters.clockEntrainmentRate * currentSenses().lightLevel * lightPull(circadianPhaseHours);
     circadianPhaseHours = (circadianPhaseHours + clockHoursPerHour * STEP_HOURS) % 24;
   }
 
@@ -311,7 +340,14 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       due?.step === step;
       due = interventions[++nextIntervention]
     ) {
-      startle = 1;
+      switch (due.type) {
+        case "disturb":
+          startle = 1;
+          break;
+        case "light-schedule":
+          lightSchedule = due.lightSchedule;
+          break;
+      }
     }
   }
 
@@ -332,8 +368,9 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
     return {
       step,
       timeSeconds: step * STEP_SECONDS,
-      timeOfDayHours: timeOfDayHours(lightSchedule, step * STEP_SECONDS),
-      lightLevel: lightLevel(lightSchedule, step * STEP_SECONDS),
+      timeOfDayHours: currentTimeOfDay(),
+      lightLevel: currentLightLevel(),
+      lightSchedule,
       senses: currentSenses(),
       behaviour,
       vigilanceState: vigilanceStateOf(behaviour),
@@ -383,8 +420,9 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
     },
     current,
     firedTransitions,
-    intervene: (type) => {
-      const intervention = { step, type };
+    intervene: (action) => {
+      validateAction(action);
+      const intervention: Intervention = { ...action, step };
       // Later than any at this step or before, which keeps the list in step order.
       const after = interventions.findIndex((each) => each.step > step);
       interventions.splice(after === -1 ? interventions.length : after, 0, intervention);
@@ -396,7 +434,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       seed,
       room,
       parameters,
-      lightSchedule,
+      lightSchedule: initialLightSchedule,
       stepsPerSecond: STEPS_PER_SECOND,
       samples: [...samples],
       firedTransitions: [...firedTransitions],

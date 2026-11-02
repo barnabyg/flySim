@@ -1,4 +1,4 @@
-import type { RoomSetup } from "../engine";
+import type { LightSchedule, RoomSetup } from "../engine";
 import { MAX_ROOM_METRES, MIN_ROOM_METRES } from "./runSettings";
 
 const RESTART_ICON =
@@ -8,6 +8,11 @@ const NEW_SEED_ICON =
 const ROOM_ICON =
   '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M2 5l6-3 6 3v6l-6 3-6-3zM2 5l6 3 6-3M8 8v6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>';
 
+const LIGHT_ICON =
+  '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="3" fill="currentColor"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.400 1.400M11.600 11.600L13 13M3 13l1.400-1.400M11.600 4.400L13 3" stroke="currentColor" stroke-width="1.500" stroke-linecap="round"/></svg>';
+const DARK_ICON =
+  '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M10.500 2A6.500 6.500 0 1 0 14 11a5.500 5.500 0 0 1-3.500-9z" fill="currentColor"/></svg>';
+
 const DISTURB_ICON =
   '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M9.500 1L3 9h4l-1 6 7-8.500H9z" fill="currentColor"/></svg>';
 
@@ -16,30 +21,64 @@ export interface RunControlHandlers {
   onRestart(): void;
   onNewSeed(): void;
   onRoomChange(room: RoomSetup): void;
+  onLightScheduleChange(lightSchedule: LightSchedule): void;
+}
+
+const pad = (value: number): string => String(value).padStart(2, "0");
+
+/** As an <input type="time"> value, which has whole minutes. */
+function clockValue(hours: number): string {
+  const minutes = Math.round(hours * 60) % (24 * 60);
+  return `${pad(Math.floor(minutes / 60))}:${pad(minutes % 60)}`;
+}
+
+/** Hours from an <input type="time">, or NaN if it is empty. */
+function hoursFrom(input: HTMLInputElement): number {
+  const [hours, minutes] = input.value.split(":").map(Number);
+  return hours === undefined || minutes === undefined || input.value === ""
+    ? NaN
+    : hours + minutes / 60;
 }
 
 function roomInput(id: string, label: string, value: number): string {
   return `<label>${label}<input id="${id}" type="number" step="0.05" min="${MIN_ROOM_METRES}" max="${MAX_ROOM_METRES}" value="${value}" /></label>`;
 }
 
-/** Starts a new run: the same one again, a different one, or one in a differently sized Room. */
+/**
+ * Changes the run under way, by disturbing the fly or changing the light schedule, or starts
+ * a new one: the same one again, a different one, or one in a differently sized Room.
+ */
 export function createRunControls(
   container: HTMLElement,
   seed: number,
   room: RoomSetup,
+  lightSchedule: LightSchedule,
   handlers: RunControlHandlers,
 ): void {
+  const lightsOff = (lightSchedule.lightsOnHour + lightSchedule.lightHours) % 24;
   container.innerHTML = `
     <button id="disturb" class="icon-button" type="button" aria-label="Disturb" title="Disturb">${DISTURB_ICON}</button>
     <button id="restart" class="icon-button" type="button" aria-label="Restart with the same seed" title="Restart with seed ${seed}">${RESTART_ICON}</button>
     <button id="new-seed" class="icon-button" type="button" aria-label="Restart with a new seed" title="Restart with a new seed">${NEW_SEED_ICON}</button>
-    <details id="room-settings">
+    <details id="room-settings" class="settings">
       <summary class="icon-button" aria-label="Room size" title="Room size">${ROOM_ICON}</summary>
-      <form id="room-form">
+      <form id="room-form" class="settings-form">
         ${roomInput("room-width", "Width (m)", room.widthMetres)}
         ${roomInput("room-depth", "Depth (m)", room.depthMetres)}
         ${roomInput("room-height", "Height (m)", room.heightMetres)}
         <button id="room-apply" type="submit">Restart</button>
+      </form>
+    </details>
+    <details id="light-settings" class="settings">
+      <summary class="icon-button" aria-label="Light schedule" title="Light schedule">${LIGHT_ICON}</summary>
+      <form id="light-form" class="settings-form">
+        <label>${LIGHT_ICON}<input id="lights-on" type="time" aria-label="Lights on" value="${clockValue(lightSchedule.lightsOnHour)}" required /></label>
+        <label>${DARK_ICON}<input id="lights-off" type="time" aria-label="Lights off" value="${clockValue(lightsOff)}" required /></label>
+        <div class="settings-buttons">
+          <button id="always-on" class="icon-button" type="button" aria-label="Always on" title="Always on">${LIGHT_ICON}</button>
+          <button id="always-off" class="icon-button" type="button" aria-label="Always off" title="Always off">${DARK_ICON}</button>
+          <button id="light-apply" type="submit">Set</button>
+        </div>
       </form>
     </details>`;
 
@@ -50,8 +89,22 @@ export function createRunControls(
   const width = container.querySelector<HTMLInputElement>("#room-width");
   const depth = container.querySelector<HTMLInputElement>("#room-depth");
   const height = container.querySelector<HTMLInputElement>("#room-height");
+  const lightSettings = container.querySelector<HTMLDetailsElement>("#light-settings");
+  const lightForm = container.querySelector<HTMLFormElement>("#light-form");
+  const lightsOn = container.querySelector<HTMLInputElement>("#lights-on");
+  const lightsOffInput = container.querySelector<HTMLInputElement>("#lights-off");
+  const alwaysOn = container.querySelector<HTMLButtonElement>("#always-on");
+  const alwaysOff = container.querySelector<HTMLButtonElement>("#always-off");
   if (!disturb || !restart || !newSeed || !form || !width || !depth || !height) {
     throw new Error("Malformed run controls");
+  }
+  if (!lightSettings || !lightForm || !lightsOn || !lightsOffInput || !alwaysOn || !alwaysOff) {
+    throw new Error("Malformed light controls");
+  }
+
+  function changeLight(schedule: LightSchedule): void {
+    lightSettings?.removeAttribute("open");
+    handlers.onLightScheduleChange(schedule);
   }
 
   disturb.addEventListener("click", () => {
@@ -62,6 +115,20 @@ export function createRunControls(
   });
   newSeed.addEventListener("click", () => {
     handlers.onNewSeed();
+  });
+  lightForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const on = hoursFrom(lightsOn);
+    const off = hoursFrom(lightsOffInput);
+    if (!Number.isFinite(on) || !Number.isFinite(off)) return;
+    // The same time for both leaves no time with the light on.
+    changeLight({ lightsOnHour: on, lightHours: (off - on + 24) % 24 });
+  });
+  alwaysOn.addEventListener("click", () => {
+    changeLight({ lightsOnHour: hoursFrom(lightsOn) || 0, lightHours: 24 });
+  });
+  alwaysOff.addEventListener("click", () => {
+    changeLight({ lightsOnHour: hoursFrom(lightsOn) || 0, lightHours: 0 });
   });
   form.addEventListener("submit", (event) => {
     event.preventDefault();

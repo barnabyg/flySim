@@ -23,7 +23,7 @@ A slow state variable that rises while the fly is awake and falls while it sleep
 _Avoid_: Tiredness, sleep debt
 
 **Circadian Clock**:
-The fly's internal clock, which runs by itself and shapes sleep over the day.
+The fly's internal clock, which runs by itself and shapes sleep over the day. Light the fly senses draws it gradually towards the Light Schedule over days.
 _Avoid_: Time of day (when the internal reading is meant)
 
 **Startle**:
@@ -53,11 +53,11 @@ The box-shaped world the user watches, containing the fly and features such as f
 _Avoid_: Arena, sandbox, chamber
 
 **Light Schedule**:
-When the Room's overhead light is on each day, as part of a Simulation Run's setup. A default run has 12 hours of light and 12 of dark and starts at lights-on.
+When the Room's overhead light is on each day. A Simulation Run's setup gives the schedule it starts with, and an Intervention can change it during the run, including to always on or always off. A default run has 12 hours of light and 12 of dark and starts at lights-on.
 _Avoid_: Photoperiod, day length setting
 
 **Intervention**:
-A timed change the experimenter makes to a run, such as a Disturb, applied at a step boundary and stored in the run record.
+A timed change the experimenter makes to a run, such as a Disturb or a new Light Schedule, applied at a step boundary and stored in the run record.
 _Avoid_: Event, input
 
 ### Observations

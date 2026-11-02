@@ -144,7 +144,10 @@ export function createRibbon(canvas: HTMLCanvasElement): Ribbon {
 
   return {
     update: (sample, fired, interventions) => {
-      for (const { step } of interventions) markTimes.push(step / STEPS_PER_SECOND);
+      // A schedule change shows in the light strip, so only a Disturb needs a mark.
+      for (const { step, type } of interventions) {
+        if (type === "disturb") markTimes.push(step / STEPS_PER_SECOND);
+      }
       if (changes.length === 0) {
         changes.push({
           timeSeconds: 0,

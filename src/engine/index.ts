@@ -19,6 +19,7 @@ export {
   createSimulationRun,
   type FiredTransition,
   type Intervention,
+  type InterventionAction,
   type InterventionType,
   type RunRecord,
   type RunSample,

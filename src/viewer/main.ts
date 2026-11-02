@@ -66,9 +66,12 @@ const timeControls = createTimeControls(
     },
   },
 );
-createRunControls(requireElement("#run-controls", HTMLElement), seed, room, {
+createRunControls(requireElement("#run-controls", HTMLElement), seed, room, lightSchedule, {
   onDisturb: () => {
-    simulation.intervene("disturb");
+    simulation.intervene({ type: "disturb" });
+  },
+  onLightScheduleChange: (newSchedule) => {
+    simulation.intervene({ type: "light-schedule", lightSchedule: newSchedule });
   },
   onRestart: () => {
     restartWith({});
@@ -83,7 +86,7 @@ createRunControls(requireElement("#run-controls", HTMLElement), seed, room, {
 simulation.onFrame((sample, fired, interventions) => {
   driverPanel.update(sample, fired);
   ribbon.update(sample, fired, interventions);
-  timeControls.showTime(sample.timeSeconds, sample.timeOfDayHours);
+  timeControls.showTime(sample.timeSeconds, sample.timeOfDayHours, sample.lightSchedule);
 });
 
 const views = createViews({

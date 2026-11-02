@@ -76,7 +76,7 @@ onmessage = (event: MessageEvent<ToSimulation>) => {
       sendFrame();
       break;
     case "intervene":
-      run?.intervene(message.interventionType);
+      run?.intervene(message.action);
       // Even while paused, so that the experimenter sees the press register at once.
       sendFrame();
       break;
