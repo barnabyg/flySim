@@ -1,22 +1,23 @@
 import {
   STEPS_PER_SECOND,
   createSimulationRun,
-  RUN_TABLE_NAMES,
-  exportFileName,
+  exportFiles,
   exportRun,
-  exportTables,
-  type RunExport,
+  type ExportFormat,
   type SimulationRun,
   type SimulationSetup,
 } from "../engine";
 import { gzip } from "./gzip";
-import type { ExportFormat, ExportedFile, FromSimulation, ToSimulation } from "./protocol";
+import type { ExportedFile, FromSimulation, ToSimulation } from "./protocol";
 
 const TICK_MILLISECONDS = 16;
 /** The longest one tick may spend advancing, which keeps messages flowing at high speeds. */
 const TICK_BUDGET_MILLISECONDS = 12;
 const STEPS_PER_BATCH = 200;
-/** A record's worth of samples to retain: about two simulated days at one per second. */
+/**
+ * A record's worth of samples to retain, at one per second. The run drops them in blocks of this
+ * many, so it holds between two and four and a half simulated days.
+ */
 const MAX_RECORDED_SAMPLES = 200_000;
 
 let speed = 1;
@@ -71,20 +72,6 @@ function sendFrame(): void {
   interventionsSent = interventionsReached;
 }
 
-/** Each export format's files, before they are zipped. */
-const EXPORTERS: Readonly<
-  Record<ExportFormat, (file: RunExport) => readonly { name: string; text: string }[]>
-> = {
-  json: (file) => [{ name: exportFileName(file, "", "json.gz"), text: JSON.stringify(file) }],
-  csv: (file) => {
-    const tables = exportTables(file);
-    return RUN_TABLE_NAMES.map((name) => ({
-      name: exportFileName(file, name, "csv.gz"),
-      text: tables[name],
-    }));
-  },
-};
-
 /**
  * Exports the run here rather than in the viewer, as a long run's record is too big to pass over
  * without stalling the page. The run waits while its record is converted, and goes on while the
@@ -96,10 +83,17 @@ async function sendExport(
   sampleIntervalSeconds: number,
 ): Promise<void> {
   if (!run) return;
-  const file = exportRun(run.record(), sampleIntervalSeconds);
-  const files: ExportedFile[] = await Promise.all(
-    EXPORTERS[format](file).map(async ({ name, text }) => ({ name, data: await gzip(text) })),
-  );
+  let files: ExportedFile[];
+  try {
+    const file = exportRun(run.record(), sampleIntervalSeconds);
+    files = await Promise.all(
+      exportFiles(file, format).map(async ({ name, text }) => ({ name, data: await gzip(text) })),
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    send({ type: "export-failed", requestId, message });
+    return;
+  }
   send(
     { type: "export", requestId, files },
     files.map((each) => each.data),

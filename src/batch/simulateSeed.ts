@@ -10,7 +10,7 @@ import type { BatchOptions } from "./batchOptions";
 
 /**
  * Runs one seed of a batch for its duration, or until its fly dies, and exports it as the viewer
- * would. Only the samples the export keeps are held, so a run of many days fits in memory.
+ * would, with the moment of death among its samples. Only the samples the export keeps are held, so a run of many days fits in memory.
  */
 export function simulateSeed(options: BatchOptions, seed: number): RunExport {
   const run = createSimulationRun({
@@ -24,7 +24,7 @@ export function simulateSeed(options: BatchOptions, seed: number): RunExport {
   while (run.current().step < lastStep && !run.current().death) {
     run.advanceSteps(Math.min(stepsApart, lastStep - run.current().step));
     const sample = run.current();
-    if (sample.step % stepsApart === 0) samples.push(sample);
+    if (sample.step % stepsApart === 0 || sample.death) samples.push(sample);
   }
   return exportRun({ ...run.record(), samples }, options.sampleIntervalSeconds);
 }

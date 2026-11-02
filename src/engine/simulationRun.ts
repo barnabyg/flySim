@@ -40,6 +40,7 @@ import {
 } from "./movement";
 import { createRandomStream } from "./random";
 import {
+  SOURCE_KINDS,
   createRoomContents,
   defaultPlace,
   validateFloorPlace,
@@ -234,9 +235,31 @@ interface PendingTransition {
   accumulatedHazard: number;
 }
 
+function validateSource(source: SourceKind): void {
+  if (!SOURCE_KINDS.includes(source)) throw new Error(`There is no source called ${source}`);
+}
+
+/** Checks an Intervention's details too, as one read from a file may be anything. */
 function validateAction(action: InterventionAction, room: RoomSetup): void {
-  if (action.type === "light-schedule") validateLightSchedule(action.lightSchedule);
-  if (action.type === "move-source") validateFloorPlace(room, action.place);
+  switch (action.type) {
+    case "disturb":
+      return;
+    case "light-schedule":
+      validateLightSchedule(action.lightSchedule);
+      return;
+    case "move-source":
+      validateSource(action.source);
+      validateFloorPlace(room, action.place);
+      return;
+    case "remove-source":
+    case "restore-source":
+      validateSource(action.source);
+      return;
+    default:
+      throw new Error(
+        `There is no Intervention of type ${String((action as { type: unknown }).type)}`,
+      );
+  }
 }
 
 export function createSimulationRun(setup: SimulationSetup): SimulationRun {

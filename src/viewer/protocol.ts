@@ -1,4 +1,5 @@
 import type {
+  ExportFormat,
   FiredTransition,
   Intervention,
   InterventionAction,
@@ -6,9 +7,6 @@ import type {
   RunSample,
   SimulationSetup,
 } from "../engine";
-
-/** The forms a run can be exported in. */
-export type ExportFormat = "json" | "csv";
 
 /** A gzipped file ready to download. */
 export interface ExportedFile {
@@ -46,4 +44,6 @@ export type FromSimulation =
       readonly type: "export";
       readonly requestId: number;
       readonly files: readonly ExportedFile[];
-    };
+    }
+  /** Why an export couldn't be made, such as a run too long for its samples to fit in one file. */
+  | { readonly type: "export-failed"; readonly requestId: number; readonly message: string };

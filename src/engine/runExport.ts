@@ -1,7 +1,8 @@
 import type { LightSchedule } from "./lightSchedule";
 import type { Behaviour } from "./model";
 import type { RoomSetup, Surface } from "./movement";
-import type { ModelParameters } from "./parameters";
+import { DEFAULT_PARAMETERS, type ModelParameters } from "./parameters";
+import type { RunTableName } from "./runTables";
 import type { FloorPlace } from "./roomContents";
 import {
   MODEL_VERSION,
@@ -64,11 +65,14 @@ export interface RunExport {
   /** The samples are this many simulated seconds apart. */
   readonly sampleIntervalSeconds: number;
   /**
-   * The earliest sample the run still held: 0 unless it had dropped older ones, as a long viewer
-   * run does. The setup and Interventions still cover the whole run.
+   * When the exported samples start: 0 unless the run had dropped older ones, as a long viewer run
+   * does. The setup and Interventions still cover the whole run.
    */
   readonly samplesStartSeconds: number;
-  /** Full detail, at whole multiples of the interval from the start of the run. */
+  /**
+   * Full detail, at whole multiples of the interval from the start of the run, and at the moment
+   * of death if the fly died.
+   */
   readonly samples: readonly RunSample[];
 }
 
@@ -91,13 +95,19 @@ function validateSampleInterval(seconds: number): void {
   }
 }
 
-/** Converts a Run Record for export, keeping samples every interval and everything else. */
+/**
+ * Converts a Run Record for export, keeping samples every interval, and the moment of death if
+ * the fly died, and everything else.
+ */
 export function exportRun(
   record: RunRecord,
   sampleIntervalSeconds: number = DEFAULT_SAMPLE_INTERVAL_SECONDS,
 ): RunExport {
   validateSampleInterval(sampleIntervalSeconds);
   const stepsApart = sampleIntervalSeconds * record.stepsPerSecond;
+  const samples = record.samples.filter(
+    (sample) => sample.step % stepsApart === 0 || sample.step === record.death?.step,
+  );
   return {
     format: EXPORT_FORMAT,
     recordFormatVersion: RECORD_FORMAT_VERSION,
@@ -117,18 +127,25 @@ export function exportRun(
     timeOnSurfaceSeconds: record.timeOnSurfaceSeconds,
     timeInBehaviourSeconds: record.timeInBehaviourSeconds,
     sampleIntervalSeconds,
-    samplesStartSeconds: record.samples[0]?.timeSeconds ?? 0,
-    samples: record.samples.filter((sample) => sample.step % stepsApart === 0),
+    samplesStartSeconds: samples[0]?.timeSeconds ?? 0,
+    samples,
   };
 }
 
-/** A name for an export's file, with its seed and how far the run had got in simulated seconds. */
-export function exportFileName(run: RunExport, part: string, extension: string): string {
-  const seconds = Math.floor(run.step / run.stepsPerSecond);
-  return `fly-sim-seed-${run.seed}-at-${seconds}s${part ? `-${part}` : ""}.${extension}`;
+/**
+ * A name for an export's JSON, or for one of its CSV tables, with its seed and how far the run had
+ * got in simulated seconds.
+ */
+export function exportFileName(run: RunExport, table?: RunTableName): string {
+  const at = `fly-sim-seed-${run.seed}-at-${Math.floor(run.step / run.stepsPerSecond)}s`;
+  return table ? `${at}-${table}.csv.gz` : `${at}.json.gz`;
 }
 
 const NOT_AN_EXPORT = "This file isn't an exported fly simulator run.";
+
+function isFinitePositive(value: unknown): boolean {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
+}
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -165,6 +182,18 @@ export function readRunExport(json: string): RunExportReading {
     isObject(run.lightSchedule) &&
     Array.isArray(run.interventions);
   if (!wellFormed) throw new RunExportError(`${NOT_AN_EXPORT} Its setup is incomplete.`);
+  const { widthMetres, depthMetres, heightMetres } = run.room;
+  if (![widthMetres, depthMetres, heightMetres].every((size) => isFinitePositive(size))) {
+    throw new RunExportError(`${NOT_AN_EXPORT} Its Room has no size.`);
+  }
+  const missing = Object.keys(DEFAULT_PARAMETERS).filter(
+    (name) => !Number.isFinite(run.parameters[name as keyof ModelParameters]),
+  );
+  if (missing.length > 0) {
+    throw new RunExportError(
+      `${NOT_AN_EXPORT} It has no value for the model parameter${missing.length === 1 ? "" : "s"} ${missing.join(", ")}.`,
+    );
+  }
   try {
     // Setting the run up checks its setup and Interventions.
     createSimulationRun(replaySetup(run));

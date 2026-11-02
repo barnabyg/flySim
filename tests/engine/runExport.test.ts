@@ -80,7 +80,10 @@ describe("exporting a run as JSON", () => {
     ]);
     expect(file.firedTransitions).toEqual(record.firedTransitions);
     expect(file.firedTransitions.length).toBeGreaterThan(5);
-    expect(exportFileName(file, "", "json.gz")).toBe(
+    expect(exportFileName(file, "samples")).toBe(
+      `fly-sim-seed-1-at-${Math.floor(record.step / STEPS_PER_SECOND)}s-samples.csv.gz`,
+    );
+    expect(exportFileName(file)).toBe(
       `fly-sim-seed-1-at-${Math.floor(record.step / STEPS_PER_SECOND)}s.json.gz`,
     );
   });
@@ -114,9 +117,15 @@ describe("exporting a run as JSON", () => {
   it("says where its samples start once older ones were dropped, and still reproduces the run", () => {
     const original = liveRun(5, 100).record();
     const file = throughFile(exportRun(original));
-    expect(file.samplesStartSeconds).toBe(original.samples[0]?.timeSeconds);
     expect(file.samplesStartSeconds).toBeGreaterThan(0);
-    expect(file.samples[0]?.timeSeconds).toBeGreaterThanOrEqual(file.samplesStartSeconds);
+    // It is when the exported samples start, at an interval that needn't divide what was dropped.
+    for (const interval of [10, 7]) {
+      const thinned = exportRun(original, interval);
+      expect(thinned.samplesStartSeconds).toBe(thinned.samples[0]?.timeSeconds);
+      expect(thinned.samplesStartSeconds).toBeGreaterThanOrEqual(
+        original.samples[0]?.timeSeconds ?? 0,
+      );
+    }
 
     // The whole run comes back, including the samples the viewer had dropped.
     const whole = reproduce(file);
@@ -133,8 +142,19 @@ describe("reading an exported file", () => {
     for (const text of ["", "not json", "[1, 2]", "{}", JSON.stringify({ seed: 1 })]) {
       expect(() => readRunExport(text)).toThrow(/isn't an exported fly simulator run/);
     }
-    const broken = { ...file, interventions: [{ type: "disturb", step: -5 }] };
-    expect(() => readRunExport(JSON.stringify(broken))).toThrow(/isn't an exported/);
+    for (const [broken, why] of [
+      [{ ...file, interventions: [{ type: "disturb", step: -5 }] }, /step -5/],
+      [
+        { ...file, interventions: [{ type: "explode", step: 5 }] },
+        /no Intervention of type explode/,
+      ],
+      [{ ...file, interventions: [{ type: "remove-source", source: "sugar", step: 5 }] }, /sugar/],
+      [{ ...file, room: { widthMetres: 1 } }, /Room has no size/],
+      [{ ...file, parameters: { arousalNoise: 1 } }, /no value for the model parameters/],
+    ] as const) {
+      expect(() => readRunExport(JSON.stringify(broken))).toThrow(/isn't an exported/);
+      expect(() => readRunExport(JSON.stringify(broken))).toThrow(why);
+    }
   });
 
   it("refuses a record format version it can't read", () => {

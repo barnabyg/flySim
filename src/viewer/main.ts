@@ -71,8 +71,17 @@ function restartWith(changes: Partial<RunSettings>): void {
   location.assign(urlForSettings({ ...settings, speed, ...changes }));
 }
 
+/** Tells the experimenter why something they asked for didn't happen. */
+function report(error: unknown): void {
+  alert(error instanceof Error ? error.message : String(error));
+}
+
 async function replay(): Promise<void> {
-  startReplay(await simulation.replaySetup(), urlForSettings({ ...settings, speed }));
+  try {
+    startReplay(await simulation.replaySetup(), urlForSettings({ ...settings, speed }));
+  } catch (error) {
+    report(error);
+  }
 }
 
 /**
@@ -86,7 +95,7 @@ async function openRun(file: File): Promise<void> {
     // A file that can't be read as text is no export, which reading it as empty says.
     reading = readRunExport(await readMaybeGzipped(file).catch(() => ""));
   } catch (error) {
-    alert(error instanceof Error ? error.message : String(error));
+    report(error);
     return;
   }
   const { run, sameModelVersion } = reading;
@@ -99,7 +108,11 @@ async function openRun(file: File): Promise<void> {
     return;
   }
   const opened = replaySetup(run);
-  startReplay(opened, urlForSettings(settingsForSetup(opened, speed)));
+  try {
+    startReplay(opened, urlForSettings(settingsForSetup(opened, speed)));
+  } catch (error) {
+    report(error);
+  }
 }
 
 const view = requireElement("#view", HTMLElement);
@@ -161,9 +174,9 @@ const runControls = createRunControls(
       fieldOverlay.setVisible(visible);
     },
     onExport: (format, sampleIntervalSeconds) => {
-      void simulation.exportRun(format, sampleIntervalSeconds).then((files) => {
+      simulation.exportRun(format, sampleIntervalSeconds).then((files) => {
         for (const file of files) download(file.name, file.data);
-      });
+      }, report);
     },
     onOpen: (file) => {
       void openRun(file);

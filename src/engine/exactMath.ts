@@ -259,11 +259,12 @@ const PIO2_2T = 2.02226624879595063154e-21;
 const PIO2_3 = 2.0222662487111664558e-21;
 const PIO2_3T = 8.47842766036889956997e-32;
 
-/** x less a whole number of quarter turns, as a head and tail, and how many quarter turns. */
+/** What reducing an angle leaves, as a head and a tail too small to add to it exactly. */
 const reduced = { head: 0, tail: 0 };
 
 /**
- * Reduces x to [-pi/4, pi/4] from fdlibm's e_rem_pio2.c, for x within about a million radians,
+ * Reduces x to [-pi/4, pi/4], leaving the result in `reduced` and returning how many quarter turns
+ * it took away, from fdlibm's e_rem_pio2.c, for x within about a million radians,
  * which is far more than any angle the engine takes.
  */
 function reduceQuarterTurns(x: number): number {
@@ -316,6 +317,7 @@ function reduceQuarterTurns(x: number): number {
   return high < 0 ? -n : n;
 }
 
+/** The sine of an angle in radians. */
 export function sin(x: number): number {
   if (!Number.isFinite(x)) return NaN;
   if ((highWord(x) & 0x7fffffff) <= 0x3fe921fb) return kernelSin(x, 0, false);
@@ -333,6 +335,7 @@ export function sin(x: number): number {
   }
 }
 
+/** The cosine of an angle in radians. */
 export function cos(x: number): number {
   if (!Number.isFinite(x)) return NaN;
   const quarterTurns = reduceQuarterTurns(x) & 3;

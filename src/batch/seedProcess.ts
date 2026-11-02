@@ -1,13 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { gzipSync } from "node:zlib";
-import {
-  RUN_TABLE_NAMES,
-  exportFileName,
-  exportTables,
-  type Death,
-  type RunTableName,
-} from "../engine";
+import { exportFiles, type Death, type RunTableName } from "../engine";
 import type { BatchOptions } from "./batchOptions";
 import { simulateSeed } from "./simulateSeed";
 
@@ -34,24 +28,18 @@ export const SEEDS_FOLDER = "seeds";
 
 function runJob({ options, seed }: SeedJob): SeedOutcome {
   const file = simulateSeed(options, seed);
-  const tables = exportTables(file);
-  const json = `${SEEDS_FOLDER}/${exportFileName(file, "", "json.gz")}`;
-  const tableFiles = Object.fromEntries(
-    RUN_TABLE_NAMES.map((name) => [
-      name,
-      `${SEEDS_FOLDER}/${exportFileName(file, name, "csv.gz")}`,
-    ]),
-  ) as Record<RunTableName, string>;
   mkdirSync(join(options.outputDirectory, SEEDS_FOLDER), { recursive: true });
-  writeFileSync(join(options.outputDirectory, json), gzipSync(JSON.stringify(file)));
-  for (const name of RUN_TABLE_NAMES) {
-    writeFileSync(join(options.outputDirectory, tableFiles[name]), gzipSync(tables[name]));
+  const paths: Partial<Record<RunTableName | "json", string>> = {};
+  for (const { name, text, table } of [...exportFiles(file, "json"), ...exportFiles(file, "csv")]) {
+    const path = `${SEEDS_FOLDER}/${name}`;
+    writeFileSync(join(options.outputDirectory, path), gzipSync(text));
+    paths[table ?? "json"] = path;
   }
   return {
     seed,
     durationSeconds: file.step / file.stepsPerSecond,
     death: file.death,
-    files: { json, ...tableFiles },
+    files: paths as Record<RunTableName | "json", string>,
   };
 }
 

@@ -56,4 +56,12 @@ export {
   type RunExport,
   type RunExportReading,
 } from "./runExport";
-export { RUN_TABLE_NAMES, exportTables, type RunTableName, type RunTables } from "./runTables";
+export {
+  RUN_TABLE_NAMES,
+  exportFiles,
+  exportTables,
+  type ExportFile,
+  type ExportFormat,
+  type RunTableName,
+  type RunTables,
+} from "./runTables";

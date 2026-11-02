@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_PARAMETERS,
   DEFAULT_ROOM,
   DRIVERS,
   MODEL_VERSION,
@@ -63,6 +64,30 @@ function inactivityBouts(
   return bouts;
 }
 
+describe("exporting a run whose fly died", () => {
+  it("keeps the moment of death among the samples, with its cause", () => {
+    const run = createSimulationRun({
+      room: DEFAULT_ROOM,
+      seed: 8,
+      parameters: { ...DEFAULT_PARAMETERS, initialHydration: 0.01 },
+    });
+    run.advanceSeconds(30);
+    run.intervene({ type: "remove-source", source: "water" });
+    while (!run.current().death) run.advanceSteps(1000);
+    const record = run.record();
+    const file = exportRun(record);
+    const rows = parse(exportTables(file).samples).rows;
+
+    expect((record.death?.step ?? 0) % 500).not.toBe(0);
+    expect(file.samples.at(-1)).toEqual(record.samples.at(-1));
+    expect(rows.at(-1)).toMatchObject({
+      step: String(record.death?.step),
+      death_cause: "desiccation",
+    });
+    expect(rows.slice(0, -1).every((row) => row["death_cause"] === "")).toBe(true);
+  });
+});
+
 describe("exporting a run as CSV tables", () => {
   const record = recordWithInterventions(3, HOUR);
   const file = exportRun(record);
@@ -102,7 +127,11 @@ describe("exporting a run as CSV tables", () => {
     ]) {
       expect(samples.header).toContain(column);
     }
-    expect(samples.header).toHaveLength(34 + TRANSITIONS.length * (DRIVERS.length + 2));
+    // The layout is a compatibility contract, so a new Driver or transition must change this on
+    // purpose, with the record format version.
+    expect(samples.header).toHaveLength(243);
+    expect(samples.header).toContain("death_cause");
+    expect(TRANSITIONS.length * (DRIVERS.length + 2)).toBe(208);
     expect(transitions.header).toEqual([
       "seed",
       "model_version",

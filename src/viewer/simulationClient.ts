@@ -1,4 +1,5 @@
 import type {
+  ExportFormat,
   FiredTransition,
   Intervention,
   InterventionAction,
@@ -6,7 +7,7 @@ import type {
   RunSample,
   SimulationSetup,
 } from "../engine";
-import type { ExportFormat, ExportedFile, FromSimulation, ToSimulation } from "./protocol";
+import type { ExportedFile, FromSimulation, ToSimulation } from "./protocol";
 
 export type FrameListener = (
   sample: RunSample,
@@ -96,6 +97,7 @@ export function startSimulation(setup: SimulationSetup, speed: number): Simulati
     },
     exportRun: async (format, sampleIntervalSeconds) => {
       const reply = await request({ type: "request-export", format, sampleIntervalSeconds });
+      if (reply.type === "export-failed") throw new Error(reply.message);
       if (reply.type !== "export") throw new Error(`Expected an export, not a ${reply.type}`);
       return reply.files;
     },

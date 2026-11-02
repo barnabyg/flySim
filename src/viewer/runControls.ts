@@ -6,8 +6,8 @@ import {
   type LightSchedule,
   type RoomSetup,
   type SourceKind,
+  type ExportFormat,
 } from "../engine";
-import type { ExportFormat } from "./protocol";
 
 const RESTART_ICON =
   '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.5-3.5M12 1v4H8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
