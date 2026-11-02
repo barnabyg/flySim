@@ -222,6 +222,22 @@ body {
   width: 96px;
 }
 
+#export-form label {
+  white-space: nowrap;
+}
+
+#export-form input {
+  width: 56px;
+}
+
+#export-form .settings-buttons {
+  justify-content: flex-end;
+}
+
+#export-form .settings-buttons button[type="submit"] {
+  margin-left: 0;
+}
+
 .settings-buttons {
   display: flex;
   align-items: center;
