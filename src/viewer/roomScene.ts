@@ -1,5 +1,13 @@
 import * as THREE from "three";
-import type { Position, RoomSetup, RunSample } from "../engine";
+import {
+  SOURCE_KINDS,
+  SOURCE_RADIUS_METRES,
+  type FloorPlace,
+  type SourceKind,
+  type Position,
+  type RoomSetup,
+  type RunSample,
+} from "../engine";
 import { createFlyModel, type FlyModel } from "./flyModel";
 
 /** Fine markings that would only be noise from the monitoring camera's distance. */
@@ -7,6 +15,8 @@ export const CLOSE_UP_ONLY_LAYER = 2;
 
 const MARKING_HEIGHT_METRES = 0.00005;
 const AIR_TURNING_SECONDS = 0.05;
+/** A dead fly lies on its back, raised by the height of its back so that it rests on the floor. */
+const DEAD_LIFT_METRES = 0.00105;
 /** The Room stays dimly visible at night, so that the experimenter can still watch the fly. */
 const NIGHT_BRIGHTNESS = 0.22;
 const NIGHT_TINT = new THREE.Color(0x9fb4ff);
@@ -14,6 +24,13 @@ const DAY_TINT = new THREE.Color(0xffffff);
 const DAY_BACKGROUND = new THREE.Color(0x14161a);
 const NIGHT_BACKGROUND = new THREE.Color(0x07080c);
 const HEMISPHERE_INTENSITY = 2;
+/** Above the floor's markings, and far below the fly's feet, which stand on the floor. */
+const SOURCE_HEIGHT_METRES = 0.0001;
+/** Straw-yellow food and blue water, which the amber ring and grey Room can't be taken for. */
+export const SOURCE_COLOURS: Readonly<Record<SourceKind, number>> = {
+  food: 0xd8c050,
+  water: 0x3f8fd8,
+};
 
 /** Engine positions have z up, and the scene has y up. */
 function toScene(position: Position): THREE.Vector3 {
@@ -113,10 +130,40 @@ function createRoomMesh(room: RoomSetup): THREE.Object3D {
   return group;
 }
 
+/**
+ * A source drawn as a flat patch on the floor at true size, with a darker rim so it reads
+ * from the monitoring camera's distance.
+ */
+function createSource(colour: number): THREE.Object3D {
+  const group = new THREE.Group();
+  const patch = new THREE.Mesh(
+    new THREE.CircleGeometry(SOURCE_RADIUS_METRES, 48),
+    // So close to the floor, depth alone can't keep it in front from far off.
+    new THREE.MeshLambertMaterial({
+      color: colour,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1,
+    }),
+  );
+  patch.rotation.x = -Math.PI / 2;
+  group.add(patch);
+  const rim = new THREE.Mesh(
+    new THREE.RingGeometry(0.9 * SOURCE_RADIUS_METRES, SOURCE_RADIUS_METRES, 48),
+    new THREE.MeshBasicMaterial({ color: new THREE.Color(colour).multiplyScalar(0.55) }),
+  );
+  rim.rotation.x = -Math.PI / 2;
+  rim.position.y = SOURCE_HEIGHT_METRES / 2;
+  group.add(rim);
+  return group;
+}
+
 export interface RoomScene {
   readonly scene: THREE.Scene;
   readonly fly: FlyModel;
   updateFly(sample: RunSample): void;
+  /** Puts a source where it is shown to be, or hides it if there is none. */
+  placeSource(kind: SourceKind, place: FloorPlace | null): void;
   /** Sets how bright the Room looks, from the overhead light's level. */
   updateLighting(lightLevel: number): void;
 }
@@ -134,6 +181,13 @@ export function createRoomScene(room: RoomSetup): RoomScene {
   overhead.position.set(room.widthMetres / 2, room.heightMetres * 0.95, room.depthMetres / 2);
   scene.add(overhead);
   scene.add(createRoomMesh(room));
+  const sources = new Map(
+    SOURCE_KINDS.map((kind) => {
+      const source = createSource(SOURCE_COLOURS[kind]);
+      scene.add(source);
+      return [kind, source];
+    }),
+  );
 
   const fly = createFlyModel();
   scene.add(fly.object);
@@ -144,6 +198,12 @@ export function createRoomScene(room: RoomSetup): RoomScene {
   return {
     scene,
     fly,
+    placeSource: (kind, place) => {
+      const source = sources.get(kind);
+      if (!source) return;
+      source.visible = place !== null;
+      if (place) source.position.copy(toScene({ ...place, z: SOURCE_HEIGHT_METRES }));
+    },
     updateLighting: (lightLevel) => {
       const brightness = NIGHT_BRIGHTNESS + (1 - NIGHT_BRIGHTNESS) * lightLevel;
       hemisphere.intensity = HEMISPHERE_INTENSITY * brightness;
@@ -156,6 +216,10 @@ export function createRoomScene(room: RoomSetup): RoomScene {
       fly.object.position.copy(toScene(sample.position));
       const forward = toScene(sample.forward);
       const up = toScene(sample.up);
+      if (sample.death) {
+        fly.object.position.addScaledVector(up, DEAD_LIFT_METRES);
+        up.negate();
+      }
       target.setFromRotationMatrix(
         basis.makeBasis(forward, up, new THREE.Vector3().crossVectors(forward, up)),
       );

@@ -30,6 +30,38 @@ _Avoid_: Time of day (when the internal reading is meant)
 A Driver created by a Disturb that fades within seconds and pushes the fly to act, with less effect the deeper it sleeps.
 _Avoid_: Escape, shock
 
+**Energy Reserve**:
+The fly's store of energy, from empty to full. It falls with what the fly does, faster in walking and flight and slower in sleep, and rises only while it feeds.
+_Avoid_: Nutrition, food level, satiety
+
+**Hunger**:
+A Driver that rises as the Energy Reserve falls. It raises the hazards that start walking and feeding, and its fall is what ends a bout of Feeding.
+_Avoid_: Appetite, starvation (when the state is meant)
+
+**Feeding**:
+The behaviour of taking in food through the extended proboscis. It can start only while the fly touches the Food Source, and ends as Hunger falls, not after a set time.
+_Avoid_: Eating, foraging (when the behaviour itself is meant)
+
+**Hydration Reserve**:
+The fly's store of water, from empty to full. It falls all the time, faster in walking and flight and slower in sleep, and rises only while it drinks.
+_Avoid_: Water level, moisture
+
+**Thirst**:
+A Driver that rises as the Hydration Reserve falls. It raises the hazards that start drinking, holds back feeding, and sets how strongly the fly follows the Humidity Field. Its fall is what ends a bout of Drinking.
+_Avoid_: Dehydration (when the Driver is meant)
+
+**Drinking**:
+The behaviour of taking in water through the extended proboscis. It can start only while the fly touches the Water Source, and ends as Thirst falls, not after a set time.
+_Avoid_: Watering, hydrating
+
+**Weakness**:
+How a fly low on either reserve starts walking, grooming and flight less and less often, through smaller pushes from every Driver rather than a rule of its own.
+_Avoid_: Fatigue, tiredness (which suggest Sleep Pressure)
+
+**Death**:
+The end of a Simulation Run when a reserve runs out, by starvation or by desiccation, from running out of water. The Run Record marks when and why, and the run advances no further. Survival times are Provisional and not validated.
+_Avoid_: Game over, failure
+
 **Immobility**:
 The fly's true lack of any body movement, as known by the model. A grooming fly is not immobile.
 _Avoid_: Stillness, standing still, rest
@@ -52,13 +84,33 @@ _Avoid_: Threshold, cutoff
 The box-shaped world the user watches, containing the fly and features such as food, water and light sources.
 _Avoid_: Arena, sandbox, chamber
 
+**Food Source**:
+A patch of food on the Room's floor, at a place a Simulation Run's setup gives. It never runs out, and the fly touches it only by standing on it.
+_Avoid_: Food item, bait, feeder
+
+**Odour Field**:
+A steady, simplified spread of odour from the Food Source, with no airflow or turbulence, strongest at the food and gone beyond a set range in any direction. The fly senses it only where it is, and a hungry fly steers up it by comparing what it senses now with what it sensed a moment ago, so it can wander past food it can't smell. It is Provisional.
+_Avoid_: Scent map, smell gradient, plume (which implies airflow)
+
+**Water Source**:
+A patch of water on the Room's floor, at a place a Simulation Run's setup gives, apart from the Food Source by default. It never runs out, and the fly touches it only by standing on it.
+_Avoid_: Water dish, drinker
+
+**Humidity Field**:
+A steady, simplified rise in humidity around the Water Source above the Room's own constant humidity, gone beyond a set range in any direction. The fly senses it only where it is, and a thirsty fly steers up it as a hungry one does up the Odour Field, while a hydrated one barely does. It is Provisional.
+_Avoid_: Moisture map, water gradient
+
 **Light Schedule**:
 When the Room's overhead light is on each day. A Simulation Run's setup gives the schedule it starts with, and an Intervention can change it during the run, including to always on or always off. A default run has 12 hours of light and 12 of dark and starts at lights-on.
 _Avoid_: Photoperiod, day length setting
 
 **Intervention**:
-A timed change the experimenter makes to a Simulation Run, such as a Disturb or a new Light Schedule, applied at a step boundary and stored in the Run Record.
+A timed change the experimenter makes to a Simulation Run, such as a Disturb, a new Light Schedule, or moving, removing or restoring the Food or Water Source, applied at a step boundary and stored in the Run Record. A moved source takes its field with it, and the fly learns of the move only through its senses.
 _Avoid_: Event, input
+
+**Removing a Source**:
+The Intervention that takes the Food or Water Source out of the Room, field and all, until restoring it puts it back where it was. Without it, the matching reserve keeps falling.
+_Avoid_: Deleting, hiding (the source is gone for the fly, not just from view)
 
 **Disturb**:
 The Intervention that jolts the fly, as a lab might by knocking its tube, and creates a Startle.

@@ -1,11 +1,22 @@
 import * as THREE from "three";
-import { lightLevel, type LightSchedule, type RunRecord, type RunSample } from "../engine";
+import {
+  DEFAULT_PARAMETERS,
+  SOURCE_KINDS,
+  lightLevel,
+  type FloorPlace,
+  type LightSchedule,
+  type RunRecord,
+  type RunSample,
+  type SourceKind,
+} from "../engine";
 import { createDriverPanel, type FlashedTransition } from "./driverPanel";
+import { createFieldOverlay } from "./fieldOverlay";
 import { createRibbon } from "./ribbon";
 import { createRoomScene } from "./roomScene";
 import { createRunControls } from "./runControls";
 import { randomSeed, settingsFromUrl, urlForSettings, type RunSettings } from "./runSettings";
 import { startSimulation } from "./simulationClient";
+import { createSourceDragging } from "./sourceDragging";
 import { INITIAL_SPEED, SPEEDS, createTimeControls } from "./timeControls";
 import { createViews, type ViewState } from "./views";
 
@@ -17,6 +28,10 @@ export interface FlySimApi {
   flyScenePosition(): { x: number; y: number; z: number };
   flashes(): readonly FlashedTransition[];
   view(): ViewState;
+  /** Whether the field overlay is showing. */
+  fields(): { visible: boolean };
+  /** Where each source is shown, and its centre in the page, or null if it isn't showing. */
+  sources(): Record<SourceKind, { place: FloorPlace; client: { x: number; y: number } } | null>;
 }
 
 declare global {
@@ -32,7 +47,7 @@ function requireElement<T extends Element>(selector: string, type: new () => T):
 }
 
 const settings = settingsFromUrl(location.search, SPEEDS, INITIAL_SPEED);
-const { room, seed, lightSchedule } = settings;
+const { room, seed, lightSchedule, sources, reserves } = settings;
 let speed = settings.speed;
 
 function restartWith(changes: Partial<RunSettings>): void {
@@ -44,9 +59,15 @@ const canvas = requireElement("#scene", HTMLCanvasElement);
 
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+// Lets the field overlay stop at the Room's walls.
+renderer.localClippingEnabled = true;
 
 const roomScene = createRoomScene(room);
-const simulation = startSimulation(seed, room, speed, lightSchedule);
+// The worker changes only the starting reserves from the default parameters, so the overlay
+// draws the same fields.
+const fieldOverlay = createFieldOverlay(room, DEFAULT_PARAMETERS);
+roomScene.scene.add(fieldOverlay.object);
+const simulation = startSimulation(seed, room, speed, lightSchedule, sources, reserves);
 
 const driverPanel = createDriverPanel(requireElement("#drivers", HTMLElement));
 const ribbon = createRibbon(requireElement("#ribbon", HTMLCanvasElement));
@@ -66,23 +87,37 @@ const timeControls = createTimeControls(
     },
   },
 );
-createRunControls(requireElement("#run-controls", HTMLElement), seed, room, lightSchedule, {
-  onDisturb: () => {
-    simulation.intervene({ type: "disturb" });
+const runControls = createRunControls(
+  requireElement("#run-controls", HTMLElement),
+  seed,
+  room,
+  lightSchedule,
+  {
+    onDisturb: () => {
+      simulation.intervene({ type: "disturb" });
+    },
+    onLightScheduleChange: (newSchedule) => {
+      simulation.intervene({ type: "light-schedule", lightSchedule: newSchedule });
+    },
+    onRestart: () => {
+      restartWith({});
+    },
+    onNewSeed: () => {
+      restartWith({ seed: randomSeed() });
+    },
+    onRoomChange: (newRoom) => {
+      restartWith({ room: newRoom });
+    },
+    onFieldsToggle: (visible) => {
+      fieldOverlay.setVisible(visible);
+    },
+    onSourcePresenceChange: (kind, present) => {
+      changing.set(kind, present ? (lastPlaces.get(kind) ?? null) : null);
+      simulation.intervene({ type: present ? "restore-source" : "remove-source", source: kind });
+    },
   },
-  onLightScheduleChange: (newSchedule) => {
-    simulation.intervene({ type: "light-schedule", lightSchedule: newSchedule });
-  },
-  onRestart: () => {
-    restartWith({});
-  },
-  onNewSeed: () => {
-    restartWith({ seed: randomSeed() });
-  },
-  onRoomChange: (newRoom) => {
-    restartWith({ room: newRoom });
-  },
-});
+);
+const deathNotice = requireElement("#death", HTMLElement);
 /**
  * The latest schedule asked for. A change applies to the fly at the next step, which is
  * only once time resumes, but the Room and dial show it at once.
@@ -91,6 +126,16 @@ let shownSchedule: LightSchedule = lightSchedule;
 simulation.onFrame((sample, fired, interventions) => {
   for (const intervention of interventions) {
     if (intervention.type === "light-schedule") shownSchedule = intervention.lightSchedule;
+  }
+  // A change shows from the moment it's made, and stops needing to once the run has it.
+  for (const [kind, place] of changing) {
+    if (!dragging.has(kind) && samePlace(sample[kind], place)) changing.delete(kind);
+  }
+  if (sample.death && deathNotice.hidden) {
+    deathNotice.hidden = false;
+    deathNotice.textContent = `The fly has died of ${CAUSES[sample.death.cause]}.`;
+    // The run won't change any more, so nothing the Room shows should either.
+    runControls.disableChanges();
   }
   driverPanel.update(sample, fired);
   ribbon.update(sample, fired, interventions);
@@ -106,10 +151,59 @@ const views = createViews({
   inset: requireElement("#inset", HTMLElement),
 });
 
+/**
+ * Sources being dragged, or moved, removed or put back and not yet changed in the run, which
+ * show where they are going, or null if they are going away. A source changes in the run at
+ * the next step, which is only once time resumes, but the Room shows it at once, as it does a
+ * new light schedule.
+ */
+const changing = new Map<SourceKind, FloorPlace | null>();
+const dragging = new Set<SourceKind>();
+/** Where each source was last shown, which is where it goes when it is put back. */
+const lastPlaces = new Map<SourceKind, FloorPlace>();
+
+function samePlace(a: FloorPlace | null, b: FloorPlace | null): boolean {
+  return a === null || b === null ? a === b : a.x === b.x && a.y === b.y;
+}
+
+function shownPlace(kind: SourceKind): FloorPlace | null {
+  const place = changing.has(kind)
+    ? (changing.get(kind) ?? null)
+    : (simulation.latest()?.[kind] ?? null);
+  if (place) lastPlaces.set(kind, place);
+  return place;
+}
+
+const CAUSES = { starvation: "starvation", desiccation: "lack of water" } as const;
+
+createSourceDragging({
+  view,
+  canvas,
+  room,
+  camera: () => (simulation.latest()?.death ? undefined : views.mainMonitoringCamera()),
+  shownPlace,
+  setOrbitEnabled: (enabled) => {
+    views.setOrbitEnabled(enabled);
+  },
+  onDrag: (kind, place) => {
+    dragging.add(kind);
+    changing.set(kind, place);
+  },
+  onDrop: (kind, place) => {
+    dragging.delete(kind);
+    changing.set(kind, place);
+    simulation.intervene({ type: "move-source", source: kind, place });
+  },
+});
+
 renderer.setAnimationLoop(() => {
   const sample = simulation.latest();
   if (sample) {
     roomScene.updateFly(sample);
+    for (const kind of SOURCE_KINDS) {
+      roomScene.placeSource(kind, shownPlace(kind));
+      fieldOverlay.placeSource(kind, shownPlace(kind));
+    }
     roomScene.updateLighting(lightLevel(shownSchedule, sample.timeOfDayHours));
   }
   views.render();
@@ -126,4 +220,22 @@ window.flySim = {
   },
   flashes: () => driverPanel.flashes,
   view: () => views.state(),
+  fields: () => ({ visible: fieldOverlay.visible() }),
+  sources: () => {
+    const camera = views.mainMonitoringCamera();
+    const box = canvas.getBoundingClientRect();
+    const onScreen = (kind: SourceKind) => {
+      const place = shownPlace(kind);
+      if (!place || !camera) return null;
+      const projected = new THREE.Vector3(place.x, 0, place.y).project(camera);
+      return {
+        place,
+        client: {
+          x: box.left + ((projected.x + 1) / 2) * box.width,
+          y: box.top + ((1 - projected.y) / 2) * box.height,
+        },
+      };
+    };
+    return { food: onScreen("food"), water: onScreen("water") };
+  },
 };

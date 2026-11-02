@@ -210,10 +210,13 @@ describe("Simulation Run", () => {
       const { behaviour, speedMetresPerSecond } = run.current();
       speedsByBehaviour.add(`${behaviour} ${speedMetresPerSecond}`);
     }
-    // A flying fly's speed drops to 0 when it reaches a surface, just before it lands.
-    expect(speedsByBehaviour).toEqual(
-      new Set(["immobility 0", "grooming 0", "walking 0.02", "flying 1", "flying 0", "sleeping 0"]),
-    );
+    // A flying fly's speed drops to 0 when it reaches a surface, just before it lands. It may
+    // or may not find food or water in the time, but it is still while it feeds or drinks.
+    const always = ["immobility 0", "grooming 0", "walking 0.02", "flying 1", "flying 0"];
+    for (const each of [...always, "sleeping 0"]) expect(speedsByBehaviour).toContain(each);
+    for (const each of speedsByBehaviour) {
+      expect([...always, "sleeping 0", "feeding 0", "drinking 0"]).toContain(each);
+    }
   });
 
   describe("grooming", () => {

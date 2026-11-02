@@ -4,6 +4,9 @@ import {
   DRIVERS,
   TRANSITIONS,
   driverContributions,
+  hungerOf,
+  thirstOf,
+  turningScale,
   vigilanceStateOf,
   type Behaviour,
   type DriverId,
@@ -29,8 +32,15 @@ import {
   type Surface,
 } from "./movement";
 import { createRandomStream } from "./random";
+import {
+  createRoomContents,
+  defaultPlace,
+  validateFloorPlace,
+  type FloorPlace,
+  type SourceKind,
+} from "./roomContents";
 
-export const MODEL_VERSION = "0.4.0";
+export const MODEL_VERSION = "0.5.0";
 
 /** The simulation always advances in fixed steps of this rate. */
 export const STEPS_PER_SECOND = 50;
@@ -51,7 +61,12 @@ export const DEFAULT_ROOM: RoomSetup = { widthMetres: 1, depthMetres: 1, heightM
 /** Something the experimenter does to a run. */
 export type InterventionAction =
   | { readonly type: "disturb" }
-  | { readonly type: "light-schedule"; readonly lightSchedule: LightSchedule };
+  | { readonly type: "light-schedule"; readonly lightSchedule: LightSchedule }
+  /** Moves a source across the floor. Its field goes with it, and the fly learns of it only by sensing it. */
+  | { readonly type: "move-source"; readonly source: SourceKind; readonly place: FloorPlace }
+  /** Takes a source away, with its field, until it is restored to where it was. */
+  | { readonly type: "remove-source"; readonly source: SourceKind }
+  | { readonly type: "restore-source"; readonly source: SourceKind };
 
 export type InterventionType = InterventionAction["type"];
 
@@ -62,6 +77,13 @@ export interface SimulationSetup {
   readonly room: RoomSetup;
   readonly seed: number;
   readonly parameters?: ModelParameters;
+  /**
+   * Where the food is on the floor, or null for a Room without food. The default is away
+   * from the middle of the Room.
+   */
+  readonly food?: FloorPlace | null;
+  /** Where the water is, or null for a Room without water. The default is apart from the food. */
+  readonly water?: FloorPlace | null;
   /** The default is 12:12. The run starts at lights-on, and interventions can change it. */
   readonly lightSchedule?: LightSchedule;
   /** Interventions to apply at given steps, on top of any made during the run. */
@@ -103,6 +125,19 @@ export interface RunSample extends MovementPose, InternalState {
   readonly speedMetresPerSecond: number;
   /** The transitions available from the current behaviour. */
   readonly transitions: readonly TransitionState[];
+  /** Where the food is now, or null if there is none. The fly gets it only through its senses. */
+  readonly food: FloorPlace | null;
+  /** Where the water is now, or null if there is none. */
+  readonly water: FloorPlace | null;
+  /** How the fly died, or null while it lives. */
+  readonly death: Death | null;
+}
+
+/** Death ends a run. It comes only when a reserve runs out. */
+export interface Death {
+  readonly step: number;
+  readonly timeSeconds: number;
+  readonly cause: "starvation" | "desiccation";
 }
 
 export interface FiredTransition extends TransitionState {
@@ -116,6 +151,8 @@ export interface FiredTransition extends TransitionState {
   readonly sleepPressure: number;
   /** Sleep Depth when the transition fired, or null if the fly was awake. */
   readonly sleepDepth: number | null;
+  readonly hunger: number;
+  readonly thirst: number;
 }
 
 export interface RunRecord {
@@ -123,6 +160,10 @@ export interface RunRecord {
   readonly seed: number;
   readonly room: RoomSetup;
   readonly parameters: ModelParameters;
+  /** Where the food started, or null if there was none. */
+  readonly food: FloorPlace | null;
+  /** Where the water started, or null if there was none. */
+  readonly water: FloorPlace | null;
   /** The schedule the run started with. Later ones are among its interventions. */
   readonly lightSchedule: LightSchedule;
   readonly stepsPerSecond: number;
@@ -135,6 +176,8 @@ export interface RunRecord {
   readonly timeOnSurfaceSeconds: Readonly<Record<Surface, number>>;
   /** Covers the whole run, even when older samples were dropped. */
   readonly timeInBehaviourSeconds: Readonly<Record<Behaviour, number>>;
+  /** How the fly died, or null if it is alive. */
+  readonly death: Death | null;
 }
 
 /** The engine's single public interface. */
@@ -168,13 +211,19 @@ function lightPull(circadianPhaseHours: number): number {
   return circadianPhaseHours < 12 ? 0 : -Math.cos((Math.PI * (circadianPhaseHours - 12)) / 12);
 }
 
-function validateAction(action: InterventionAction): void {
+function validateAction(action: InterventionAction, room: RoomSetup): void {
   if (action.type === "light-schedule") validateLightSchedule(action.lightSchedule);
+  if (action.type === "move-source") validateFloorPlace(room, action.place);
 }
 
 export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   const { room, seed, maxRecordedSamples = Infinity } = setup;
   const parameters = setup.parameters ?? DEFAULT_PARAMETERS;
+  const initialPlaces = {
+    food: setup.food === undefined ? defaultPlace("food", room) : setup.food,
+    water: setup.water === undefined ? defaultPlace("water", room) : setup.water,
+  };
+  const contents = createRoomContents(room, initialPlaces, parameters);
   const initialLightSchedule = setup.lightSchedule ?? DEFAULT_LIGHT_SCHEDULE;
   validateLightSchedule(initialLightSchedule);
   let lightSchedule = initialLightSchedule;
@@ -191,7 +240,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   for (const intervention of setup.interventions ?? []) {
     const { step: at } = intervention;
     if (!Number.isInteger(at) || at < 0) throw new Error(`No intervention can be at step ${at}`);
-    validateAction(intervention);
+    validateAction(intervention, room);
   }
   const interventions = [...(setup.interventions ?? [])].sort((a, b) => a.step - b.step);
   let nextIntervention = 0;
@@ -203,7 +252,13 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   let sleepDepth: number | null = null;
   let circadianPhaseHours = 0;
   let startle = 0;
+  let energy = parameters.initialEnergy;
+  let hydration = parameters.initialHydration;
+  let death: Death | null = null;
   const movement = createMovement(room, movementNoise);
+  // The fly starts used to what it senses where it starts.
+  let recentOdour = contents.odourAt(movement.pose().position);
+  let recentHumidity = contents.humidityAt(movement.pose().position);
   const stepsOnSurface = new Map<Surface, number>();
   const stepsInBehaviour = new Map<Behaviour, number>();
   let pending = drawTriggerLevels();
@@ -224,34 +279,70 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
     return lightLevel(lightSchedule, currentTimeOfDay());
   }
 
-  /** The only route from the world to the fly's hazards. */
+  /**
+   * What the fly senses, the only route from the world to its hazards. It is worked out once
+   * between changes to the world or to where the fly is, as every hazard needs it each step.
+   */
+  let sensed: Senses | undefined;
+
   function currentSenses(): Senses {
-    return { touchingSurface: movement.hasArrived(), lightLevel: currentLightLevel() };
+    sensed ??= sense();
+    return sensed;
   }
 
-  function transitionState(transition: TransitionId): TransitionState {
-    const contributions = driverContributions(
-      transition,
-      { arousal, sleepPressure, sleepDepth, circadianPhaseHours, startle },
-      currentSenses(),
-      parameters,
-    );
-    const hazard = DRIVERS.reduce((sum, driver) => sum + contributions[driver], 0);
+  function sense(): Senses {
+    const { position, surface } = movement.pose();
     return {
-      transition,
-      hazard,
-      contributions,
-      fireProbabilityNextMinute: 1 - Math.exp(-hazard * 60),
+      touchingSurface: movement.hasArrived(),
+      lightLevel: currentLightLevel(),
+      touchingFood: contents.touching("food", position, surface),
+      touchingWater: contents.touching("water", position, surface),
+      odour: contents.odourAt(position),
+      humidity: contents.humidityAt(position),
     };
   }
 
+  function internalState(): InternalState {
+    return {
+      arousal,
+      sleepPressure,
+      sleepDepth,
+      circadianPhaseHours,
+      startle,
+      energy,
+      hunger: hungerOf(energy),
+      hydration,
+      thirst: thirstOf(hydration),
+      recentOdour,
+      recentHumidity,
+    };
+  }
+
+  /** A transition's hazard and what makes it up, given the fly's state this step. */
+  function hazardOf(transition: TransitionId, state: InternalState) {
+    const contributions = driverContributions(transition, state, currentSenses(), parameters);
+    let hazard = 0;
+    for (const driver of DRIVERS) hazard += contributions[driver];
+    return { transition, hazard, contributions };
+  }
+
+  function withStrip(parts: ReturnType<typeof hazardOf>): TransitionState {
+    return { ...parts, fireProbabilityNextMinute: 1 - Math.exp(-parts.hazard * 60) };
+  }
+
+  function transitionState(transition: TransitionId): TransitionState {
+    return withStrip(hazardOf(transition, internalState()));
+  }
+
   function fireDueTransition(): void {
+    // The state can't change until a transition fires, so it is worked out once.
+    const state = internalState();
     for (const item of pending) {
-      const state = transitionState(item.definition.id);
-      item.accumulatedHazard += state.hazard * STEP_SECONDS;
+      const parts = hazardOf(item.definition.id, state);
+      item.accumulatedHazard += parts.hazard * STEP_SECONDS;
       if (item.accumulatedHazard >= item.triggerLevel) {
         firedTransitions.push({
-          ...state,
+          ...withStrip(parts),
           step: step + 1,
           timeSeconds: (step + 1) * STEP_SECONDS,
           from: item.definition.from,
@@ -260,11 +351,14 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
           vigilanceState: vigilanceStateOf(item.definition.to),
           sleepPressure,
           sleepDepth,
+          hunger: hungerOf(energy),
+          thirst: thirstOf(hydration),
         });
         behaviour = item.definition.to;
         sleepDepth = behaviour === "sleeping" ? parameters.sleepDepthAtOnset : null;
         if (item.definition.to === "flying") movement.takeOff();
         if (item.definition.from === "flying") movement.land();
+        sensed = undefined;
         pending = drawTriggerLevels();
         return;
       }
@@ -283,6 +377,10 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
         return parameters.arousalTargetFlying;
       case "sleeping":
         return parameters.arousalTargetSleeping;
+      case "feeding":
+        return parameters.arousalTargetFeeding;
+      case "drinking":
+        return parameters.arousalTargetDrinking;
     }
   }
 
@@ -291,6 +389,8 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       case "immobility":
       case "grooming":
       case "sleeping":
+      case "feeding":
+      case "drinking":
         return 0;
       case "walking":
         return parameters.walkingSpeedMetresPerSecond;
@@ -352,8 +452,70 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
         case "light-schedule":
           lightSchedule = due.lightSchedule;
           break;
+        case "move-source":
+          contents.move(due.source, due.place);
+          break;
+        case "remove-source":
+          contents.remove(due.source);
+          break;
+        case "restore-source":
+          contents.restore(due.source);
+          break;
       }
     }
+  }
+
+  function energyUse(): number {
+    switch (behaviour) {
+      case "immobility":
+      case "grooming":
+      case "feeding":
+      case "drinking":
+        return parameters.energyUseResting;
+      case "walking":
+        return parameters.energyUseWalking;
+      case "flying":
+        return parameters.energyUseFlying;
+      case "sleeping":
+        return parameters.energyUseSleeping;
+    }
+  }
+
+  function updateEnergy(): void {
+    // Only what the fly is touching can be taken in.
+    const intake =
+      behaviour === "feeding" && currentSenses().touchingFood ? parameters.feedingIntake : 0;
+    energy = Math.min(1, Math.max(0, energy + (intake - energyUse()) * STEP_SECONDS));
+  }
+
+  function waterLoss(): number {
+    switch (behaviour) {
+      case "immobility":
+      case "grooming":
+      case "feeding":
+      case "drinking":
+        return parameters.waterLossResting;
+      case "walking":
+        return parameters.waterLossWalking;
+      case "flying":
+        return parameters.waterLossFlying;
+      case "sleeping":
+        return parameters.waterLossSleeping;
+    }
+  }
+
+  function updateHydration(): void {
+    const intake =
+      behaviour === "drinking" && currentSenses().touchingWater ? parameters.drinkingIntake : 0;
+    hydration = Math.min(1, Math.max(0, hydration + (intake - waterLoss()) * STEP_SECONDS));
+  }
+
+  /** What the fly has sensed lately follows what it senses now, which is how it notices change. */
+  function updateRecentSenses(senses: Senses): void {
+    recentOdour +=
+      ((senses.odour - recentOdour) / parameters.odourAdaptationSeconds) * STEP_SECONDS;
+    recentHumidity +=
+      ((senses.humidity - recentHumidity) / parameters.humidityAdaptationSeconds) * STEP_SECONDS;
   }
 
   function updateStartle(): void {
@@ -362,10 +524,14 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
     if (startle < MIN_STARTLE) startle = 0;
   }
 
-  function walk(): void {
+  /** Steers by comparing what the fly senses now with what it has sensed lately. */
+  function walk(senses: Senses): void {
     movement.walk(
       parameters.walkingSpeedMetresPerSecond * STEP_SECONDS,
-      parameters.walkingTurnNoise * SQRT_STEP_SECONDS * movementNoise.normal(),
+      turningScale(internalState(), senses, parameters) *
+        parameters.walkingTurnNoise *
+        SQRT_STEP_SECONDS *
+        movementNoise.normal(),
     );
   }
 
@@ -380,14 +546,25 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       behaviour,
       vigilanceState: vigilanceStateOf(behaviour),
       ...movement.pose(),
-      speedMetresPerSecond: currentSpeed(),
-      arousal,
-      sleepPressure,
-      sleepDepth,
-      circadianPhaseHours,
-      startle,
-      transitions: pending.map((item) => transitionState(item.definition.id)),
+      speedMetresPerSecond: death ? 0 : currentSpeed(),
+      ...internalState(),
+      transitions: death ? [] : pending.map((item) => transitionState(item.definition.id)),
+      food: contents.place("food"),
+      water: contents.place("water"),
+      death,
     };
+  }
+
+  /** A reserve that has run out kills the fly where it is, and it drops to the floor. */
+  function checkForDeath(): boolean {
+    const cause = energy <= 0 ? "starvation" : hydration <= 0 ? "desiccation" : undefined;
+    if (!cause) return false;
+    death = { step, timeSeconds: step * STEP_SECONDS, cause };
+    behaviour = "immobility";
+    sleepDepth = null;
+    movement.fall();
+    sensed = undefined;
+    return true;
   }
 
   function recordSample(): void {
@@ -397,22 +574,31 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   }
 
   function advanceSteps(steps: number): void {
-    for (let i = 0; i < steps; i++) {
+    for (let i = 0; i < steps && !death; i++) {
       applyDueInterventions();
+      sensed = undefined;
       fireDueTransition();
       updateArousal();
       updateSleepPressure();
       updateSleepDepth();
       updateCircadianClock();
       updateStartle();
-      if (behaviour === "walking") walk();
+      updateEnergy();
+      updateHydration();
+      const senses = currentSenses();
+      if (behaviour === "walking") walk(senses);
+      updateRecentSenses(senses);
       if (behaviour === "flying")
         movement.fly(parameters.flightSpeedMetresPerSecond * STEP_SECONDS);
       const surface = movement.surface();
       if (surface) stepsOnSurface.set(surface, (stepsOnSurface.get(surface) ?? 0) + 1);
       stepsInBehaviour.set(behaviour, (stepsInBehaviour.get(behaviour) ?? 0) + 1);
       step += 1;
-      if (step % STEPS_PER_SECOND === 0) recordSample();
+      // The fly may have moved, and the time of day has moved on.
+      sensed = undefined;
+      const died = checkForDeath();
+      // The record always ends with the moment of death.
+      if (step % STEPS_PER_SECOND === 0 || died) recordSample();
     }
   }
 
@@ -426,7 +612,8 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
     current,
     firedTransitions,
     intervene: (action) => {
-      validateAction(action);
+      if (death) throw new Error("The fly has died, so the run can't change");
+      validateAction(action, room);
       const intervention: Intervention = { ...action, step };
       // Later than any at this step or before, which keeps the list in step order.
       const after = interventions.findIndex((each) => each.step > step);
@@ -439,6 +626,8 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       seed,
       room,
       parameters,
+      food: initialPlaces.food,
+      water: initialPlaces.water,
       lightSchedule: initialLightSchedule,
       stepsPerSecond: STEPS_PER_SECOND,
       samples: [...samples],
@@ -451,6 +640,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       timeInBehaviourSeconds: Object.fromEntries(
         BEHAVIOURS.map((each) => [each, (stepsInBehaviour.get(each) ?? 0) * STEP_SECONDS]),
       ) as Record<Behaviour, number>,
+      death,
     }),
   };
 }

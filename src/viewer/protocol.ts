@@ -1,12 +1,15 @@
 import type {
   FiredTransition,
+  FloorPlace,
   Intervention,
   InterventionAction,
   LightSchedule,
+  SourceKind,
   RunRecord,
   RunSample,
   RoomSetup,
 } from "../engine";
+import type { StartingReserves } from "./runSettings";
 
 export type ToSimulation =
   | {
@@ -15,6 +18,8 @@ export type ToSimulation =
       readonly room: RoomSetup;
       readonly speed: number;
       readonly lightSchedule: LightSchedule;
+      readonly sources: Partial<Readonly<Record<SourceKind, FloorPlace>>>;
+      readonly reserves: StartingReserves;
     }
   | { readonly type: "set-speed"; readonly speed: number }
   | { readonly type: "set-paused"; readonly paused: boolean }

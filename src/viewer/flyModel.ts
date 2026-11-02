@@ -27,6 +27,8 @@ const FOOT_LIFT = 0.25 * MILLIMETRE;
 const TUCKED_FOOT_HEIGHT = 0.2 * MILLIMETRE;
 const TUCKED_FOOT_WIDTH = 0.55 * MILLIMETRE;
 const RUBS_PER_SECOND = 5;
+/** How often an extended proboscis pumps as the fly takes in food or water. */
+const PUMPS_PER_SECOND = 3;
 
 const LEG_COLOUR = 0x2a1c10;
 const BODY_COLOUR = 0x6b4a24;
@@ -40,8 +42,13 @@ export interface FlyModel {
   /** The head, thorax and abdomen, whose length is the fly's body length. */
   readonly body: THREE.Object3D;
   readonly feet: readonly THREE.Object3D[];
-  /** The behaviour it was last posed for, and how its wings are showing it. */
-  pose(): { readonly behaviour: Behaviour; readonly wings: "rest" | "blur" };
+  /** The behaviour it was last posed for, and how its wings and proboscis are showing it. */
+  pose(): {
+    readonly behaviour: Behaviour;
+    readonly wings: "rest" | "blur";
+    readonly proboscis: "folded" | "extended";
+    readonly dead: boolean;
+  };
   /** Poses the fly from simulated behaviour alone, so it can't show what the model isn't doing. */
   animate(sample: RunSample): void;
 }
@@ -104,6 +111,25 @@ function createBody(): THREE.Object3D {
     body.add(ellipsoid({ x: 0.2, y: 0.27, z: 0.14 }, { x: 1.03, y: 0.7, z: side * 0.28 }, eye));
   }
   return body;
+}
+
+/**
+ * The mouthparts, reaching from under the head down to the surface, which a fly extends
+ * only to take something in. Folded, they are tucked out of sight under the head.
+ */
+function createProboscis(): THREE.Object3D {
+  const material = new THREE.MeshLambertMaterial({ color: BODY_COLOUR });
+  const proboscis = new THREE.Group();
+  const from = new THREE.Vector3(1.1, 0.42, 0).multiplyScalar(MILLIMETRE);
+  const to = new THREE.Vector3(1.28, 0.06, 0).multiplyScalar(MILLIMETRE);
+  const stalk = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.05 * MILLIMETRE, 0.07 * MILLIMETRE, from.distanceTo(to), 10),
+    material,
+  );
+  placeSegment(stalk, to, from);
+  const labellum = ellipsoid({ x: 0.1, y: 0.05, z: 0.1 }, { x: 1.28, y: 0.05, z: 0 }, material);
+  proboscis.add(stalk, labellum);
+  return proboscis;
 }
 
 /** Where a wing joins the thorax. */
@@ -260,10 +286,14 @@ export function createFlyModel(): FlyModel {
   object.add(...wings, ...wingBlurs);
   for (const blur of wingBlurs) blur.visible = false;
   const legs = createLegs(object);
+  const proboscis = createProboscis();
+  proboscis.visible = false;
+  object.add(proboscis);
 
   let stridePhase = 0;
   let previousTimeSeconds = 0;
   let shownBehaviour: Behaviour = "immobility";
+  let shownDead = false;
 
   function animate(sample: RunSample): void {
     const elapsedSeconds = Math.max(0, sample.timeSeconds - previousTimeSeconds);
@@ -278,9 +308,17 @@ export function createFlyModel(): FlyModel {
     for (const wing of wings) wing.visible = !flying;
     for (const blur of wingBlurs) blur.visible = flying;
     const grooming = sample.behaviour === "grooming";
+    const takingIn = sample.behaviour === "feeding" || sample.behaviour === "drinking";
+    proboscis.visible = takingIn;
+    // Pumps by pressing down a little and lifting again, keeping the labellum on the surface.
+    proboscis.scale.y = takingIn
+      ? 1 + 0.08 * Math.sin(2 * Math.PI * PUMPS_PER_SECOND * sample.timeSeconds)
+      : 1;
+    shownDead = sample.death !== null;
     // When walking stops, all six feet go down where they are, and then nothing moves.
+    // A dead fly's legs curl in, as they are tucked in flight.
     for (const leg of legs) {
-      if (flying) poseLeg(leg, tuckedFoot(leg));
+      if (flying || shownDead) poseLeg(leg, tuckedFoot(leg));
       else if (grooming && leg.isFront) poseLeg(leg, rubbingFoot(leg, sample.timeSeconds));
       else poseLeg(leg, gaitFoot(leg, stridePhase, walking));
     }
@@ -296,6 +334,8 @@ export function createFlyModel(): FlyModel {
     pose: () => ({
       behaviour: shownBehaviour,
       wings: shownBehaviour === "flying" ? "blur" : "rest",
+      proboscis: proboscis.visible ? "extended" : "folded",
+      dead: shownDead,
     }),
   };
 }
