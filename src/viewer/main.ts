@@ -63,7 +63,8 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.localClippingEnabled = true;
 
 const roomScene = createRoomScene(room);
-// The worker runs the default parameters, so the overlay draws the same fields.
+// The worker changes only the starting reserves from the default parameters, so the overlay
+// draws the same fields.
 const fieldOverlay = createFieldOverlay(room, DEFAULT_PARAMETERS);
 roomScene.scene.add(fieldOverlay.object);
 const simulation = startSimulation(seed, room, speed, lightSchedule, sources, reserves);

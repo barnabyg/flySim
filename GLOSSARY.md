@@ -59,7 +59,7 @@ How a fly low on either reserve starts walking, grooming and flight less and les
 _Avoid_: Fatigue, tiredness (which suggest Sleep Pressure)
 
 **Death**:
-The end of a Simulation Run when a reserve runs out, by starvation or by lack of water. The Run Record marks when and why, and the run advances no further. Survival times are Provisional and not validated.
+The end of a Simulation Run when a reserve runs out, by starvation or by desiccation, from running out of water. The Run Record marks when and why, and the run advances no further. Survival times are Provisional and not validated.
 _Avoid_: Game over, failure
 
 **Immobility**:

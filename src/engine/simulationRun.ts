@@ -62,7 +62,7 @@ export const DEFAULT_ROOM: RoomSetup = { widthMetres: 1, depthMetres: 1, heightM
 export type InterventionAction =
   | { readonly type: "disturb" }
   | { readonly type: "light-schedule"; readonly lightSchedule: LightSchedule }
-  /** Drags a source across the floor. Its field goes with it, and the fly learns of it only by sensing it. */
+  /** Moves a source across the floor. Its field goes with it, and the fly learns of it only by sensing it. */
   | { readonly type: "move-source"; readonly source: SourceKind; readonly place: FloorPlace }
   /** Takes a source away, with its field, until it is restored to where it was. */
   | { readonly type: "remove-source"; readonly source: SourceKind }
@@ -279,10 +279,9 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
     return lightLevel(lightSchedule, currentTimeOfDay());
   }
 
-  /** The only route from the world to the fly's hazards. */
   /**
-   * What the fly senses, worked out once between changes to the world or to where it is,
-   * as every hazard needs it on every step.
+   * What the fly senses, the only route from the world to its hazards. It is worked out once
+   * between changes to the world or to where the fly is, as every hazard needs it each step.
    */
   let sensed: Senses | undefined;
 

@@ -265,7 +265,7 @@ export interface ModelParameters {
    */
   readonly startFeedingHungerRate: number;
   /** Scaled by the fourth power of how far Hunger has fallen, so a bout ends as the fly fills. */
-  readonly stopFeedingSatietyRate: number;
+  readonly stopFeedingLowHungerRate: number;
   readonly stopFeedingStartleRate: number;
   /** The share of a full energy reserve taken in per second of feeding. */
   readonly feedingIntake: number;
@@ -279,7 +279,7 @@ export interface ModelParameters {
   /** Drinking can start only on the water. Scaled by the cube of Thirst, as feeding is. */
   readonly startDrinkingThirstRate: number;
   /** Scaled by the fourth power of how far Thirst has fallen, so a bout ends as the fly fills. */
-  readonly stopDrinkingSatietyRate: number;
+  readonly stopDrinkingLowThirstRate: number;
   readonly stopDrinkingStartleRate: number;
   /** The share of a full hydration reserve taken in per second of drinking. */
   readonly drinkingIntake: number;
@@ -386,7 +386,7 @@ export const DEFAULT_PARAMETERS: ModelParameters = {
   energyUseFlying: 5e-5,
   energyUseSleeping: 3e-6,
   startFeedingHungerRate: 1,
-  stopFeedingSatietyRate: 0.15,
+  stopFeedingLowHungerRate: 0.15,
   stopFeedingStartleRate: 2,
   feedingIntake: 0.004,
   initialHydration: 0.6,
@@ -395,7 +395,7 @@ export const DEFAULT_PARAMETERS: ModelParameters = {
   waterLossFlying: 2e-5,
   waterLossSleeping: 3.5e-6,
   startDrinkingThirstRate: 1,
-  stopDrinkingSatietyRate: 0.15,
+  stopDrinkingLowThirstRate: 0.15,
   stopDrinkingStartleRate: 2,
   drinkingIntake: 0.006,
   odourRangeMetres: 0.3,
@@ -480,8 +480,11 @@ const EFFORTFUL: ReadonlySet<TransitionId> = new Set<TransitionId>([
   "walking-to-flying",
 ]);
 
-/** From 1 for a fly with enough of both reserves down to 0 as either runs out. */
-function vigour(state: InternalState, parameters: ModelParameters): number {
+/**
+ * How much of its pushes towards effortful behaviour Weakness leaves the fly, from 1 with
+ * enough of both reserves down to 0 as either runs out.
+ */
+function strengthLeft(state: InternalState, parameters: ModelParameters): number {
   const reserve = Math.min(state.energy, state.hydration);
   return Math.min(1, reserve / parameters.weaknessReserve) ** 2;
 }
@@ -500,7 +503,7 @@ export function driverContributions(
 ): Record<DriverId, number> {
   const contributions = unweakenedContributions(transition, state, senses, parameters);
   if (!EFFORTFUL.has(transition)) return contributions;
-  const strength = vigour(state, parameters);
+  const strength = strengthLeft(state, parameters);
   if (strength === 1) return contributions;
   return Object.fromEntries(
     DRIVERS.map((driver) => [driver, contributions[driver] * strength]),
@@ -614,7 +617,7 @@ function unweakenedContributions(
     case "feeding-to-immobility":
       return {
         ...NO_CONTRIBUTIONS,
-        hunger: parameters.stopFeedingSatietyRate * (1 - hunger) ** 4,
+        hunger: parameters.stopFeedingLowHungerRate * (1 - hunger) ** 4,
         startle: parameters.stopFeedingStartleRate * startle,
         contact: senses.touchingFood ? 0 : parameters.lostContactRate,
       };
@@ -627,7 +630,7 @@ function unweakenedContributions(
     case "drinking-to-immobility":
       return {
         ...NO_CONTRIBUTIONS,
-        thirst: parameters.stopDrinkingSatietyRate * (1 - thirst) ** 4,
+        thirst: parameters.stopDrinkingLowThirstRate * (1 - thirst) ** 4,
         startle: parameters.stopDrinkingStartleRate * startle,
         contact: senses.touchingWater ? 0 : parameters.lostContactRate,
       };
