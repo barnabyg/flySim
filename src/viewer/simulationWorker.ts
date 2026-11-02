@@ -1,8 +1,8 @@
 import {
-  DEFAULT_PARAMETERS,
   STEPS_PER_SECOND,
   createSimulationRun,
   type SimulationRun,
+  type SimulationSetup,
 } from "../engine";
 import type { FromSimulation, ToSimulation } from "./protocol";
 
@@ -16,6 +16,7 @@ const MAX_RECORDED_SAMPLES = 200_000;
 let speed = 1;
 let paused = false;
 let run: SimulationRun | undefined;
+let setup: SimulationSetup | undefined;
 let lastTickTime = 0;
 let stepsOwed = 0;
 let firedSent = 0;
@@ -49,14 +50,19 @@ function tick(): void {
 
 function sendFrame(): void {
   if (!run) return;
+  const sample = run.current();
+  // A replay's Interventions show only once the run reaches them. One made now goes after any
+  // already reached, and before any still to come, so those reached are always the first ones.
+  const reached = run.interventions.findIndex((each) => each.step > sample.step);
+  const interventionsReached = reached === -1 ? run.interventions.length : reached;
   send({
     type: "frame",
-    sample: run.current(),
+    sample,
     fired: run.firedTransitions.slice(firedSent),
-    interventions: run.interventions.slice(interventionsSent),
+    interventions: run.interventions.slice(interventionsSent, interventionsReached),
   });
   firedSent = run.firedTransitions.length;
-  interventionsSent = run.interventions.length;
+  interventionsSent = interventionsReached;
 }
 
 onmessage = (event: MessageEvent<ToSimulation>) => {
@@ -64,18 +70,8 @@ onmessage = (event: MessageEvent<ToSimulation>) => {
   switch (message.type) {
     case "start":
       speed = message.speed;
-      run = createSimulationRun({
-        room: message.room,
-        seed: message.seed,
-        lightSchedule: message.lightSchedule,
-        ...message.sources,
-        parameters: {
-          ...DEFAULT_PARAMETERS,
-          initialEnergy: message.reserves.energy ?? DEFAULT_PARAMETERS.initialEnergy,
-          initialHydration: message.reserves.hydration ?? DEFAULT_PARAMETERS.initialHydration,
-        },
-        maxRecordedSamples: MAX_RECORDED_SAMPLES,
-      });
+      setup = message.setup;
+      run = createSimulationRun({ ...setup, maxRecordedSamples: MAX_RECORDED_SAMPLES });
       lastTickTime = performance.now();
       setInterval(tick, TICK_MILLISECONDS);
       break;
@@ -96,6 +92,12 @@ onmessage = (event: MessageEvent<ToSimulation>) => {
       break;
     case "request-record":
       if (run) send({ type: "record", requestId: message.requestId, record: run.record() });
+      break;
+    case "request-replay":
+      if (run && setup) {
+        const interventions = [...run.interventions];
+        send({ type: "replay", requestId: message.requestId, setup: { ...setup, interventions } });
+      }
       break;
   }
 };

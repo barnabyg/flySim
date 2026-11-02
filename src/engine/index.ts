@@ -24,14 +24,17 @@ export {
   DEFAULT_ROOM,
   MODEL_VERSION,
   createSimulationRun,
+  replaySetup,
   type Death,
   type FiredTransition,
   type Intervention,
   type InterventionAction,
   type InterventionType,
+  type RecordedSetup,
   type RunRecord,
   type RunSample,
   type SimulationRun,
   type SimulationSetup,
   type TransitionState,
 } from "./simulationRun";
+export { setupFromOptions, type SetupOptions } from "./setupOptions";

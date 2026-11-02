@@ -3,6 +3,8 @@ import { MAX_ROOM_METRES, MIN_ROOM_METRES } from "./runSettings";
 
 const RESTART_ICON =
   '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.5-3.5M12 1v4H8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const REPLAY_ICON =
+  '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.5-3.5M12 1v4H8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M6.5 5.5v5l4-2.5z" fill="currentColor"/></svg>';
 const NEW_SEED_ICON =
   '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><rect x="2" y="2" width="12" height="12" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="5.5" cy="5.5" r="1.2" fill="currentColor"/><circle cx="10.5" cy="10.5" r="1.2" fill="currentColor"/><circle cx="8" cy="8" r="1.2" fill="currentColor"/></svg>';
 const ROOM_ICON =
@@ -36,11 +38,14 @@ const DISTURB_ICON =
 export interface RunControls {
   /** Stops the controls that change the run, once its fly has died. Restarting still works. */
   disableChanges(): void;
+  /** Shows whether a source is in the Room, as when a replay removes or restores it. */
+  showSourcePresent(kind: SourceKind, present: boolean): void;
 }
 
 export interface RunControlHandlers {
   onDisturb(): void;
   onRestart(): void;
+  onReplay(): void;
   onNewSeed(): void;
   onRoomChange(room: RoomSetup): void;
   onLightScheduleChange(lightSchedule: LightSchedule): void;
@@ -70,7 +75,8 @@ function roomInput(id: string, label: string, value: number): string {
 
 /**
  * Changes the run under way, by disturbing the fly or changing the light schedule, or starts
- * a new one: the same one again, a different one, or one in a differently sized Room.
+ * a new one: the same one again, a replay with everything changed, a different one, or one in
+ * a differently sized Room.
  */
 export function createRunControls(
   container: HTMLElement,
@@ -83,6 +89,7 @@ export function createRunControls(
   container.innerHTML = `
     <button id="disturb" class="icon-button" type="button" aria-label="Disturb" title="Disturb">${DISTURB_ICON}</button>
     <button id="restart" class="icon-button" type="button" aria-label="Restart with the same seed" title="Restart with seed ${seed}">${RESTART_ICON}</button>
+    <button id="replay" class="icon-button" type="button" aria-label="Replay with everything changed" title="Replay from the start, with everything changed during the run">${REPLAY_ICON}</button>
     <button id="new-seed" class="icon-button" type="button" aria-label="Restart with a new seed" title="Restart with a new seed">${NEW_SEED_ICON}</button>
     <details id="room-settings" class="settings">
       <summary class="icon-button" aria-label="Room size" title="Room size">${ROOM_ICON}</summary>
@@ -113,6 +120,7 @@ export function createRunControls(
 
   const disturb = container.querySelector<HTMLButtonElement>("#disturb");
   const restart = container.querySelector<HTMLButtonElement>("#restart");
+  const replay = container.querySelector<HTMLButtonElement>("#replay");
   const newSeed = container.querySelector<HTMLButtonElement>("#new-seed");
   const form = container.querySelector<HTMLFormElement>("#room-form");
   const width = container.querySelector<HTMLInputElement>("#room-width");
@@ -125,7 +133,17 @@ export function createRunControls(
   const alwaysOn = container.querySelector<HTMLButtonElement>("#always-on");
   const alwaysOff = container.querySelector<HTMLButtonElement>("#always-off");
   const fields = container.querySelector<HTMLButtonElement>("#fields");
-  if (!disturb || !restart || !newSeed || !form || !width || !depth || !height || !fields) {
+  if (
+    !disturb ||
+    !restart ||
+    !replay ||
+    !newSeed ||
+    !form ||
+    !width ||
+    !depth ||
+    !height ||
+    !fields
+  ) {
     throw new Error("Malformed run controls");
   }
   if (
@@ -165,15 +183,23 @@ export function createRunControls(
     // A pointer press has already disturbed, so only a keyboard's click is left to handle.
     if (event.detail === 0) handlers.onDisturb();
   });
-  // Pressed while the source is out of the Room.
-  for (const kind of SOURCE_KINDS) {
+  function sourceButton(kind: SourceKind): HTMLButtonElement {
     const button = container.querySelector<HTMLButtonElement>(`#${kind}-presence`);
     if (!button) throw new Error(`Missing the ${kind} button`);
+    return button;
+  }
+  // Pressed while the source is out of the Room.
+  function showSourcePresent(kind: SourceKind, present: boolean): void {
+    const button = sourceButton(kind);
+    button.setAttribute("aria-pressed", String(!present));
+    button.setAttribute("aria-label", sourceLabel(kind, present));
+    button.title = sourceLabel(kind, present);
+  }
+  for (const kind of SOURCE_KINDS) {
+    const button = sourceButton(kind);
     button.addEventListener("click", () => {
       const present = button.getAttribute("aria-pressed") === "true";
-      button.setAttribute("aria-pressed", String(!present));
-      button.setAttribute("aria-label", sourceLabel(kind, present));
-      button.title = sourceLabel(kind, present);
+      showSourcePresent(kind, present);
       handlers.onSourcePresenceChange(kind, present);
     });
   }
@@ -185,6 +211,9 @@ export function createRunControls(
   });
   restart.addEventListener("click", () => {
     handlers.onRestart();
+  });
+  replay.addEventListener("click", () => {
+    handlers.onReplay();
   });
   newSeed.addEventListener("click", () => {
     handlers.onNewSeed();
@@ -222,5 +251,6 @@ export function createRunControls(
       );
       for (const control of changers) control.disabled = true;
     },
+    showSourcePresent,
   };
 }

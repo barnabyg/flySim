@@ -122,6 +122,10 @@ _Avoid_: Poke, tap, stimulus
 One seeded run of the model from a setup of Room, Light Schedule, model parameters and Interventions. The same setup and seed always give the same run, at any time speed. A test can also choose which random stream draws Trigger Levels.
 _Avoid_: Simulation, session, episode
 
+**Replay**:
+Starting a Simulation Run again from its beginning with the same seed and setup and every Intervention made in it, each at its original step, which gives the same run at any time speed. Interventions made during a replay add to those it repeats. A restart, by contrast, repeats the setup without any Interventions.
+_Avoid_: Rerun, playback (which suggests showing a recording rather than running the model again)
+
 **Run Record**:
 What a Simulation Run stores: its seed and setup, a sample of the fly's state each simulated second, every fired transition and every Intervention. A long run in the viewer keeps only its latest samples.
 _Avoid_: Log, history, trace

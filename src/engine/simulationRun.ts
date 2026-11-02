@@ -155,6 +155,8 @@ export interface FiredTransition extends TransitionState {
 export interface RunRecord {
   readonly modelVersion: string;
   readonly seed: number;
+  /** Which random stream drew Trigger Levels. */
+  readonly triggerStream: number;
   readonly room: RoomSetup;
   readonly parameters: ModelParameters;
   /** Where the food started, or null if there was none. */
@@ -164,6 +166,8 @@ export interface RunRecord {
   /** The schedule the run started with. Later ones are among its interventions. */
   readonly lightSchedule: LightSchedule;
   readonly stepsPerSecond: number;
+  /** The step the run has reached. */
+  readonly step: number;
   /** One per simulated second, starting at step 0 unless older ones were dropped. */
   readonly samples: readonly RunSample[];
   readonly firedTransitions: readonly FiredTransition[];
@@ -175,6 +179,36 @@ export interface RunRecord {
   readonly timeInBehaviourSeconds: Readonly<Record<Behaviour, number>>;
   /** How the fly died, or null if it is alive. */
   readonly death: Death | null;
+}
+
+/** What a replay needs from a record of a run: its seed, its setup and its Interventions. */
+export type RecordedSetup = Pick<
+  RunRecord,
+  | "seed"
+  | "triggerStream"
+  | "room"
+  | "parameters"
+  | "food"
+  | "water"
+  | "lightSchedule"
+  | "interventions"
+>;
+
+/**
+ * The setup that replays a recorded run from its start, with every Intervention made up front at
+ * its original step. Advanced to the same step, the replay gives the same Run Record.
+ */
+export function replaySetup(recorded: RecordedSetup): SimulationSetup {
+  return {
+    seed: recorded.seed,
+    triggerStream: recorded.triggerStream,
+    room: recorded.room,
+    parameters: recorded.parameters,
+    food: recorded.food,
+    water: recorded.water,
+    lightSchedule: recorded.lightSchedule,
+    interventions: recorded.interventions,
+  };
 }
 
 /** The engine's single public interface. */
@@ -219,10 +253,8 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
     sleepDepth: createRandomStream(seed, SLEEP_DEPTH_NOISE_STREAM),
   };
   const movementNoise = createRandomStream(seed, MOVEMENT_STREAM);
-  const triggerLevelStream = createRandomStream(
-    seed,
-    setup.triggerStream ?? DEFAULT_TRIGGER_STREAM,
-  );
+  const triggerStream = setup.triggerStream ?? DEFAULT_TRIGGER_STREAM;
+  const triggerLevelStream = createRandomStream(seed, triggerStream);
 
   const samples: RunSample[] = [];
   const firedTransitions: FiredTransition[] = [];
@@ -472,12 +504,14 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
     record: () => ({
       modelVersion: MODEL_VERSION,
       seed,
+      triggerStream,
       room,
       parameters,
       food: initialPlaces.food,
       water: initialPlaces.water,
       lightSchedule: initialLightSchedule,
       stepsPerSecond: STEPS_PER_SECOND,
+      step,
       samples: [...samples],
       firedTransitions: [...firedTransitions],
       // One due later isn't in the record yet, as it wouldn't be if made during the run.

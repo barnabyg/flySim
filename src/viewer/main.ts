@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import {
+  DEFAULT_LIGHT_SCHEDULE,
   DEFAULT_PARAMETERS,
   SOURCE_KINDS,
   lightLevel,
@@ -14,7 +15,14 @@ import { createFieldOverlay } from "./fieldOverlay";
 import { createRibbon } from "./ribbon";
 import { createRoomScene } from "./roomScene";
 import { createRunControls } from "./runControls";
-import { randomSeed, settingsFromUrl, urlForSettings, type RunSettings } from "./runSettings";
+import { startReplay, takeReplay } from "./replay";
+import {
+  randomSeed,
+  settingsFromUrl,
+  setupForSettings,
+  urlForSettings,
+  type RunSettings,
+} from "./runSettings";
 import { startSimulation } from "./simulationClient";
 import { createSourceDragging } from "./sourceDragging";
 import { INITIAL_SPEED, SPEEDS, createTimeControls } from "./timeControls";
@@ -47,11 +55,18 @@ function requireElement<T extends Element>(selector: string, type: new () => T):
 }
 
 const settings = settingsFromUrl(location.search, SPEEDS, INITIAL_SPEED);
-const { room, seed, lightSchedule, sources, reserves } = settings;
 let speed = settings.speed;
+/** A replay's setup, which carries its Interventions, or else the run the URL sets up. */
+const setup = takeReplay(location.search) ?? setupForSettings(settings);
+const { room, seed } = setup;
+const lightSchedule = setup.lightSchedule ?? DEFAULT_LIGHT_SCHEDULE;
 
 function restartWith(changes: Partial<RunSettings>): void {
   location.assign(urlForSettings({ ...settings, speed, ...changes }));
+}
+
+async function replay(): Promise<void> {
+  startReplay(await simulation.replaySetup(), urlForSettings({ ...settings, speed }));
 }
 
 const view = requireElement("#view", HTMLElement);
@@ -63,11 +78,9 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.localClippingEnabled = true;
 
 const roomScene = createRoomScene(room);
-// The worker changes only the starting reserves from the default parameters, so the overlay
-// draws the same fields.
-const fieldOverlay = createFieldOverlay(room, DEFAULT_PARAMETERS);
+const fieldOverlay = createFieldOverlay(room, setup.parameters ?? DEFAULT_PARAMETERS);
 roomScene.scene.add(fieldOverlay.object);
-const simulation = startSimulation(seed, room, speed, lightSchedule, sources, reserves);
+const simulation = startSimulation(setup, speed);
 
 const driverPanel = createDriverPanel(requireElement("#drivers", HTMLElement));
 const ribbon = createRibbon(requireElement("#ribbon", HTMLCanvasElement));
@@ -102,6 +115,9 @@ const runControls = createRunControls(
     onRestart: () => {
       restartWith({});
     },
+    onReplay: () => {
+      void replay();
+    },
     onNewSeed: () => {
       restartWith({ seed: randomSeed() });
     },
@@ -126,6 +142,10 @@ let shownSchedule: LightSchedule = lightSchedule;
 simulation.onFrame((sample, fired, interventions) => {
   for (const intervention of interventions) {
     if (intervention.type === "light-schedule") shownSchedule = intervention.lightSchedule;
+    // A replay's removals and restorals show on the buttons as they would if made live.
+    if (intervention.type === "remove-source" || intervention.type === "restore-source") {
+      runControls.showSourcePresent(intervention.source, intervention.type === "restore-source");
+    }
   }
   // A change shows from the moment it's made, and stops needing to once the run has it.
   for (const [kind, place] of changing) {

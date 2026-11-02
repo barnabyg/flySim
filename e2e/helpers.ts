@@ -1,5 +1,5 @@
 import { expect, type Page } from "@playwright/test";
-import type { Behaviour, RunRecord, RunSample } from "../src/engine";
+import type { Behaviour, RunRecord, RunSample, SourceKind } from "../src/engine";
 
 export async function openApp(page: Page, seed = 42): Promise<void> {
   await page.goto(`/?seed=${seed}`);
@@ -7,8 +7,14 @@ export async function openApp(page: Page, seed = 42): Promise<void> {
 }
 
 export async function currentSample(page: Page): Promise<RunSample | undefined> {
-  // The app may not have loaded yet, so flySim may not exist.
-  return page.evaluate(() => (window as Partial<Window>).flySim?.current());
+  // The app may not have loaded yet, so flySim may not exist, and a restart or replay may be
+  // loading the page again.
+  try {
+    return await page.evaluate(() => (window as Partial<Window>).flySim?.current());
+  } catch (error) {
+    if (String(error).includes("Execution context was destroyed")) return undefined;
+    throw error;
+  }
 }
 
 export async function currentTime(page: Page): Promise<number> {
@@ -17,6 +23,24 @@ export async function currentTime(page: Page): Promise<number> {
 
 export async function runRecord(page: Page): Promise<RunRecord> {
   return page.evaluate(() => window.flySim.record());
+}
+
+export async function sources(page: Page) {
+  return page.evaluate(() => window.flySim.sources());
+}
+
+/** Drags a source by the given number of pixels in the main view, in small steps. */
+export async function drag(
+  page: Page,
+  kind: SourceKind,
+  by: { x: number; y: number },
+): Promise<void> {
+  const start = (await sources(page))[kind]?.client;
+  if (!start) throw new Error(`${kind} isn't showing`);
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(start.x + by.x, start.y + by.y, { steps: 10 });
+  await page.mouse.up();
 }
 
 /** What the fly looks like in one frame, and the latest step when it was taken. */

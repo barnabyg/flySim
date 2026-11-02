@@ -2,7 +2,9 @@ import {
   DEFAULT_LIGHT_SCHEDULE,
   DEFAULT_ROOM,
   SOURCE_KINDS,
+  setupFromOptions,
   type FloorPlace,
+  type SimulationSetup,
   type SourceKind,
   type LightSchedule,
   type RoomSetup,
@@ -126,4 +128,21 @@ export function urlForSettings({
     if (level !== undefined) parameters.set(reserve, String(level));
   }
   return `?${parameters.toString()}`;
+}
+
+/** The run the settings start, without any Interventions. */
+export function setupForSettings({
+  seed,
+  room,
+  lightSchedule,
+  sources,
+  reserves,
+}: RunSettings): SimulationSetup {
+  return setupFromOptions({
+    seed,
+    room,
+    lightHours: lightSchedule.lightHours,
+    ...sources,
+    ...reserves,
+  });
 }
