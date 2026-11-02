@@ -2,7 +2,7 @@
 
 A browser-based simulator for watching one adult male fruit fly live in a Room and seeing why it starts, continues and stops each behaviour. See [GLOSSARY.md](GLOSSARY.md) for domain terms and [docs/adr](docs/adr) for decisions.
 
-Model values are roughly tuned so that the behaviour is worth watching: over about 10 simulated minutes, a default run nearly always shows Immobility, grooming, walking and flight, and over a day the fly sleeps in a morning, siesta, evening and night pattern. They are Provisional and not validated, including flight speed and frequency, and all sleep and startle values.
+Model values are roughly tuned so that the behaviour is worth watching: over about 10 simulated minutes, a default run nearly always shows Immobility, grooming, walking and flight, and over a day the fly sleeps in a morning, siesta, evening and night pattern. A fly kept awake through the night sleeps more the next morning, which comes from its raised sleep pressure rather than a rule of its own. They are Provisional and not validated, including flight speed and frequency, and all sleep and startle values.
 
 ## Run it
 
