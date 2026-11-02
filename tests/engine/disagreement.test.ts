@@ -90,12 +90,13 @@ describe("where true sleep and Scored Sleep disagree", () => {
     }
   });
 
-  it("leaves a long period of stillness with no intervention, and records why", () => {
+  it("leaves the spot after long awake Immobility with no intervention, and records why", () => {
+    // Grooming happens in place, so only walking or flight leaves the spot.
     const left = bouts.filter(
       (bout) =>
         bout.behaviour === "immobility" &&
         bout.seconds > SCORED_SLEEP_SECONDS &&
-        bout.ended.to !== "sleeping",
+        (bout.ended.to === "walking" || bout.ended.to === "flying"),
     );
 
     expect(records.every((record) => record.interventions.length === 0)).toBe(true);
@@ -107,7 +108,12 @@ describe("where true sleep and Scored Sleep disagree", () => {
       expect(ended.contributions.startle).toBe(0);
       expect(ended.triggerLevel).toBeGreaterThan(0);
     }
-    // The fly leaves for different destinations, pushed by different Drivers.
-    expect(new Set(left.map(({ ended }) => ended.to)).size).toBeGreaterThan(1);
+    // Different Drivers do most of the pushing at different times.
+    const strongest = left.map(({ ended }) =>
+      DRIVERS.reduce((best, driver) =>
+        ended.contributions[driver] > ended.contributions[best] ? driver : best,
+      ),
+    );
+    expect(new Set(strongest).size).toBeGreaterThan(1);
   });
 });
