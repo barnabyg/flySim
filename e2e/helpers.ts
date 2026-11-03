@@ -25,6 +25,14 @@ export async function runRecord(page: Page): Promise<RunRecord> {
   return page.evaluate(() => window.flySim.record());
 }
 
+/**
+ * How many Interventions the run has, counted in the page, as passing a whole record back to the
+ * test takes seconds once a run is long or the machine is busy.
+ */
+export async function interventionCount(page: Page): Promise<number> {
+  return page.evaluate(async () => (await window.flySim.record()).interventions.length);
+}
+
 export async function sources(page: Page) {
   return page.evaluate(() => window.flySim.sources());
 }

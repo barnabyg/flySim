@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { currentSample, currentTime, openApp, runRecord } from "./helpers";
+import { currentSample, currentTime, interventionCount, openApp, runRecord } from "./helpers";
 
 /** The widest the startle segment gets in any row, and how the ribbon shows marks. */
 async function display(page: Page) {
@@ -131,18 +131,20 @@ test("restarting with the same seed gives the run without any Disturb presses", 
 
 test("holding Disturb repeats it, so the fly can be kept awake", async ({ page }) => {
   await openApp(page);
+  // The page is busiest just after it loads, which can hold back the repeat's timer.
+  await expect.poll(() => currentTime(page)).toBeGreaterThan(30);
   await page.locator("#disturb").hover();
   await page.mouse.down();
   await page.waitForTimeout(1000);
   await page.mouse.up();
   // About 20 a second, with room for a busy machine's timers to run late.
-  await expect.poll(async () => (await runRecord(page)).interventions.length).toBeGreaterThan(3);
-  const held = (await runRecord(page)).interventions.length;
+  await expect.poll(() => interventionCount(page)).toBeGreaterThan(3);
+  const held = await interventionCount(page);
 
   expect(held).toBeLessThan(60);
   await page.waitForTimeout(500);
-  expect((await runRecord(page)).interventions).toHaveLength(held);
+  expect(await interventionCount(page)).toBe(held);
   // A single click is still a single Disturb.
   await page.locator("#disturb").click();
-  await expect.poll(async () => (await runRecord(page)).interventions).toHaveLength(held + 1);
+  await expect.poll(() => interventionCount(page)).toBe(held + 1);
 });

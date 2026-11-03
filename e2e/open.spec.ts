@@ -6,7 +6,7 @@ import { promisify } from "node:util";
 import { gunzipSync, gzipSync } from "node:zlib";
 import { expect, test, type Page } from "@playwright/test";
 import type { RunExport, RunRecord } from "../src/engine";
-import { currentSample, currentTime, drag, openApp, runRecord } from "./helpers";
+import { currentSample, currentTime, drag, interventionCount, openApp, runRecord } from "./helpers";
 
 async function exportJson(page: Page): Promise<RunExport> {
   await page.locator("#export-settings summary").click();
@@ -85,9 +85,7 @@ test("the open control loads an exported run with Interventions and replays it",
   // once, where a slow mouse press could repeat. The run is paused so its record stays small.
   await page.locator("#pause").click();
   await page.locator("#disturb").press("Enter");
-  await expect
-    .poll(() => page.evaluate(async () => (await window.flySim.record()).interventions.length))
-    .toBe(3);
+  await expect.poll(() => interventionCount(page)).toBe(3);
   const withMore = await runRecord(page);
   await page.locator("#replay").click();
   await expect
