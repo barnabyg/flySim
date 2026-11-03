@@ -33,6 +33,7 @@ import {
 import { startSimulation } from "./simulationClient";
 import { createSourceDragging } from "./sourceDragging";
 import { INITIAL_SPEED, SPEEDS, createTimeControls } from "./timeControls";
+import { createValidationView } from "./validationView";
 import { createViews, type ViewState } from "./views";
 
 /** Lets browser tests and the console observe a run. It can't change one. */
@@ -134,6 +135,11 @@ const fieldOverlay = createFieldOverlay(room, setup.parameters ?? DEFAULT_PARAME
 roomScene.scene.add(fieldOverlay.object);
 const simulation = startSimulation(setup, speed);
 
+const validationView = createValidationView(
+  requireElement("#validation", HTMLElement),
+  requireElement("#app", HTMLElement),
+);
+
 const driverPanel = createDriverPanel(requireElement("#drivers", HTMLElement));
 const ribbon = createRibbon(
   requireElement("#ribbon", HTMLCanvasElement),
@@ -189,6 +195,9 @@ const runControls = createRunControls(
     },
     onOpen: (file) => {
       void openRun(file);
+    },
+    onValidation: () => {
+      validationView.open();
     },
     onSourcePresenceChange: (kind, present) => {
       changing.set(kind, present ? (lastPlaces.get(kind) ?? null) : null);
@@ -292,6 +301,9 @@ renderer.setAnimationLoop(() => {
   views.render();
   ribbon.draw();
 });
+
+// The validation view opens over the Room, which starts and runs underneath it as usual.
+if (new URLSearchParams(location.search).get("view") === "validation") validationView.open();
 
 window.flySim = {
   seed,
