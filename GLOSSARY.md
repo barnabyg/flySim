@@ -7,7 +7,7 @@ A personal visual simulator for watching a single adult fruit fly live in a room
 ### The fly
 
 **Reference Fly**:
-The single fly the model represents: an adult male *Drosophila melanogaster* of a named wild-type strain, 3–7 days old and housed alone.
+The single fly the model represents: an adult male *Drosophila melanogaster* of the wild-type strain Canton-S, 3–7 days old and housed alone. Canton-S has the best matching data in the Evidence Pack, which records why.
 _Avoid_: The fly in the sink, generic fly
 
 **Vigilance State**:
@@ -163,7 +163,7 @@ _Avoid_: Sleep (when the observed measure is meant)
 ### Validation
 
 **Virtual Assay**:
-A published study's measurement method and setup, applied to a simulated fly so the result can be compared with that study's.
+A published study's measurement method and setup, applied to a simulated fly so the result can be compared with that study's. It runs the fly in the study's Chamber, records only what the study's instrument could, such as a beam monitor's crossings or a camera's frames, and scores Inactivity Bouts, Activity Bouts and Scored Sleep from that observation alone, never from the Vigilance State. Whether grooming in place counts as movement depends on the instrument.
 _Avoid_: Simulated experiment, metric
 
 **Validation Target**:
@@ -171,5 +171,5 @@ A sourced, published finding the model must reproduce, tied to a specific study,
 _Avoid_: Benchmark, expected result
 
 **Evidence Pack**:
-The curated set of Validation Targets, including at least one held out from parameter tuning.
+The curated set of Validation Targets, including at least one held out from parameter tuning. Every counted target's source was read in full, and each published value records where in it it comes from.
 _Avoid_: Test data, references
