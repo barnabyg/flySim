@@ -64,6 +64,24 @@ describe("a fly in a study's chamber", () => {
     }
   });
 
+  it("fits a tube narrower than four times its usual clearance from the walls", () => {
+    for (const size of [
+      { widthMetres: 0.06, depthMetres: 0.003, heightMetres: 0.003 },
+      { widthMetres: 0.078, depthMetres: 0.005, heightMetres: 0.00275 },
+    ]) {
+      const run = createSimulationRun({ ...tubeSetup(5), room: size });
+      run.advanceSeconds(6 * 3600);
+      const record = run.record();
+      expect(record.timeInBehaviourSeconds.walking).toBeGreaterThan(0);
+      for (const { position } of record.samples) {
+        expect(position.y).toBeGreaterThanOrEqual(0);
+        expect(position.y).toBeLessThanOrEqual(size.depthMetres);
+        expect(position.z).toBeGreaterThanOrEqual(0);
+        expect(position.z).toBeLessThanOrEqual(size.heightMetres);
+      }
+    }
+  });
+
   it("never takes off in a chamber where flight is impossible", () => {
     const takeOffs = TRANSITIONS.filter((each) => each.to === "flying").map((each) => each.id);
     expect(takeOffs.length).toBeGreaterThan(0);

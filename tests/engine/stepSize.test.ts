@@ -109,31 +109,35 @@ describe("a Simulation Run's step size", () => {
     expect(again.timeInBehaviourSeconds).toEqual(file.timeInBehaviourSeconds);
   });
 
-  it("doesn't change how long the fly spends in each behaviour, on average", () => {
-    // Rates, time constants and noise act per simulated second, so only chance differs.
-    const seeds = Array.from({ length: 12 }, (_, index) => index + 1);
-    const hours = 6;
-    function shares(stepsPerSecond: number): Record<Behaviour, number> {
-      const totals = Object.fromEntries(BEHAVIOURS.map((each) => [each, 0])) as Record<
-        Behaviour,
-        number
-      >;
-      for (const seed of seeds) {
-        const record = recordOf(seed, hours * HOUR, { stepsPerSecond });
-        for (const each of BEHAVIOURS) totals[each] += record.timeInBehaviourSeconds[each];
-      }
-      for (const each of BEHAVIOURS) totals[each] /= seeds.length * hours * HOUR;
-      return totals;
+  // Rates, time constants and noise act per simulated second, so only chance differs.
+  const seeds = Array.from({ length: 12 }, (_, index) => index + 1);
+  const hours = 6;
+  const shares = new Map<number, Record<Behaviour, number>>();
+  function sharesAt(stepsPerSecond: number): Record<Behaviour, number> {
+    const cached = shares.get(stepsPerSecond);
+    if (cached) return cached;
+    const totals = Object.fromEntries(BEHAVIOURS.map((each) => [each, 0])) as Record<
+      Behaviour,
+      number
+    >;
+    for (const seed of seeds) {
+      const record = recordOf(seed, hours * HOUR, { stepsPerSecond });
+      for (const each of BEHAVIOURS) totals[each] += record.timeInBehaviourSeconds[each];
     }
-    const atDefault = shares(50);
-    for (const stepsPerSecond of [25, 100]) {
-      const atOther = shares(stepsPerSecond);
+    for (const each of BEHAVIOURS) totals[each] /= seeds.length * hours * HOUR;
+    shares.set(stepsPerSecond, totals);
+    return totals;
+  }
+
+  for (const stepsPerSecond of [25, 100]) {
+    it(`doesn't change how long the fly spends in each behaviour on average, at ${stepsPerSecond} steps a second`, () => {
+      const atDefault = sharesAt(50);
+      const atOther = sharesAt(stepsPerSecond);
       for (const each of BEHAVIOURS) {
-        expect(
-          Math.abs(atOther[each] - atDefault[each]),
-          `${each} at ${stepsPerSecond}`,
-        ).toBeLessThan(0.25 * atDefault[each] + 0.01);
+        expect(Math.abs(atOther[each] - atDefault[each]), each).toBeLessThan(
+          0.25 * atDefault[each] + 0.01,
+        );
       }
-    }
-  });
+    });
+  }
 });

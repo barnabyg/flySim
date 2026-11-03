@@ -163,7 +163,7 @@ describe("Simulation Run", () => {
     it("rejects a Room too small for the fly", () => {
       expect(() =>
         createSimulationRun({
-          room: { widthMetres: 0.003, depthMetres: 1, heightMetres: 1 },
+          room: { widthMetres: 0.001, depthMetres: 1, heightMetres: 1 },
           seed: 1,
         }),
       ).toThrow(/Room/);
