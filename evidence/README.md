@@ -10,12 +10,12 @@ A target counts only when its source was read in full: methods, results and figu
 
 Why Canton-S:
 
-- Four of the five studies behind the counted targets used Canton-S males: Xu 2021, Zimmerman 2008, Geissmann 2019 and Cascallares 2018.
+- All four studies behind the counted targets used Canton-S males: Xu 2021, Zimmerman 2008, Geissmann 2019 and Cascallares 2018.
 - Zimmerman 2008 scored the same Canton-S males with a beam monitor and with video. No other wild-type strain in the sources has this.
 - Zimmerman 2008 also shows that wild-type strains differ in sleep, and in how far a beam monitor overestimates it. So the strain must be fixed.
 - No source read gave another wild-type strain better male data.
 
-The glossary's Reference Fly entry should now name Canton-S. This pack doesn't change the glossary.
+The glossary's Reference Fly entry names Canton-S.
 
 ## Counted targets
 
