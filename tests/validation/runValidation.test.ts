@@ -144,6 +144,61 @@ describe("the validation suite's runner", () => {
   });
 });
 
+describe("the bout shape stage", () => {
+  it("runs each assay that scores bouts at a second step size, and reports both", async () => {
+    const bouts = target("bouts", {
+      measure: "inactivity-bout-duration-distribution",
+      published: [
+        {
+          label: "males, survival exponent",
+          value: 0.7,
+          unit: "",
+          uncertainty: { kind: "none", value: null },
+          n: 10,
+          location: "Figure 2",
+        },
+      ],
+      criterion: {
+        kind: "exponent-within",
+        exponentForm: "ccdf",
+        description: "0.5 to 1",
+        xminSeconds: 60,
+        xmaxSeconds: 3600,
+        low: 0.5,
+        high: 1,
+      },
+    });
+    const report = await runValidation({
+      pack: { ...PACK, targets: [target("sleep"), bouts] },
+      seeds: [1, 2],
+      jobs: 4,
+    });
+
+    // The two targets watch the same flies with the same instrument, so it is one assay.
+    expect(report.boutShapes.map((each) => each.targets)).toEqual([["sleep", "bouts"]]);
+    const [shapes] = report.boutShapes;
+    expect(shapes?.binSeconds).toBe(60);
+    expect(shapes?.stepSizes.map((each) => each.stepsPerSecond)).toEqual([50, 25]);
+    for (const { kinds } of shapes?.stepSizes ?? []) {
+      expect(kinds.map((kind) => [kind.bouts, kind.expected])).toEqual([
+        ["inactivity", "falling"],
+        ["activity", "exponential"],
+      ]);
+      for (const kind of kinds) {
+        expect(kind.perFly.map((fly) => fly.seed)).toEqual([1, 2]);
+        expect(typeof kind.pass).toBe("boolean");
+        expect(typeof kind.fallingOnlyWhenPooled).toBe("boolean");
+      }
+    }
+    expect(shapes?.agreement.map((each) => [each.bouts, each.stepsPerSecond])).toEqual([
+      ["inactivity", [50, 25]],
+      ["activity", [50, 25]],
+    ]);
+    // The targets themselves are judged at the suite's own step size only.
+    expect(report.targets.map((each) => each.id)).toEqual(["sleep", "bouts"]);
+  });
+});
+
 describe("tuning", () => {
   it("never reads a held-out target", () => {
     const pack = tuningPack(PACK);

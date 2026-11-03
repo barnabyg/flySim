@@ -189,3 +189,7 @@ _Avoid_: Assumed, default
 **Hypothesis**:
 The label for a model relationship that is the model's own proposal and that no source measures, such as its answer to what ends Inactivity Bouts under 5 minutes: background arousal left over from activity, drifting down during stillness.
 _Avoid_: Guess, speculation
+
+**Bout Shape**:
+Whether a Virtual Assay's bout durations are close to exponential, as a memoryless process gives, or have a falling hazard, as a heavy tail does, judged per simulated fly as well as pooled and at more than one step size. ADR-0001's first validation stage needs Inactivity Bouts with a falling hazard and Activity Bouts close to exponential.
+_Avoid_: Bout distribution (when the verdict is meant)

@@ -173,6 +173,43 @@ test("the view charts where each assay's Scored Sleep disagrees with true sleep,
   await expect(tip(page)).toContainText("Asleep, not scored7.5");
 });
 
+test("the view charts bout shapes per fly and pooled, on log–log or log–linear axes", async ({
+  page,
+}) => {
+  await serveReport(page, current);
+  await page.goto("/?view=validation");
+  const section = page.locator("#validation-bout-shapes");
+  await expect(section).toContainText("Bout shapes");
+  const inactivity = section.locator('[data-bout-shape="example-bouts"][data-bouts="inactivity"]');
+  const activity = section.locator('[data-bout-shape="example-bouts"][data-bouts="activity"]');
+  await expect(inactivity).toContainText("Expected: a falling hazard");
+  await expect(activity).toContainText("Expected: close to exponential");
+
+  // The test's result at each step size, and how far the step sizes agree.
+  await expect(inactivity.locator('[data-steps="50"] .result')).toHaveText("Pass");
+  await expect(inactivity.locator('[data-steps="25"]')).toContainText("Weibull shape");
+  await expect(inactivity.locator('[data-agreement="50-25"]')).toContainText("at most 0.05");
+  await expect(inactivity.locator('[data-steps="50"]')).toContainText(
+    "No falling hazard shows only when pooled",
+  );
+
+  // Survival curves per fly and pooled, with an exponential for reference.
+  const logLog = inactivity.locator('[data-scale-chart="loglog"]');
+  await expect(logLog.locator(".fly-line")).toHaveCount(2);
+  await expect(logLog.locator('[data-curve="pooled"]')).toHaveCount(1);
+  await expect(logLog.locator('[data-curve="exponential"]')).toHaveCount(1);
+  await logLog.locator('[data-column="16"]').hover();
+  await expect(tip(page)).toContainText("share of bouts");
+  await expect(tip(page)).toContainText("Pooled");
+  await expect(tip(page)).toContainText("Exponential");
+
+  await inactivity.getByRole("button", { name: "Log–linear" }).click();
+  await expect(logLog).toBeHidden();
+  await expect(inactivity.locator('[data-scale-chart="loglinear"] svg.chart')).toBeVisible();
+  await inactivity.getByRole("button", { name: "Log–log" }).click();
+  await expect(logLog).toBeVisible();
+});
+
 test("a report from another model version, or other parameters, is marked stale", async ({
   page,
 }) => {

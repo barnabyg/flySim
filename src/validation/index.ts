@@ -48,3 +48,21 @@ export {
   type DisagreementMeasure,
   type VigilanceRecord,
 } from "./disagreement";
+export {
+  BOUT_SHAPE_XMIN_SECONDS,
+  EXPECTED_SHAPE,
+  STEP_SIZE_TOLERANCE,
+  boutKindShape,
+  type BoutKind,
+  type BoutKindShape,
+  EXPONENTIAL_SHAPE_RANGE,
+  MIN_BOUTS,
+  SIGNIFICANCE,
+  distributionDistance,
+  fallingOnlyWhenPooled,
+  survivalCurve,
+  testBoutShape,
+  type BoutShapeTest,
+  type BoutShapeVerdict,
+  type SurvivalCurve,
+} from "./boutShapes";

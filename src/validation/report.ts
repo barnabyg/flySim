@@ -1,4 +1,5 @@
 import type { DriverRelationship, ModelParameters, RelationshipLabel } from "../engine";
+import type { BoutKind, BoutKindShape } from "./boutShapes";
 import type { Disagreement } from "./disagreement";
 
 /** What every validation report says it is. */
@@ -89,6 +90,33 @@ export interface AssayDisagreement {
   readonly pooled: Disagreement | null;
 }
 
+/**
+ * The shapes of one Virtual Assay's bouts across step sizes: ADR-0001's first validation stage,
+ * which needs non-exponential Inactivity Bouts and near-exponential Activity Bouts.
+ */
+export interface AssayBoutShapes {
+  readonly id: string;
+  readonly title: string;
+  /** The ids of the targets measured with this assay. */
+  readonly targets: readonly string[];
+  /** The width of the bins the assay scores bouts in. */
+  readonly binSeconds: number;
+  /** The suite's own step size first. */
+  readonly stepSizes: readonly {
+    readonly stepsPerSecond: number;
+    readonly kinds: readonly BoutKindShape[];
+  }[];
+  /** How far each other step size's pooled bouts are from the first's. */
+  readonly agreement: readonly {
+    readonly bouts: BoutKind;
+    readonly stepsPerSecond: readonly [number, number];
+    /** The two-sample Kolmogorov–Smirnov distance, or null with no bouts to compare. */
+    readonly distance: number | null;
+    readonly tolerance: number;
+    readonly pass: boolean;
+  }[];
+}
+
 /** What the validation suite found, tagged so it can be traced back to the model that made it. */
 export interface ValidationReport {
   readonly format: typeof REPORT_FORMAT;
@@ -113,6 +141,8 @@ export interface ValidationReport {
   }[];
   /** Scoring Disagreement for each distinct Virtual Assay the targets use. */
   readonly disagreement: readonly AssayDisagreement[];
+  /** Bout shapes for each Virtual Assay that scores bouts. */
+  readonly boutShapes: readonly AssayBoutShapes[];
 }
 
 /** Why a report no longer describes the model, or null if it still does. */
@@ -149,7 +179,8 @@ export function readValidationReport(json: string): ValidationReport {
     !Array.isArray(parsed.relationships.drivers) ||
     !Array.isArray(parsed.targets) ||
     !Array.isArray(parsed.skipped) ||
-    !Array.isArray(parsed.disagreement)
+    !Array.isArray(parsed.disagreement) ||
+    !Array.isArray(parsed.boutShapes)
   ) {
     throw new Error("This validation report is incomplete.");
   }

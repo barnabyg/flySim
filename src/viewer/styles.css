@@ -817,3 +817,27 @@ body {
 [data-scale-chart][hidden] {
   display: none;
 }
+
+.chart .reference-line {
+  fill: none;
+  stroke-width: 1.5;
+  pointer-events: none;
+}
+
+.chart .reference-line {
+  stroke-dasharray: 4 3;
+}
+
+.shape-results {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 4px 0 0;
+  padding: 0;
+  color: var(--text-dim);
+  list-style: none;
+}
+
+.shape-results .result {
+  margin-right: 4px;
+}
