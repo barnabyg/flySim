@@ -80,6 +80,9 @@ test("without water the fly dies, the run stops, and restart still works", async
   expect((await page.evaluate(() => window.flySim.sources().food))?.place).toEqual(food.place);
   expect((await runRecord(page)).interventions.map((each) => each.type)).toEqual(["remove-source"]);
 
+  // A restart keeps the speed, and the restarted fly starts as dry, so at 1000× it could die of
+  // thirst again before the checks below on a slow machine. At the slowest speed it can't.
+  await speed.fill(await speed.evaluate((slider) => (slider as HTMLInputElement).min));
   await page.locator("#restart").click();
   // The same seed, alive again.
   await expect.poll(async () => (await currentSample(page))?.death, { timeout: 30_000 }).toBeNull();
