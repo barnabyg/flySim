@@ -72,3 +72,11 @@ export {
   type RunTableName,
   type RunTables,
 } from "./runTables";
+export {
+  DRIVER_RELATIONSHIPS,
+  PARAMETER_LABELS,
+  RELATIONSHIP_STATUSES,
+  type DriverRelationship,
+  type RelationshipLabel,
+  type RelationshipStatus,
+} from "./relationships";

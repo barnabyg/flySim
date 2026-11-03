@@ -173,3 +173,15 @@ _Avoid_: Benchmark, expected result
 **Evidence Pack**:
 The curated set of Validation Targets, including at least one held out from parameter tuning. Every counted target's source was read in full, and each published value records where in it it comes from.
 _Avoid_: Test data, references
+
+**Established**:
+The label for a model relationship that a counted Evidence Pack target supports, which it cites. The parameters that size an Established relationship can still be Provisional, as a source may show that a push exists without saying how strong it is.
+_Avoid_: Validated, proven
+
+**Provisional**:
+The label for a model relationship or parameter that is roughly tuned or plausible but not validated. Every relationship is Provisional until the Evidence Pack supports it, and a tuned value stays Provisional unless a target supports the value itself.
+_Avoid_: Assumed, default
+
+**Hypothesis**:
+The label for a model relationship that is the model's own proposal and that no source measures, such as its answer to what ends Inactivity Bouts under 5 minutes: background arousal left over from activity, drifting down during stillness.
+_Avoid_: Guess, speculation

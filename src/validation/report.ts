@@ -1,8 +1,8 @@
-import type { ModelParameters } from "../engine";
+import type { DriverRelationship, ModelParameters, RelationshipLabel } from "../engine";
 
 /** What every validation report says it is. */
 export const REPORT_FORMAT = "fly-sim-validation-report";
-export const REPORT_VERSION = 1;
+export const REPORT_VERSION = 2;
 
 /**
  * Where the validation suite writes its latest report, from the repo root. The viewer's dev server
@@ -81,6 +81,11 @@ export interface ValidationReport {
   readonly parameters: ModelParameters;
   readonly stepsPerSecond: number;
   readonly seeds: readonly number[];
+  /** Each parameter's and Driver relationship's label, as the model that made the report had them. */
+  readonly relationships: {
+    readonly parameters: Readonly<Record<string, RelationshipLabel>>;
+    readonly drivers: readonly DriverRelationship[];
+  };
   readonly targets: readonly TargetResult[];
   /** Counted targets the suite has no Virtual Assay or measure for yet, and why. */
   readonly skipped: readonly {
@@ -120,6 +125,8 @@ export function readValidationReport(json: string): ValidationReport {
     typeof parsed.parameters !== "object" ||
     typeof parsed.stepsPerSecond !== "number" ||
     !Array.isArray(parsed.seeds) ||
+    typeof parsed.relationships?.parameters !== "object" ||
+    !Array.isArray(parsed.relationships.drivers) ||
     !Array.isArray(parsed.targets) ||
     !Array.isArray(parsed.skipped)
   ) {

@@ -108,6 +108,31 @@ test("the validation control opens a chart per target over the Room, which runs 
   expect(await interventionCount(page)).toBe(0);
 });
 
+test("the view lists the model's relationships by label, with the source of an Established one", async ({
+  page,
+}) => {
+  await serveReport(page, current);
+  await page.goto("/?view=validation");
+  const section = page.locator("#validation-relationships");
+  await expect(section).toBeVisible();
+  const group = (status: string) => section.locator(`.relationship-group[data-status="${status}"]`);
+  await expect(group("established").locator("h3")).toContainText("Established");
+  await expect(group("established").locator("li")).toHaveCount(1);
+  await expect(group("provisional").locator("li")).toHaveCount(2);
+  await expect(group("hypothesis").locator("li")).toHaveCount(2);
+  await expect(group("hypothesis")).toContainText("arousalTimeConstantSeconds");
+  await expect(group("hypothesis")).toContainText("Arousal: Immobility → walking");
+
+  await group("established")
+    .locator('[data-relationship="immobility-to-sleeping circadian"]')
+    .hover();
+  await expect(tip(page)).toContainText("Circadian Clock: Immobility → sleeping");
+  await expect(tip(page)).toContainText("siesta");
+  // The source is the target it cites.
+  const profile = fixture.targets.find((each) => each.id === "example-sleep-profile");
+  await expect(tip(page)).toContainText(profile?.citation ?? "missing");
+});
+
 test("a report from another model version, or other parameters, is marked stale", async ({
   page,
 }) => {

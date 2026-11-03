@@ -672,3 +672,95 @@ body {
 #validation-open {
   margin-left: 6px;
 }
+
+.tooltip-text {
+  margin-bottom: 4px;
+}
+
+.validation-section {
+  margin: 0 16px 16px;
+  padding: 12px 14px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.validation-section h2 {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.section-note {
+  margin: 0 0 8px;
+  color: var(--text-dim);
+}
+
+.relationship-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
+  gap: 16px;
+}
+
+.relationship-group h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.relationship-group h3::before {
+  width: 10px;
+  height: 10px;
+  content: "";
+  background: var(--status-colour);
+  border-radius: 2px;
+}
+
+.relationship-group[data-status="established"] {
+  --status-colour: #6fbf4a;
+}
+
+.relationship-group[data-status="provisional"] {
+  --status-colour: #e0a030;
+}
+
+.relationship-group[data-status="hypothesis"] {
+  --status-colour: #8f78e6;
+}
+
+.relationship-group .count {
+  color: var(--text-dim);
+  font-weight: 400;
+}
+
+.group-meaning {
+  margin: 2px 0 6px;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.relationship-group h4 {
+  margin: 8px 0 2px;
+  color: var(--text-dim);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.relationship-group ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.relationship-group li {
+  padding: 1px 4px;
+  border-left: 2px solid var(--status-colour);
+  cursor: default;
+}
+
+.relationship-group li.hovered {
+  background: var(--line);
+}

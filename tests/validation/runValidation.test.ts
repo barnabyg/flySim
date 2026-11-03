@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_PARAMETERS, MODEL_VERSION } from "../../src/engine";
+import {
+  DEFAULT_PARAMETERS,
+  DRIVER_RELATIONSHIPS,
+  MODEL_VERSION,
+  PARAMETER_LABELS,
+} from "../../src/engine";
 import {
   EvidencePackError,
   readEvidencePack,
@@ -99,6 +104,11 @@ describe("the validation suite's runner", () => {
       parameters: DEFAULT_PARAMETERS,
       stepsPerSecond: 50,
       seeds: [1, 2],
+    });
+    // The labels travel with the parameters.
+    expect(report.relationships).toEqual({
+      parameters: PARAMETER_LABELS,
+      drivers: DRIVER_RELATIONSHIPS,
     });
     expect(report.targets.map((each) => [each.id, each.heldOut])).toEqual([
       ["sleep", false],

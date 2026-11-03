@@ -1,7 +1,9 @@
 import {
   DEFAULT_PARAMETERS,
   DEFAULT_STEPS_PER_SECOND,
+  DRIVER_RELATIONSHIPS,
   MODEL_VERSION,
+  PARAMETER_LABELS,
   type ModelParameters,
 } from "../engine";
 import { runInProcesses } from "../batch/processPool";
@@ -120,6 +122,7 @@ export async function runValidation(options: ValidationOptions): Promise<Validat
     parameters,
     stepsPerSecond,
     seeds,
+    relationships: { parameters: PARAMETER_LABELS, drivers: DRIVER_RELATIONSHIPS },
     targets,
     skipped,
   };
