@@ -44,12 +44,13 @@ describe("Transition Hazards", () => {
   });
 
   it("has per-Driver contributions that add up to the hazard, and a strip from the hazard alone", () => {
-    // Half a day reaches sleep, a Disturb part-way through adds a startle, and water under
-    // the fly at the start brings in Thirst.
+    // Half a day reaches sleep, a Disturb part-way through adds a startle, water under the fly
+    // at the start brings in Thirst, and Restlessness has a rate whatever its default.
     const { position } = createSimulationRun({ room: DEFAULT_ROOM, seed: 2 }).current();
     const { samples, firedTransitions } = recordOf(2, 12 * HOUR, {
       interventions: [{ step: 6 * HOUR * DEFAULT_STEPS_PER_SECOND, type: "disturb" }],
       water: { x: position.x, y: position.y },
+      parameters: { ...DEFAULT_PARAMETERS, startWalkingRestlessnessRate: 0.01 },
     });
     const states = [...samples.flatMap((sample) => sample.transitions), ...firedTransitions];
 

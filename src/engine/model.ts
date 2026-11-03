@@ -17,7 +17,8 @@ export type DriverId =
   | "hunger"
   | "odour"
   | "thirst"
-  | "humidity";
+  | "humidity"
+  | "restlessness";
 
 export type TransitionId =
   | "immobility-to-walking"
@@ -65,6 +66,7 @@ export const DRIVERS: readonly DriverId[] = [
   "odour",
   "thirst",
   "humidity",
+  "restlessness",
 ];
 
 export const TRANSITIONS: readonly TransitionDefinition[] = [
@@ -110,6 +112,11 @@ export interface Senses {
 /** The fly's hidden state that Drivers read. */
 export interface InternalState {
   readonly arousal: number;
+  /**
+   * How active the fly has been lately, from 0 to 1. It rises while it walks or flies and falls
+   * slowly while it keeps still, so it outlasts a pause between walks but not a long settle.
+   */
+  readonly restlessness: number;
   /** A slow state variable, not a rest timer. It rises while awake and falls while asleep. */
   readonly sleepPressure: number;
   /** How deeply the fly is asleep, from 0 to 1, or null while it is awake. */
@@ -163,6 +170,7 @@ const NO_CONTRIBUTIONS: Readonly<Record<DriverId, number>> = {
   odour: 0,
   thirst: 0,
   humidity: 0,
+  restlessness: 0,
 };
 
 /**
@@ -252,8 +260,16 @@ function unweakenedContributions(
   senses: Senses,
   parameters: ModelParameters,
 ): Record<DriverId, number> {
-  const { arousal, sleepPressure, sleepDepth, circadianPhaseHours, startle, hunger, thirst } =
-    state;
+  const {
+    arousal,
+    restlessness,
+    sleepPressure,
+    sleepDepth,
+    circadianPhaseHours,
+    startle,
+    hunger,
+    thirst,
+  } = state;
   const onFood = senses.touchingFood ? 1 : 0;
   const onWater = senses.touchingWater ? 1 : 0;
   const damp = dampness(senses, parameters);
@@ -269,6 +285,7 @@ function unweakenedContributions(
         odour: parameters.startWalkingOdourRate * senses.odour * hunger,
         thirst: parameters.startWalkingThirstRate * power(thirst, 4),
         humidity: parameters.startWalkingHumidityRate * damp * thirst,
+        restlessness: parameters.startWalkingRestlessnessRate * restlessness,
       };
     case "immobility-to-grooming":
       return {
@@ -288,6 +305,7 @@ function unweakenedContributions(
         odour: parameters.walkAfterGroomingOdourRate * senses.odour * hunger,
         thirst: parameters.walkAfterGroomingThirstRate * power(thirst, 4),
         humidity: parameters.walkAfterGroomingHumidityRate * damp * thirst,
+        restlessness: parameters.walkAfterGroomingRestlessnessRate * restlessness,
       };
     case "immobility-to-flying":
       return {

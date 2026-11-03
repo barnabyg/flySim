@@ -129,9 +129,9 @@ describe("exporting a run as CSV tables", () => {
     }
     // The layout is a compatibility contract, so a new Driver or transition must change this on
     // purpose, with the record format version.
-    expect(samples.header).toHaveLength(243);
+    expect(samples.header).toHaveLength(260);
     expect(samples.header).toContain("death_cause");
-    expect(TRANSITIONS.length * (DRIVERS.length + 2)).toBe(208);
+    expect(TRANSITIONS.length * (DRIVERS.length + 2)).toBe(224);
     expect(transitions.header).toEqual([
       "seed",
       "model_version",
@@ -153,6 +153,7 @@ describe("exporting a run as CSV tables", () => {
       "odour",
       "thirst",
       "humidity",
+      "restlessness",
       "p_next_minute",
       "vigilance_state",
       "sleep_pressure",

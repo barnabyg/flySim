@@ -158,11 +158,43 @@ describe("reading an exported file", () => {
   });
 
   it("refuses a record format version it can't read", () => {
-    for (const recordFormatVersion of [0, 3, "1", undefined]) {
+    for (const recordFormatVersion of [0, 4, "1", undefined]) {
       expect(() => readRunExport(JSON.stringify({ ...file, recordFormatVersion }))).toThrow(
         /record format version .* can't read/,
       );
     }
+  });
+
+  it("reads a version 2 file, from before Restlessness, with Restlessness pushing nothing", () => {
+    const restlessnessParameters = [
+      "restlessnessRiseTimeConstantSeconds",
+      "restlessnessFallTimeConstantSeconds",
+      "initialRestlessness",
+      "startWalkingRestlessnessRate",
+      "walkAfterGroomingRestlessnessRate",
+    ];
+    const parameters = Object.fromEntries(
+      Object.entries(file.parameters).filter(([name]) => !restlessnessParameters.includes(name)),
+    );
+    const older = readRunExport(
+      JSON.stringify({ ...file, recordFormatVersion: 2, modelVersion: "0.6.0", parameters }),
+    );
+
+    expect(older.sameModelVersion).toBe(false);
+    expect(older.run.parameters).toMatchObject({
+      startWalkingRestlessnessRate: 0,
+      walkAfterGroomingRestlessnessRate: 0,
+      initialRestlessness: 0,
+    });
+    // It replays, with Restlessness never pushing.
+    const replayed = reproduce(older.run);
+    for (const sample of replayed.samples) {
+      for (const each of sample.transitions) expect(each.contributions.restlessness).toBe(0);
+    }
+    // A version 3 file must give every parameter.
+    expect(() => readRunExport(JSON.stringify({ ...file, parameters }))).toThrow(
+      /no value for the model parameters .*restlessness/i,
+    );
   });
 
   it("says when the file comes from a different model version", () => {

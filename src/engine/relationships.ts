@@ -44,6 +44,9 @@ function established(description: string, evidence: readonly string[]): Relation
 const ENDS_SHORT_BOUTS =
   "It is the model's answer to what ends Inactivity Bouts under 5 minutes: arousal left over from activity drifts down during Immobility, so the chance of moving falls the longer the fly stays still. No source measures it.";
 
+const SETTLING =
+  "With arousal, it is the model's answer to how a fly between walks resumes within seconds while one that has settled can stay awake and still for many minutes: a slow memory of activity that outlasts a pause but fades over minutes of stillness. No source measures it (#81).";
+
 /**
  * Each parameter's label. A tuned value is Provisional unless a counted Evidence Pack target
  * supports the value itself, and the arousal that ends short Inactivity Bouts is a Hypothesis.
@@ -63,6 +66,17 @@ export const PARAMETER_LABELS: Readonly<Record<keyof ModelParameters, Relationsh
     "Arousal's random drift, which lets a still fly move again with no new stimulus.",
   ),
   initialArousal: provisional("Arousal at the start of a run."),
+  restlessnessRiseTimeConstantSeconds: hypothesis(
+    `How quickly Restlessness builds while the fly walks or flies. ${SETTLING}`,
+  ),
+  restlessnessFallTimeConstantSeconds: hypothesis(
+    `How slowly Restlessness fades while the fly keeps still. ${SETTLING}`,
+  ),
+  initialRestlessness: provisional("Restlessness at the start of a run."),
+  startWalkingRestlessnessRate: hypothesis(`How strongly Restlessness starts walking. ${SETTLING}`),
+  walkAfterGroomingRestlessnessRate: hypothesis(
+    "How strongly Restlessness ends grooming in a walk.",
+  ),
   startWalkingSpontaneousRate: hypothesis(
     "A still fly's small chance of walking that no Driver explains.",
   ),
@@ -184,6 +198,11 @@ export const DRIVER_RELATIONSHIPS: readonly DriverRelationship[] = [
     "arousal",
     hypothesis(`Arousal starts a still fly walking. ${ENDS_SHORT_BOUTS}`),
   ),
+  driver(
+    "immobility-to-walking",
+    "restlessness",
+    hypothesis(`Recent activity starts a still fly walking again. ${SETTLING}`),
+  ),
   driver("immobility-to-walking", "light", provisional("Light starts a still fly walking.")),
   driver("immobility-to-walking", "startle", provisional("A Startle sends a still fly walking.")),
   driver("immobility-to-walking", "hunger", provisional("Hunger starts a still fly walking.")),
@@ -215,6 +234,11 @@ export const DRIVER_RELATIONSHIPS: readonly DriverRelationship[] = [
     provisional("A grooming fly sometimes walks off for no reason a Driver gives."),
   ),
   driver("grooming-to-walking", "arousal", hypothesis("Arousal ends grooming in a walk.")),
+  driver(
+    "grooming-to-walking",
+    "restlessness",
+    hypothesis("Recent activity ends grooming in a walk, as it ends a pause."),
+  ),
   driver("grooming-to-walking", "startle", provisional("A Startle ends grooming in a walk.")),
   driver("grooming-to-walking", "hunger", provisional("Hunger ends grooming in a walk.")),
   driver("grooming-to-walking", "odour", provisional("Odour ends a hungry fly's grooming.")),
