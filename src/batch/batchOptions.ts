@@ -3,6 +3,9 @@ import { parseArgs } from "node:util";
 import {
   DEFAULT_ROOM,
   DEFAULT_SAMPLE_INTERVAL_SECONDS,
+  DEFAULT_STEPS_PER_SECOND,
+  MAX_STEPS_PER_SECOND,
+  MIN_STEPS_PER_SECOND,
   validateSetupOptions,
   type FloorPlace,
   type SetupOptions,
@@ -38,6 +41,8 @@ Options:
   --energy <level>         How full the Energy Reserve starts, from 0.01 to 1.
   --hydration <level>      How full the Hydration Reserve starts, from 0.01 to 1.
   --light-hours <hours>    The starting hours of light from lights-on at 06:00, from 0 to 24.
+  --steps-per-second <n>   The run's step size, in whole steps per simulated second, from
+                           ${MIN_STEPS_PER_SECOND} to ${MAX_STEPS_PER_SECOND}. Default ${DEFAULT_STEPS_PER_SECOND}.
   --jobs <count>           How many seeds run at once. Default: one per core.
   --help                   Shows this.
 `;
@@ -133,6 +138,7 @@ export function parseBatchOptions(args: readonly string[]): BatchOptions | undef
         energy: { type: "string" },
         hydration: { type: "string" },
         "light-hours": { type: "string" },
+        "steps-per-second": { type: "string" },
         jobs: { type: "string" },
         help: { type: "boolean", default: false },
       },
@@ -153,6 +159,7 @@ export function parseBatchOptions(args: readonly string[]): BatchOptions | undef
   const energy = numberOption("energy", values.energy);
   const hydration = numberOption("hydration", values.hydration);
   const lightHours = numberOption("light-hours", values["light-hours"]);
+  const stepsPerSecond = numberOption("steps-per-second", values["steps-per-second"]);
   const setup: Omit<SetupOptions, "seed"> = {
     room: {
       widthMetres: numberOption("width", values.width) ?? DEFAULT_ROOM.widthMetres,
@@ -164,6 +171,7 @@ export function parseBatchOptions(args: readonly string[]): BatchOptions | undef
     ...(energy !== undefined && { energy }),
     ...(hydration !== undefined && { hydration }),
     ...(lightHours !== undefined && { lightHours }),
+    ...(stepsPerSecond !== undefined && { stepsPerSecond }),
   };
   const seeds = seedsFrom(values.seeds);
   try {

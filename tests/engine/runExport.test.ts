@@ -5,7 +5,7 @@ import {
   EXPORT_FORMAT,
   MODEL_VERSION,
   RECORD_FORMAT_VERSION,
-  STEPS_PER_SECOND,
+  DEFAULT_STEPS_PER_SECOND,
   createSimulationRun,
   exportFileName,
   exportRun,
@@ -29,12 +29,12 @@ function liveRun(seed: number, maxRecordedSamples = Infinity): SimulationRun {
     triggerStream: 11,
     maxRecordedSamples,
   });
-  run.advanceSteps(2 * MINUTE * STEPS_PER_SECOND + 13);
+  run.advanceSteps(2 * MINUTE * DEFAULT_STEPS_PER_SECOND + 13);
   run.intervene({ type: "disturb" });
-  run.advanceSteps(MINUTE * STEPS_PER_SECOND + 7);
+  run.advanceSteps(MINUTE * DEFAULT_STEPS_PER_SECOND + 7);
   run.intervene({ type: "move-source", source: "water", place: { x: 0.3, y: 0.3 } });
   run.intervene({ type: "light-schedule", lightSchedule: { lightsOnHour: 0, lightHours: 24 } });
-  run.advanceSteps(4 * MINUTE * STEPS_PER_SECOND + 29);
+  run.advanceSteps(4 * MINUTE * DEFAULT_STEPS_PER_SECOND + 29);
   return run;
 }
 
@@ -61,7 +61,7 @@ describe("exporting a run as JSON", () => {
       modelVersion: MODEL_VERSION,
       seed: 1,
       triggerStream: 11,
-      stepsPerSecond: STEPS_PER_SECOND,
+      stepsPerSecond: DEFAULT_STEPS_PER_SECOND,
       room: { widthMetres: 0.6, depthMetres: 0.8, heightMetres: 0.4 },
       food: { x: 0.1, y: 0.2 },
       water: record.water,
@@ -81,10 +81,10 @@ describe("exporting a run as JSON", () => {
     expect(file.firedTransitions).toEqual(record.firedTransitions);
     expect(file.firedTransitions.length).toBeGreaterThan(5);
     expect(exportFileName(file, "samples")).toBe(
-      `fly-sim-seed-1-at-${Math.floor(record.step / STEPS_PER_SECOND)}s-samples.csv.gz`,
+      `fly-sim-seed-1-at-${Math.floor(record.step / DEFAULT_STEPS_PER_SECOND)}s-samples.csv.gz`,
     );
     expect(exportFileName(file)).toBe(
-      `fly-sim-seed-1-at-${Math.floor(record.step / STEPS_PER_SECOND)}s.json.gz`,
+      `fly-sim-seed-1-at-${Math.floor(record.step / DEFAULT_STEPS_PER_SECOND)}s.json.gz`,
     );
   });
 
@@ -102,10 +102,10 @@ describe("exporting a run as JSON", () => {
       const times = file.samples.map((sample) => sample.timeSeconds);
       expect(file.sampleIntervalSeconds).toBe(interval);
       expect(times[0]).toBe(0);
-      expect(times).toHaveLength(Math.floor(record.step / STEPS_PER_SECOND / interval) + 1);
+      expect(times).toHaveLength(Math.floor(record.step / DEFAULT_STEPS_PER_SECOND / interval) + 1);
       for (const sample of file.samples) {
-        expect(sample.step % (interval * STEPS_PER_SECOND)).toBe(0);
-        expect(sample).toEqual(record.samples[sample.step / STEPS_PER_SECOND]);
+        expect(sample.step % (interval * DEFAULT_STEPS_PER_SECOND)).toBe(0);
+        expect(sample).toEqual(record.samples[sample.step / DEFAULT_STEPS_PER_SECOND]);
       }
       expect(file.firedTransitions).toEqual(record.firedTransitions);
       expect(file.interventions).toEqual(record.interventions);

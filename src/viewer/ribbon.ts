@@ -1,6 +1,5 @@
 import {
   BEHAVIOURS,
-  STEPS_PER_SECOND,
   type Behaviour,
   type FiredTransition,
   type Intervention,
@@ -59,7 +58,8 @@ export interface Ribbon {
  * shown in the right proportions rather than being dropped or blended. Sleep is
  * shaded by Sleep Depth, which arrives with each frame.
  */
-export function createRibbon(canvas: HTMLCanvasElement): Ribbon {
+/** A run's Interventions are timed in its steps, of which it takes this many a second. */
+export function createRibbon(canvas: HTMLCanvasElement, stepsPerSecond: number): Ribbon {
   const context = canvas.getContext("2d");
   if (!context) throw new Error("No 2D context for the ribbon");
 
@@ -146,7 +146,7 @@ export function createRibbon(canvas: HTMLCanvasElement): Ribbon {
     update: (sample, fired, interventions) => {
       // A schedule change shows in the light strip, so only a Disturb needs a mark.
       for (const { step, type } of interventions) {
-        if (type === "disturb") markTimes.push(step / STEPS_PER_SECOND);
+        if (type === "disturb") markTimes.push(step / stepsPerSecond);
       }
       if (changes.length === 0) {
         changes.push({

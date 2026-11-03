@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_PARAMETERS,
   DEFAULT_ROOM,
-  STEPS_PER_SECOND,
+  DEFAULT_STEPS_PER_SECOND,
   createSimulationRun,
   replaySetup,
   type InterventionAction,
@@ -14,7 +14,7 @@ const MINUTE = 60;
 
 /** Advances a run in uneven steps, as the viewer would at any speed. */
 function advanceUnevenly(run: SimulationRun, seconds: number): void {
-  const until = run.current().step + seconds * STEPS_PER_SECOND;
+  const until = run.current().step + seconds * DEFAULT_STEPS_PER_SECOND;
   while (run.current().step < until) {
     run.advanceSteps(Math.min(337, until - run.current().step));
   }
@@ -54,7 +54,7 @@ describe("replaying a run", () => {
     for (const seed of [1, 2, 3]) {
       const original = runWithInterventions(seed).record();
       expect(original.interventions).toHaveLength(7);
-      expect(original.step % STEPS_PER_SECOND).toBe(17);
+      expect(original.step % DEFAULT_STEPS_PER_SECOND).toBe(17);
 
       expect(replayOf(original)).toEqual(original);
     }
@@ -83,7 +83,7 @@ describe("replaying a run", () => {
 
     expect(first.interventions).toHaveLength(8);
     expect(
-      first.interventions.filter((each) => each.step === 3 * MINUTE * STEPS_PER_SECOND),
+      first.interventions.filter((each) => each.step === 3 * MINUTE * DEFAULT_STEPS_PER_SECOND),
     ).toHaveLength(1);
     expect(replayOf(first)).toEqual(first);
     // The new Disturb changed what happened after it.

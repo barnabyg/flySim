@@ -3,7 +3,7 @@ import {
   BEHAVIOURS,
   DEFAULT_PARAMETERS,
   DEFAULT_ROOM,
-  STEPS_PER_SECOND,
+  DEFAULT_STEPS_PER_SECOND,
   createSimulationRun,
   type Position,
   type RoomSetup,
@@ -92,7 +92,7 @@ describe("Simulation Run", () => {
     const inPieces = createSimulationRun({ room: DEFAULT_ROOM, seed: 7 });
     for (let i = 0; i < 500; i++) inPieces.advanceSteps(10);
 
-    expect(STEPS_PER_SECOND).toBe(50);
+    expect(DEFAULT_STEPS_PER_SECOND).toBe(50);
     expect(inOneGo.current().timeSeconds).toBeCloseTo(100, 9);
     expect(inPieces.record()).toEqual(inOneGo.record());
   });
@@ -154,7 +154,7 @@ describe("Simulation Run", () => {
       expect(expected.size).toBeGreaterThan(1);
       for (const surface of Object.keys(NORMALS) as Surface[]) {
         expect(timeOnSurfaceSeconds[surface]).toBeCloseTo(
-          (expected.get(surface) ?? 0) / STEPS_PER_SECOND,
+          (expected.get(surface) ?? 0) / DEFAULT_STEPS_PER_SECOND,
           9,
         );
       }
@@ -267,7 +267,7 @@ describe("Simulation Run", () => {
       expect(timeInBehaviourSeconds.immobility).toBeGreaterThan(0);
       for (const behaviour of BEHAVIOURS) {
         expect(timeInBehaviourSeconds[behaviour]).toBeCloseTo(
-          (steps.get(behaviour) ?? 0) / STEPS_PER_SECOND,
+          (steps.get(behaviour) ?? 0) / DEFAULT_STEPS_PER_SECOND,
           9,
         );
       }
@@ -347,7 +347,7 @@ describe("Simulation Run", () => {
           previous = sample;
         }
         expect(steps).toBeGreaterThan(100);
-        return (distance / steps) * STEPS_PER_SECOND;
+        return (distance / steps) * DEFAULT_STEPS_PER_SECOND;
       };
 
       expect(DEFAULT_PARAMETERS.flightSpeedMetresPerSecond).toBe(1);

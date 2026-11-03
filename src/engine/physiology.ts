@@ -10,12 +10,42 @@ import {
 import type { ModelParameters } from "./parameters";
 import type { RandomStream } from "./random";
 
-/** The simulation always advances in fixed steps of this rate. */
-export const STEPS_PER_SECOND = 50;
+/** A run advances in fixed steps of this rate unless its setup gives another. */
+export const DEFAULT_STEPS_PER_SECOND = 50;
 
-export const STEP_SECONDS = 1 / STEPS_PER_SECOND;
-export const SQRT_STEP_SECONDS = Math.sqrt(STEP_SECONDS);
-const STEP_HOURS = STEP_SECONDS / 3600;
+/**
+ * The step sizes a run can have. Below the slowest, a walking step can carry the fly past a
+ * narrow chamber's surface in one go, and above the fastest a day takes too long to simulate.
+ */
+export const MIN_STEPS_PER_SECOND = 25;
+export const MAX_STEPS_PER_SECOND = 1000;
+
+/** A run's fixed step, which every rate, time constant and noise is scaled by. */
+export interface Clock {
+  readonly stepsPerSecond: number;
+  readonly stepSeconds: number;
+  readonly sqrtStepSeconds: number;
+  readonly stepHours: number;
+}
+
+export function clockOf(stepsPerSecond: number): Clock {
+  if (!(
+    Number.isInteger(stepsPerSecond) &&
+    stepsPerSecond >= MIN_STEPS_PER_SECOND &&
+    stepsPerSecond <= MAX_STEPS_PER_SECOND
+  )) {
+    throw new Error(
+      `A run takes a whole number of steps a second from ${MIN_STEPS_PER_SECOND} to ${MAX_STEPS_PER_SECOND}, not ${stepsPerSecond}`,
+    );
+  }
+  const stepSeconds = 1 / stepsPerSecond;
+  return {
+    stepsPerSecond,
+    stepSeconds,
+    sqrtStepSeconds: Math.sqrt(stepSeconds),
+    stepHours: stepSeconds / 3600,
+  };
+}
 
 const MIN_STARTLE = 1e-6;
 
@@ -71,17 +101,18 @@ export function advanceBodyState(
   senses: Senses,
   parameters: ModelParameters,
   noise: BodyNoise,
+  clock: Clock,
 ): BodyState {
-  const sleepPressure = nextSleepPressure(body.sleepPressure, behaviour, parameters);
+  const sleepPressure = nextSleepPressure(body.sleepPressure, behaviour, parameters, clock);
   return {
     ...body,
-    arousal: nextArousal(body.arousal, behaviour, parameters, noise.arousal),
+    arousal: nextArousal(body.arousal, behaviour, parameters, noise.arousal, clock),
     sleepPressure,
-    sleepDepth: nextSleepDepth(body.sleepDepth, sleepPressure, parameters, noise.sleepDepth),
-    circadianPhaseHours: nextCircadianPhase(body.circadianPhaseHours, senses, parameters),
-    startle: nextStartle(body.startle, parameters),
-    energy: nextEnergy(body.energy, behaviour, senses, parameters),
-    hydration: nextHydration(body.hydration, behaviour, senses, parameters),
+    sleepDepth: nextSleepDepth(body.sleepDepth, sleepPressure, parameters, noise.sleepDepth, clock),
+    circadianPhaseHours: nextCircadianPhase(body.circadianPhaseHours, senses, parameters, clock),
+    startle: nextStartle(body.startle, parameters, clock),
+    energy: nextEnergy(body.energy, behaviour, senses, parameters, clock),
+    hydration: nextHydration(body.hydration, behaviour, senses, parameters, clock),
   };
 }
 
@@ -90,16 +121,17 @@ export function adaptToSenses(
   body: BodyState,
   senses: Senses,
   parameters: ModelParameters,
+  clock: Clock,
 ): BodyState {
   return {
     ...body,
     recentOdour:
       body.recentOdour +
-      ((senses.odour - body.recentOdour) / parameters.odourAdaptationSeconds) * STEP_SECONDS,
+      ((senses.odour - body.recentOdour) / parameters.odourAdaptationSeconds) * clock.stepSeconds,
     recentHumidity:
       body.recentHumidity +
       ((senses.humidity - body.recentHumidity) / parameters.humidityAdaptationSeconds) *
-        STEP_SECONDS,
+        clock.stepSeconds,
   };
 }
 
@@ -127,12 +159,13 @@ function nextArousal(
   behaviour: Behaviour,
   parameters: ModelParameters,
   noise: RandomStream,
+  clock: Clock,
 ): number {
   const target = arousalTarget(behaviour, parameters);
   const next =
     arousal +
-    ((target - arousal) / parameters.arousalTimeConstantSeconds) * STEP_SECONDS +
-    parameters.arousalNoise * SQRT_STEP_SECONDS * noise.normal();
+    ((target - arousal) / parameters.arousalTimeConstantSeconds) * clock.stepSeconds +
+    parameters.arousalNoise * clock.sqrtStepSeconds * noise.normal();
   return Math.min(1, Math.abs(next));
 }
 
@@ -140,12 +173,13 @@ function nextSleepPressure(
   sleepPressure: number,
   behaviour: Behaviour,
   parameters: ModelParameters,
+  clock: Clock,
 ): number {
   return (
     sleepPressure +
     (vigilanceStateOf(behaviour) === "asleep"
-      ? (-sleepPressure / parameters.sleepPressureFallTimeConstantSeconds) * STEP_SECONDS
-      : ((1 - sleepPressure) / parameters.sleepPressureRiseTimeConstantSeconds) * STEP_SECONDS)
+      ? (-sleepPressure / parameters.sleepPressureFallTimeConstantSeconds) * clock.stepSeconds
+      : ((1 - sleepPressure) / parameters.sleepPressureRiseTimeConstantSeconds) * clock.stepSeconds)
   );
 }
 
@@ -155,14 +189,15 @@ function nextSleepDepth(
   sleepPressure: number,
   parameters: ModelParameters,
   noise: RandomStream,
+  clock: Clock,
 ): number | null {
   if (sleepDepth === null) return null;
   const target =
     parameters.sleepDepthBaseTarget + parameters.sleepDepthSleepPressureGain * sleepPressure;
   const next =
     sleepDepth +
-    ((target - sleepDepth) / parameters.sleepDepthTimeConstantSeconds) * STEP_SECONDS +
-    parameters.sleepDepthNoise * SQRT_STEP_SECONDS * noise.normal();
+    ((target - sleepDepth) / parameters.sleepDepthTimeConstantSeconds) * clock.stepSeconds +
+    parameters.sleepDepthNoise * clock.sqrtStepSeconds * noise.normal();
   return Math.min(1, Math.abs(next));
 }
 
@@ -181,17 +216,18 @@ function nextCircadianPhase(
   circadianPhaseHours: number,
   senses: Senses,
   parameters: ModelParameters,
+  clock: Clock,
 ): number {
   const clockHoursPerHour = Math.max(
     0,
     24 / parameters.circadianPeriodHours +
       parameters.clockEntrainmentRate * senses.lightLevel * lightPull(circadianPhaseHours),
   );
-  return (circadianPhaseHours + clockHoursPerHour * STEP_HOURS) % 24;
+  return (circadianPhaseHours + clockHoursPerHour * clock.stepHours) % 24;
 }
 
-function nextStartle(startle: number, parameters: ModelParameters): number {
-  const next = startle * exp(-STEP_SECONDS / parameters.startleTimeConstantSeconds);
+function nextStartle(startle: number, parameters: ModelParameters, clock: Clock): number {
+  const next = startle * exp(-clock.stepSeconds / parameters.startleTimeConstantSeconds);
   // Ends a faded startle outright, so that it leaves no trace in later hazards.
   return next < MIN_STARTLE ? 0 : next;
 }
@@ -217,12 +253,13 @@ function nextEnergy(
   behaviour: Behaviour,
   senses: Senses,
   parameters: ModelParameters,
+  clock: Clock,
 ): number {
   // Only what the fly is touching can be taken in.
   const intake = behaviour === "feeding" && senses.touchingFood ? parameters.feedingIntake : 0;
   return Math.min(
     1,
-    Math.max(0, energy + (intake - energyUse(behaviour, parameters)) * STEP_SECONDS),
+    Math.max(0, energy + (intake - energyUse(behaviour, parameters)) * clock.stepSeconds),
   );
 }
 
@@ -247,10 +284,11 @@ function nextHydration(
   behaviour: Behaviour,
   senses: Senses,
   parameters: ModelParameters,
+  clock: Clock,
 ): number {
   const intake = behaviour === "drinking" && senses.touchingWater ? parameters.drinkingIntake : 0;
   return Math.min(
     1,
-    Math.max(0, hydration + (intake - waterLoss(behaviour, parameters)) * STEP_SECONDS),
+    Math.max(0, hydration + (intake - waterLoss(behaviour, parameters)) * clock.stepSeconds),
   );
 }

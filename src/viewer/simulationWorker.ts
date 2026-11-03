@@ -1,5 +1,5 @@
 import {
-  STEPS_PER_SECOND,
+  DEFAULT_STEPS_PER_SECOND,
   createSimulationRun,
   exportFiles,
   exportRun,
@@ -26,6 +26,7 @@ let run: SimulationRun | undefined;
 let setup: SimulationSetup | undefined;
 let lastTickTime = 0;
 let stepsOwed = 0;
+let stepsPerSecond = DEFAULT_STEPS_PER_SECOND;
 let firedSent = 0;
 let interventionsSent = 0;
 
@@ -40,7 +41,7 @@ function tick(): void {
   lastTickTime = now;
   // A dead fly's run goes no further.
   if (paused || run.current().death) return;
-  stepsOwed += elapsedSeconds * speed * STEPS_PER_SECOND;
+  stepsOwed += elapsedSeconds * speed * stepsPerSecond;
 
   // How many steps run in a tick depends on wall-clock time, but a run depends only
   // on its step count, so this can't affect the results.
@@ -50,7 +51,7 @@ function tick(): void {
     stepsOwed -= steps;
   }
   // If the machine can't keep up, time runs slower instead of building up a backlog.
-  stepsOwed = Math.min(stepsOwed, speed * STEPS_PER_SECOND);
+  stepsOwed = Math.min(stepsOwed, speed * stepsPerSecond);
 
   sendFrame();
 }
@@ -106,6 +107,7 @@ onmessage = (event: MessageEvent<ToSimulation>) => {
     case "start":
       speed = message.speed;
       setup = message.setup;
+      stepsPerSecond = setup.stepsPerSecond ?? DEFAULT_STEPS_PER_SECOND;
       run = createSimulationRun({ ...setup, maxRecordedSamples: MAX_RECORDED_SAMPLES });
       lastTickTime = performance.now();
       setInterval(tick, TICK_MILLISECONDS);

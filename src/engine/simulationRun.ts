@@ -16,11 +16,10 @@ import {
 } from "./model";
 import { DEFAULT_PARAMETERS, type ModelParameters } from "./parameters";
 import {
-  STEPS_PER_SECOND,
-  SQRT_STEP_SECONDS,
-  STEP_SECONDS,
+  DEFAULT_STEPS_PER_SECOND,
   adaptToSenses,
   advanceBodyState,
+  clockOf,
   initialBodyState,
   internalStateOf,
 } from "./physiology";
@@ -95,6 +94,11 @@ export interface SimulationSetup {
   readonly triggerStream?: number;
   /** Keeps only the latest samples, for long viewer runs. The default keeps them all. */
   readonly maxRecordedSamples?: number;
+  /**
+   * How many fixed steps the run takes per simulated second, 50 by default. Rates, time constants
+   * and noise act per simulated second, so another step size changes the run only by chance.
+   */
+  readonly stepsPerSecond?: number;
 }
 
 export interface TransitionState {
@@ -189,6 +193,7 @@ export type RecordedSetup = Pick<
   RunRecord,
   | "seed"
   | "triggerStream"
+  | "stepsPerSecond"
   | "room"
   | "parameters"
   | "food"
@@ -205,6 +210,7 @@ export function replaySetup(recorded: RecordedSetup): SimulationSetup {
   return {
     seed: recorded.seed,
     triggerStream: recorded.triggerStream,
+    stepsPerSecond: recorded.stepsPerSecond,
     room: recorded.room,
     parameters: recorded.parameters,
     food: recorded.food,
@@ -264,6 +270,8 @@ function validateAction(action: InterventionAction, room: RoomSetup): void {
 
 export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   const { room, seed, maxRecordedSamples = Infinity } = setup;
+  const clock = clockOf(setup.stepsPerSecond ?? DEFAULT_STEPS_PER_SECOND);
+  const { stepsPerSecond, stepSeconds } = clock;
   const parameters = setup.parameters ?? DEFAULT_PARAMETERS;
   const initialPlaces = {
     food: setup.food === undefined ? defaultPlace("food", room) : setup.food,
@@ -308,7 +316,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   }
 
   function currentTimeOfDay(): number {
-    return timeOfDayHours(initialLightSchedule.lightsOnHour, step * STEP_SECONDS);
+    return timeOfDayHours(initialLightSchedule.lightsOnHour, step * stepSeconds);
   }
 
   function currentLightLevel(): number {
@@ -365,12 +373,12 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
     const state = internalState();
     for (const item of pending) {
       const parts = hazardOf(item.definition.id, state);
-      item.accumulatedHazard += parts.hazard * STEP_SECONDS;
+      item.accumulatedHazard += parts.hazard * stepSeconds;
       if (item.accumulatedHazard >= item.triggerLevel) {
         firedTransitions.push({
           ...withStrip(parts),
           step: step + 1,
-          timeSeconds: (step + 1) * STEP_SECONDS,
+          timeSeconds: (step + 1) * stepSeconds,
           from: item.definition.from,
           to: item.definition.to,
           triggerLevel: item.triggerLevel,
@@ -438,10 +446,10 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   /** Steers by comparing what the fly senses now with what it has sensed lately. */
   function walk(senses: Senses): void {
     movement.walk(
-      parameters.walkingSpeedMetresPerSecond * STEP_SECONDS,
+      parameters.walkingSpeedMetresPerSecond * stepSeconds,
       turningScale(internalState(), senses, parameters) *
         parameters.walkingTurnNoise *
-        SQRT_STEP_SECONDS *
+        clock.sqrtStepSeconds *
         movementNoise.normal(),
     );
   }
@@ -449,7 +457,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   function current(): RunSample {
     return {
       step,
-      timeSeconds: step * STEP_SECONDS,
+      timeSeconds: step * stepSeconds,
       timeOfDayHours: currentTimeOfDay(),
       lightLevel: currentLightLevel(),
       lightSchedule,
@@ -470,7 +478,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   function checkForDeath(): boolean {
     const cause = body.energy <= 0 ? "starvation" : body.hydration <= 0 ? "desiccation" : undefined;
     if (!cause) return false;
-    death = { step, timeSeconds: step * STEP_SECONDS, cause };
+    death = { step, timeSeconds: step * stepSeconds, cause };
     behaviour = "immobility";
     body = { ...body, sleepDepth: null };
     movement.fall();
@@ -490,11 +498,10 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       sensed = undefined;
       fireDueTransition();
       const senses = currentSenses();
-      body = advanceBodyState(body, behaviour, senses, parameters, bodyNoise);
+      body = advanceBodyState(body, behaviour, senses, parameters, bodyNoise, clock);
       if (behaviour === "walking") walk(senses);
-      body = adaptToSenses(body, senses, parameters);
-      if (behaviour === "flying")
-        movement.fly(parameters.flightSpeedMetresPerSecond * STEP_SECONDS);
+      body = adaptToSenses(body, senses, parameters, clock);
+      if (behaviour === "flying") movement.fly(parameters.flightSpeedMetresPerSecond * stepSeconds);
       const surface = movement.surface();
       if (surface) stepsOnSurface.set(surface, (stepsOnSurface.get(surface) ?? 0) + 1);
       stepsInBehaviour.set(behaviour, (stepsInBehaviour.get(behaviour) ?? 0) + 1);
@@ -503,7 +510,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       sensed = undefined;
       const died = checkForDeath();
       // The record always ends with the moment of death.
-      if (step % STEPS_PER_SECOND === 0 || died) recordSample();
+      if (step % stepsPerSecond === 0 || died) recordSample();
     }
   }
 
@@ -512,7 +519,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   return {
     advanceSteps,
     advanceSeconds: (seconds) => {
-      advanceSteps(Math.round(seconds * STEPS_PER_SECOND));
+      advanceSteps(Math.round(seconds * stepsPerSecond));
     },
     current,
     firedTransitions,
@@ -535,17 +542,17 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       food: initialPlaces.food,
       water: initialPlaces.water,
       lightSchedule: initialLightSchedule,
-      stepsPerSecond: STEPS_PER_SECOND,
+      stepsPerSecond,
       step,
       samples: [...samples],
       firedTransitions: [...firedTransitions],
       // One due later isn't in the record yet, as it wouldn't be if made during the run.
       interventions: interventions.filter((each) => each.step <= step),
       timeOnSurfaceSeconds: Object.fromEntries(
-        SURFACES.map((surface) => [surface, (stepsOnSurface.get(surface) ?? 0) * STEP_SECONDS]),
+        SURFACES.map((surface) => [surface, (stepsOnSurface.get(surface) ?? 0) * stepSeconds]),
       ) as Record<Surface, number>,
       timeInBehaviourSeconds: Object.fromEntries(
-        BEHAVIOURS.map((each) => [each, (stepsInBehaviour.get(each) ?? 0) * STEP_SECONDS]),
+        BEHAVIOURS.map((each) => [each, (stepsInBehaviour.get(each) ?? 0) * stepSeconds]),
       ) as Record<Behaviour, number>,
       death,
     }),

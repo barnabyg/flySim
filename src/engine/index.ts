@@ -9,7 +9,7 @@ export {
   type VigilanceState,
 } from "./model";
 export { DEFAULT_PARAMETERS, type ModelParameters } from "./parameters";
-export { STEPS_PER_SECOND } from "./physiology";
+export { DEFAULT_STEPS_PER_SECOND, MAX_STEPS_PER_SECOND, MIN_STEPS_PER_SECOND } from "./physiology";
 export { DEFAULT_LIGHT_SCHEDULE, lightLevel, type LightSchedule } from "./lightSchedule";
 export {
   SOURCE_KINDS,

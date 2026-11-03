@@ -2,6 +2,7 @@ import * as THREE from "three";
 import {
   DEFAULT_LIGHT_SCHEDULE,
   DEFAULT_PARAMETERS,
+  DEFAULT_STEPS_PER_SECOND,
   MODEL_VERSION,
   SOURCE_KINDS,
   lightLevel,
@@ -129,7 +130,10 @@ roomScene.scene.add(fieldOverlay.object);
 const simulation = startSimulation(setup, speed);
 
 const driverPanel = createDriverPanel(requireElement("#drivers", HTMLElement));
-const ribbon = createRibbon(requireElement("#ribbon", HTMLCanvasElement));
+const ribbon = createRibbon(
+  requireElement("#ribbon", HTMLCanvasElement),
+  setup.stepsPerSecond ?? DEFAULT_STEPS_PER_SECOND,
+);
 ribbon.setSpeed(speed);
 const timeControls = createTimeControls(
   requireElement("#controls", HTMLElement),

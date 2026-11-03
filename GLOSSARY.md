@@ -119,7 +119,7 @@ _Avoid_: Poke, tap, stimulus
 ### Runs
 
 **Simulation Run**:
-One seeded run of the model from a setup of Room, Light Schedule, model parameters and Interventions. The same setup and seed always give the same run, at any time speed, in the viewer in any browser and in a Batch. A test can also choose which random stream draws Trigger Levels.
+One seeded run of the model from a setup of Room, Light Schedule, model parameters, step size and Interventions. The same setup and seed always give the same run, at any time speed, in the viewer in any browser and in a Batch. The step size is how many fixed steps the run takes per simulated second, 50 by default. Rates, time constants and noise act per simulated second, so another step size changes a run only by chance. A test can also choose which random stream draws Trigger Levels.
 _Avoid_: Simulation, session, episode
 
 **Replay**:

@@ -3,7 +3,7 @@ import {
   DEFAULT_PARAMETERS,
   DEFAULT_ROOM,
   DRIVERS,
-  STEPS_PER_SECOND,
+  DEFAULT_STEPS_PER_SECOND,
   createSimulationRun,
   type FloorPlace,
   type ModelParameters,
@@ -34,8 +34,8 @@ describe("removing and restoring a source", () => {
     const { interventions, samples, food } = run.record();
 
     expect(interventions).toEqual([
-      { type: "remove-source", source: "food", step: 5 * STEPS_PER_SECOND },
-      { type: "restore-source", source: "food", step: 10 * STEPS_PER_SECOND },
+      { type: "remove-source", source: "food", step: 5 * DEFAULT_STEPS_PER_SECOND },
+      { type: "restore-source", source: "food", step: 10 * DEFAULT_STEPS_PER_SECOND },
     ]);
     expect([removed.step, restored.step]).toEqual([250, 500]);
     expect(samples.find((sample) => sample.timeSeconds === 7)?.food).toBeNull();
