@@ -4,6 +4,7 @@ import {
   EvidencePackError,
   readEvidencePack,
   runValidation,
+  tuningPack,
   type EvidencePack,
   type ValidationTarget,
 } from "../../src/validation";
@@ -114,6 +115,25 @@ describe("the validation suite's runner", () => {
 
     // The same command gives the same report.
     expect(await runValidation(options)).toEqual(report);
+  });
+
+  it("runs the model with the parameters it is given, and tags the report with them", async () => {
+    const parameters = { ...DEFAULT_PARAMETERS, fallAsleepCircadianRate: 0 };
+    const options = { pack: PACK, seeds: [1], jobs: 1 };
+    const tuned = await runValidation({ ...options, parameters });
+    const untuned = await runValidation(options);
+
+    expect(tuned.parameters).toEqual(parameters);
+    expect(tuned.targets[0]?.model.perFly).not.toEqual(untuned.targets[0]?.model.perFly);
+  });
+});
+
+describe("tuning", () => {
+  it("never reads a held-out target", () => {
+    const pack = tuningPack(PACK);
+
+    expect(pack.targets.map((each) => each.id)).toEqual(["sleep", "video", "later"]);
+    expect(pack.targets.some((each) => each.heldOut)).toBe(false);
   });
 });
 

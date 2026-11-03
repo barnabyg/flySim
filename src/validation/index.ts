@@ -7,6 +7,7 @@ export {
   assaySetup,
   observeFly,
   type Assay,
+  type FlyRunOptions,
   type AssayCalibration,
   type StudySetup,
 } from "./assays";
@@ -32,6 +33,7 @@ export {
   EvidencePackError,
   countedTargets,
   readEvidencePack,
+  tuningPack,
   type EvidencePack,
   type ValidationTarget,
 } from "./evidencePack";

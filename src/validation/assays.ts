@@ -2,6 +2,7 @@ import {
   DEFAULT_LIGHT_SCHEDULE,
   createSimulationRun,
   type LightSchedule,
+  type ModelParameters,
   type SimulationSetup,
 } from "../engine";
 import type { ValidationTarget } from "./evidencePack";
@@ -46,6 +47,12 @@ export interface Assay {
   readonly scoring: ScoringRule;
 }
 
+/** How a simulated fly is run: its step size and model parameters, each the model's default if not given. */
+export interface FlyRunOptions {
+  readonly stepsPerSecond?: number;
+  readonly parameters?: ModelParameters;
+}
+
 /** The standard beam monitor: a 65 mm tube, 5 mm across, with one beam across its middle. */
 export const ACTIVITY_MONITOR: Assay = {
   study: {
@@ -70,7 +77,7 @@ export const ACTIVITY_MONITOR: Assay = {
 export function assaySetup(
   study: StudySetup,
   seed: number,
-  stepsPerSecond?: number,
+  { stepsPerSecond, parameters }: FlyRunOptions = {},
 ): SimulationSetup {
   const { chamber } = study;
   const plug = { x: 0, y: chamber.widthMetres / 2 };
@@ -88,6 +95,7 @@ export function assaySetup(
     // Only the instruments' records are kept, so the run holds just its latest sample.
     maxRecordedSamples: 1,
     ...(stepsPerSecond !== undefined && { stepsPerSecond }),
+    ...(parameters !== undefined && { parameters }),
   };
 }
 
@@ -99,9 +107,9 @@ export function observeFly(
   study: StudySetup,
   instruments: readonly InstrumentSettings[],
   seed: number,
-  stepsPerSecond?: number,
+  options: FlyRunOptions = {},
 ): Observation[] {
-  const run = createSimulationRun(assaySetup(study, seed, stepsPerSecond));
+  const run = createSimulationRun(assaySetup(study, seed, options));
   run.advanceSeconds(study.acclimationHours * 3600);
   return observeRun(run, instruments, (study.acclimationHours + study.recordedDays * 24) * 3600);
 }

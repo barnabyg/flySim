@@ -1,4 +1,9 @@
-import { DEFAULT_PARAMETERS, DEFAULT_STEPS_PER_SECOND, MODEL_VERSION } from "../engine";
+import {
+  DEFAULT_PARAMETERS,
+  DEFAULT_STEPS_PER_SECOND,
+  MODEL_VERSION,
+  type ModelParameters,
+} from "../engine";
 import { runInProcesses } from "../batch/processPool";
 import { UnsupportedTargetError, assayFor, type Assay } from "./assays";
 import { countedTargets, type EvidencePack, type ValidationTarget } from "./evidencePack";
@@ -17,6 +22,8 @@ export interface ValidationOptions {
   readonly pack: EvidencePack;
   readonly seeds?: readonly number[];
   readonly stepsPerSecond?: number;
+  /** The model's parameters, its defaults if not given, as when tuning tries others. */
+  readonly parameters?: ModelParameters;
   /** How many flies run at once, each in its own process. */
   readonly jobs: number;
   /** When the report is made, which is all that differs between two reports of the same run. */
@@ -38,6 +45,7 @@ interface Study {
 export async function runValidation(options: ValidationOptions): Promise<ValidationReport> {
   const seeds = options.seeds ?? VALIDATION_SEEDS;
   const stepsPerSecond = options.stepsPerSecond ?? DEFAULT_STEPS_PER_SECOND;
+  const parameters = options.parameters ?? DEFAULT_PARAMETERS;
   const skipped: { id: string; title: string; reason: string }[] = [];
   const studies = new Map<string, Study>();
   const runnable: { target: ValidationTarget; assay: Assay; study: string; instrument: number }[] =
@@ -67,7 +75,13 @@ export async function runValidation(options: ValidationOptions): Promise<Validat
   const jobs = [...studies].flatMap(([key, study]) =>
     seeds.map((seed) => ({
       key,
-      job: { study: study.assay.study, instruments: study.instruments, seed, stepsPerSecond },
+      job: {
+        study: study.assay.study,
+        instruments: study.instruments,
+        seed,
+        stepsPerSecond,
+        parameters,
+      },
     })),
   );
   const recorded = await runInProcesses<Observation[]>(
@@ -103,7 +117,7 @@ export async function runValidation(options: ValidationOptions): Promise<Validat
     version: REPORT_VERSION,
     generatedAt: (options.now ?? new Date()).toISOString(),
     modelVersion: MODEL_VERSION,
-    parameters: DEFAULT_PARAMETERS,
+    parameters,
     stepsPerSecond,
     seeds,
     targets,
