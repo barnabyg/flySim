@@ -249,6 +249,11 @@ export interface SimulationRun {
   advanceSeconds(seconds: number): void;
   /** The state at the current step. */
   current(): RunSample;
+  /**
+   * Where the fly is and which way it faces, which is all a camera or a beam can see of it. Much
+   * cheaper than {@link current}, so a Virtual Assay can watch every step.
+   */
+  pose(): MovementPose;
   /** All transitions so far, as a live view that grows as the run advances. */
   readonly firedTransitions: readonly FiredTransition[];
   /** Applies an intervention at the start of the next step, and returns it with that step. */
@@ -560,6 +565,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       advanceSteps(Math.round(seconds * stepsPerSecond));
     },
     current,
+    pose: () => movement.pose(),
     firedTransitions,
     intervene: (action) => {
       if (death) throw new Error("The fly has died, so the run can't change");

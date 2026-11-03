@@ -64,19 +64,19 @@
     "walkingTurnNoise": 0.8,
     "flightSpeedMetresPerSecond": 1,
     "initialEnergy": 0.6,
-    "energyUseResting": 0.000005,
-    "energyUseWalking": 0.000012,
-    "energyUseFlying": 0.00005,
-    "energyUseSleeping": 0.000003,
+    "energyUseResting": 5e-6,
+    "energyUseWalking": 1.2e-5,
+    "energyUseFlying": 5e-5,
+    "energyUseSleeping": 3e-6,
     "startFeedingHungerRate": 1,
     "stopFeedingLowHungerRate": 0.15,
     "stopFeedingStartleRate": 2,
     "feedingIntake": 0.004,
     "initialHydration": 0.6,
-    "waterLossResting": 0.000005,
-    "waterLossWalking": 0.000008,
-    "waterLossFlying": 0.00002,
-    "waterLossSleeping": 0.0000035,
+    "waterLossResting": 5e-6,
+    "waterLossWalking": 8e-6,
+    "waterLossFlying": 2e-5,
+    "waterLossSleeping": 3.5e-6,
     "startDrinkingThirstRate": 1,
     "stopDrinkingLowThirstRate": 0.15,
     "stopDrinkingStartleRate": 2,
@@ -302,5 +302,6 @@
         "description": "r = 0.62, below 0.8."
       }
     }
-  ]
+  ],
+  "skipped": []
 }

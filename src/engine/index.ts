@@ -19,7 +19,13 @@ export {
   type FloorPlace,
   type SourceKind,
 } from "./roomContents";
-export { SURFACES, type Position, type RoomSetup, type Surface } from "./movement";
+export {
+  SURFACES,
+  type MovementPose,
+  type Position,
+  type RoomSetup,
+  type Surface,
+} from "./movement";
 export {
   DEFAULT_ROOM,
   MODEL_VERSION,

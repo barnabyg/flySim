@@ -77,6 +77,12 @@ export interface ValidationReport {
   readonly stepsPerSecond: number;
   readonly seeds: readonly number[];
   readonly targets: readonly TargetResult[];
+  /** Counted targets the suite has no Virtual Assay or measure for yet, and why. */
+  readonly skipped: readonly {
+    readonly id: string;
+    readonly title: string;
+    readonly reason: string;
+  }[];
 }
 
 /** Why a report no longer describes the model, or null if it still does. */
