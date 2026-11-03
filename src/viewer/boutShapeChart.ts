@@ -117,7 +117,8 @@ function chartSvg(
     const at = x(tick).toFixed(1);
     parts.push(
       `<line class="grid" x1="${at}" x2="${at}" y1="${PLOT.top}" y2="${PLOT.bottom}"/>`,
-      `<text class="category" x="${at}" y="${PLOT.bottom + 18}" text-anchor="middle">${seconds(tick)}</text>`,
+      // Decades read most plainly in seconds, as the axis is.
+      `<text class="category" x="${at}" y="${PLOT.bottom + 18}" text-anchor="middle">${formatNumber(tick)} s</text>`,
     );
   }
   parts.push(

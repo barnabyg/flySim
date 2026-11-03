@@ -48,6 +48,13 @@ const POINTS = 50;
 
 const round = (value: number): number => Number(value.toPrecision(3));
 
+/** Rounded off below what any reading of a chart needs, so float noise reads as 0. */
+const tidy = (value: number): number => Math.round(value * 1e9) / 1e9;
+
+function tidyParameters({ beta, tauSeconds }: BaselineParameters): BaselineParameters {
+  return { beta: tidy(beta), tauSeconds: tauSeconds === null ? null : tidy(tauSeconds) };
+}
+
 /** The published fit as a survival curve, from what the target's criterion says it is. */
 function publishedFit(
   comparison: Comparison,
@@ -96,7 +103,7 @@ export function targetBaselines(
     const xmin = numberParameter(comparison.criterion, "xminSeconds");
     const xmax = numberParameter(comparison.criterion, "xmaxSeconds");
     const published = baselineCurve(fit.parameters, xmin, xmax, POINTS);
-    const fitted = fitBaselineToCurve(published, xmin);
+    const fitted = tidyParameters(fitBaselineToCurve(published, xmin));
     const durations = flies.flatMap((fly) =>
       completeDurations(
         fly.scored[bouts === "inactivity" ? "inactivityBouts" : "activityBouts"].filter((bout) =>
@@ -130,12 +137,9 @@ export function targetBaselines(
           survival: hasModel ? baseline.durations.map(model) : [],
         },
         distance: {
-          model: hasModel ? curveDistance(model, fittedSurvival, xmin, xmax) : null,
-          published: curveDistance(
-            baselineSurvival(fit.parameters, xmin),
-            fittedSurvival,
-            xmin,
-            xmax,
+          model: hasModel ? tidy(curveDistance(model, fittedSurvival, xmin, xmax)) : null,
+          published: tidy(
+            curveDistance(baselineSurvival(fit.parameters, xmin), fittedSurvival, xmin, xmax),
           ),
         },
       },
