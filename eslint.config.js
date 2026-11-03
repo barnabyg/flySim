@@ -19,18 +19,33 @@ export default tseslint.config(
     },
   },
   {
-    // An assay's scoring and the targets judge only what an instrument could record. Only
-    // Scoring Disagreement, which no target uses, may set the true Vigilance State beside it.
+    // An assay's scoring and everything that judges it see only what an instrument could record.
+    // Only Scoring Disagreement, which no target uses, may set the true Vigilance State beside it.
     files: [
       "src/validation/instruments.ts",
       "src/validation/scoring.ts",
       "src/validation/measures.ts",
       "src/validation/targets.ts",
+      "src/validation/boutShapes.ts",
+      "src/validation/baseline.ts",
+      "src/validation/targetBaselines.ts",
     ],
     rules: {
       "no-restricted-imports": [
         "error",
         {
+          paths: [
+            {
+              name: "../engine",
+              importNames: ["VigilanceState"],
+              message: "Scoring and targets can't use the true Vigilance State.",
+            },
+            {
+              name: "./assays",
+              importNames: ["FlyRecording", "observeFly"],
+              message: "Scoring and targets see an Observation, never a fly's whole recording.",
+            },
+          ],
           patterns: [
             {
               group: ["./disagreement", "**/validation/disagreement"],
