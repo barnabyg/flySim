@@ -46,7 +46,11 @@ export interface ModelParameters {
   readonly startWalkingOdourRate: number;
   /** Scaled by the fourth power of Thirst, as Hunger is, so a parched fly searches. */
   readonly startWalkingThirstRate: number;
-  /** Scaled by Restlessness, so a fly between walks resumes sooner than one that has settled. */
+  /**
+   * Scaled by Restlessness, so a fly between walks resumes sooner than one that has settled. It
+   * and walkAfterGroomingRestlessnessRate are 0 for now, as tuning them cost the Room its rebound
+   * and its response to darkness (#81); validation/restlessnessCandidate.json has those values.
+   */
   readonly startWalkingRestlessnessRate: number;
   readonly stopWalkingSpontaneousRate: number;
   readonly stopWalkingLowArousalRate: number;
