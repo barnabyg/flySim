@@ -178,6 +178,14 @@ _Avoid_: Benchmark, expected result
 The curated set of Validation Targets, including at least one held out from parameter tuning. Every counted target's source was read in full, and each published value records where in it it comes from.
 _Avoid_: Test data, references
 
+**Validation Report**:
+What the validation suite writes and the validation view shows: the model against each Validation Target, bout shapes, the Descriptive Baseline, Scoring Disagreement and each relationship's label, tagged with the model version, parameters, step size and seeds that made it. It is stale once the model or its parameters change.
+_Avoid_: Results, scorecard
+
+**Held-out Target**:
+A Validation Target the model is checked against only after tuning and never tuned against, so its result can't have been fitted. Tuning reads the Evidence Pack without them, and the report gives their result whether it passes or not.
+_Avoid_: Test set, hidden target
+
 **Established**:
 The label for a model relationship that a counted Evidence Pack target supports, which it cites. The parameters that size an Established relationship can still be Provisional, as a source may show that a push exists without saying how strong it is.
 _Avoid_: Validated, proven
