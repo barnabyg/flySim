@@ -18,6 +18,7 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.engine.json",
     "test": "vitest run",
     "validate": "vitest run --config vitest.validation.config.ts",
+    "tune": "node --import ./src/batch/resolveTypeScript.ts validation/tune.ts",
     "prevalidate:view": "npm install --no-audit --no-fund",
     "validate:view": "node --import ./src/batch/resolveTypeScript.ts validation/openView.ts",
     "test:e2e": "playwright test",
