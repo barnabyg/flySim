@@ -1,6 +1,7 @@
 import type { DriverRelationship, ModelParameters, RelationshipLabel } from "../engine";
 import type { BoutKind, BoutKindShape } from "./boutShapes";
 import type { Disagreement } from "./disagreement";
+import type { BoutBaseline } from "./targetBaselines";
 
 /** What every validation report says it is. */
 export const REPORT_FORMAT = "fly-sim-validation-report";
@@ -143,6 +144,11 @@ export interface ValidationReport {
   readonly disagreement: readonly AssayDisagreement[];
   /** Bout shapes for each Virtual Assay that scores bouts. */
   readonly boutShapes: readonly AssayBoutShapes[];
+  /**
+   * The fitted descriptive baseline for each bout-duration comparison: an explicit time-in-bout
+   * model for comparison only, which the engine never uses.
+   */
+  readonly baselines: readonly BoutBaseline[];
 }
 
 /** Why a report no longer describes the model, or null if it still does. */
@@ -180,7 +186,8 @@ export function readValidationReport(json: string): ValidationReport {
     !Array.isArray(parsed.targets) ||
     !Array.isArray(parsed.skipped) ||
     !Array.isArray(parsed.disagreement) ||
-    !Array.isArray(parsed.boutShapes)
+    !Array.isArray(parsed.boutShapes) ||
+    !Array.isArray(parsed.baselines)
   ) {
     throw new Error("This validation report is incomplete.");
   }

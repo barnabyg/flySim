@@ -818,7 +818,8 @@ body {
   display: none;
 }
 
-.chart .reference-line {
+.chart .reference-line,
+.chart .baseline-line {
   fill: none;
   stroke-width: 1.5;
   pointer-events: none;
@@ -826,6 +827,11 @@ body {
 
 .chart .reference-line {
   stroke-dasharray: 4 3;
+}
+
+.chart .baseline-line {
+  stroke-width: 2;
+  stroke-dasharray: 8 3 2 3;
 }
 
 .shape-results {
@@ -840,4 +846,25 @@ body {
 
 .shape-results .result {
   margin-right: 4px;
+}
+
+.baselines {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.baseline {
+  padding: 4px 8px;
+  color: var(--text-dim);
+  border-left: 2px solid #e07ab8;
+}
+
+.baseline b {
+  color: var(--text);
+}
+
+.baseline.hovered {
+  background: var(--line);
 }

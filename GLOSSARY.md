@@ -190,6 +190,10 @@ _Avoid_: Assumed, default
 The label for a model relationship that is the model's own proposal and that no source measures, such as its answer to what ends Inactivity Bouts under 5 minutes: background arousal left over from activity, drifting down during stillness.
 _Avoid_: Guess, speculation
 
+**Descriptive Baseline**:
+A fitted curve of bout durations, a power law with an exponential tail whose chance of ending falls with time in the bout as β/t + 1/τ, set beside the published data and the model's bouts. It describes the data rather than explaining it, which is why ADR-0001 rejects it as a mechanism, and nothing in the model uses it. It is fitted to a target's published data, or to its published fit where the source gives only that.
+_Avoid_: Null model, reference model, fit (when the model's own bouts are meant)
+
 **Bout Shape**:
 Whether a Virtual Assay's bout durations are close to exponential, as a memoryless process gives, or have a falling hazard, as a heavy tail does, judged per simulated fly as well as pooled and at more than one step size. ADR-0001's first validation stage needs Inactivity Bouts with a falling hazard and Activity Bouts close to exponential.
 _Avoid_: Bout distribution (when the verdict is meant)

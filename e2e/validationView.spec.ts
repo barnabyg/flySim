@@ -173,7 +173,7 @@ test("the view charts where each assay's Scored Sleep disagrees with true sleep,
   await expect(tip(page)).toContainText("Asleep, not scored7.5");
 });
 
-test("the view charts bout shapes per fly and pooled, on log–log or log–linear axes", async ({
+test("the view charts bout shapes per fly and pooled, on log–log or log–linear axes, with the baseline", async ({
   page,
 }) => {
   await serveReport(page, current);
@@ -202,12 +202,32 @@ test("the view charts bout shapes per fly and pooled, on log–log or log–line
   await expect(tip(page)).toContainText("share of bouts");
   await expect(tip(page)).toContainText("Pooled");
   await expect(tip(page)).toContainText("Exponential");
+  await expect(tip(page)).toContainText("Baseline, light");
+  await expect(tip(page)).toContainText("Published, light");
 
   await inactivity.getByRole("button", { name: "Log–linear" }).click();
   await expect(logLog).toBeHidden();
   await expect(inactivity.locator('[data-scale-chart="loglinear"] svg.chart')).toBeVisible();
   await inactivity.getByRole("button", { name: "Log–log" }).click();
   await expect(logLog).toBeVisible();
+
+  // The published data and the descriptive baseline, labelled as such, with its numbers.
+  await expect(logLog.locator('[data-curve="Published, light"]')).toHaveCount(1);
+  await expect(logLog.locator('[data-curve="Baseline, light"]')).toHaveCount(1);
+  await expect(section.locator(".chart-legend")).toContainText(
+    "Descriptive baseline, not the model",
+  );
+  const baseline = inactivity.locator('[data-baseline-id="example-bouts:light"]');
+  await expect(baseline).toContainText("Descriptive baseline");
+  await expect(baseline).toContainText("β 0.7");
+  await expect(baseline).toContainText("no exponential tail");
+  await expect(baseline.locator('[data-distance="model"]')).toHaveText("0.179");
+  await expect(baseline.locator('[data-distance="published"]')).toHaveText("0");
+  await baseline.hover();
+  await expect(tip(page)).toContainText("power law with an exponential tail");
+  await expect(tip(page)).toContainText("published fit");
+  // Activity Bouts have no baseline here.
+  await expect(activity.locator("[data-baseline-id]")).toHaveCount(0);
 });
 
 test("a report from another model version, or other parameters, is marked stale", async ({

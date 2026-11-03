@@ -86,6 +86,8 @@ export const VALIDATION_COLOURS = {
   published: DAY_COLOUR,
   model: "#3fc1a0",
   accepted: "#d7dbe2",
+  /** The fitted descriptive baseline, which is neither published data nor the model. */
+  baseline: "#e07ab8",
   pass: "#6fbf4a",
   fail: "#ff2b2b",
 } as const;

@@ -8,6 +8,7 @@ import {
   type ValidationReport,
 } from "../validation/report";
 import { VALIDATION_COLOURS as COLOURS } from "./palette";
+import { baselineExtras } from "./baselineView";
 import { boutShapesHtml } from "./boutShapeChart";
 import { disagreementHtml, handleScaleSwitch } from "./disagreementChart";
 import { relationshipsHtml } from "./relationshipList";
@@ -494,7 +495,7 @@ export function createValidationView(container: HTMLElement, room: HTMLElement):
         : `<div class="targets">${report.targets.map((target) => targetHtml(target, tips)).join("")}</div>`;
     body.innerHTML = [
       targets,
-      boutShapesHtml(report, tips),
+      boutShapesHtml(report, tips, baselineExtras(report, tips)),
       disagreementHtml(report, tips),
       relationshipsHtml(report, tips),
     ].join("");

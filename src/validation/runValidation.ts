@@ -27,6 +27,7 @@ import {
 } from "./report";
 import { completeDurations } from "./measures";
 import { scoreObservation, type ScoredActivity } from "./scoring";
+import { targetBaselines } from "./targetBaselines";
 import { evaluateTarget, type AssayedFly } from "./targets";
 
 const OBSERVE_PROCESS = new URL("./observeProcess.ts", import.meta.url);
@@ -204,6 +205,14 @@ export async function runValidation(options: ValidationOptions): Promise<Validat
   const disagreement = distinctAssays(runnable).map((assay) =>
     assayDisagreement(assay, scoredFlies(assay.first, jobs, recorded, stepsPerSecond)),
   );
+  const baselines = runnable.flatMap((each) =>
+    targetBaselines(
+      each.target,
+      scoredFlies(each, jobs, recorded, stepsPerSecond),
+      { lightHours: each.assay.study.lightSchedule.lightHours },
+      binSecondsOf(each.assay),
+    ),
+  );
   const boutShapes = boutAssays.map((assay) =>
     assayBoutShapes(assay, [stepsPerSecond, ...otherSteps], (steps) =>
       scoredFlies(assay.first, jobs, recorded, steps),
@@ -223,6 +232,7 @@ export async function runValidation(options: ValidationOptions): Promise<Validat
     skipped,
     disagreement,
     boutShapes,
+    baselines,
   };
 }
 

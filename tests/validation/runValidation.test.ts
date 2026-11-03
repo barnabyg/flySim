@@ -196,6 +196,17 @@ describe("the bout shape stage", () => {
     ]);
     // The targets themselves are judged at the suite's own step size only.
     expect(report.targets.map((each) => each.id)).toEqual(["sleep", "bouts"]);
+
+    // The descriptive baseline, fitted to the published fit, beside the model's bouts.
+    expect(report.baselines.map((each) => [each.id, each.targetId, each.bouts])).toEqual([
+      ["bouts", "bouts", "inactivity"],
+    ]);
+    const [baseline] = report.baselines;
+    expect(baseline?.fitted.beta).toBeCloseTo(0.7, 6);
+    expect(baseline?.fitted.tauSeconds).toBeNull();
+    expect(baseline?.fittedTo).toMatch(/published fit.*0\.7.*Figure 2/);
+    expect(baseline?.distance.published).toBeCloseTo(0, 6);
+    expect(baseline?.distance.model).toBeGreaterThan(0);
   });
 });
 

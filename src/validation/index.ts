@@ -66,3 +66,14 @@ export {
   type BoutShapeVerdict,
   type SurvivalCurve,
 } from "./boutShapes";
+export {
+  BASELINE_FORM,
+  baselineCurve,
+  baselineSurvival,
+  curveDistance,
+  empiricalSurvival,
+  fitBaselineToCurve,
+  fitBaselineToDurations,
+  type BaselineParameters,
+} from "./baseline";
+export { targetBaselines, type BoutBaseline } from "./targetBaselines";

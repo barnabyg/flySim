@@ -89,6 +89,12 @@ export default tseslint.config(
               group: ["three", "three/*", "**/viewer/**"],
               message: "The engine has no rendering or UI dependencies.",
             },
+            {
+              // Validation, the descriptive baseline above all, judges the model and never
+              // shapes it: ADR-0001 rules out any hazard of time spent in a bout.
+              group: ["**/validation/**"],
+              message: "The engine doesn't depend on validation or its descriptive baseline.",
+            },
           ],
         },
       ],
