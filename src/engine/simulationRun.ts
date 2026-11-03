@@ -48,7 +48,7 @@ import {
 } from "./roomContents";
 
 /** Changes whenever the same seed and setup could give a different run. */
-export const MODEL_VERSION = "0.8.0";
+export const MODEL_VERSION = "0.7.0";
 
 const AROUSAL_NOISE_STREAM = 1;
 const MOVEMENT_STREAM = 2;

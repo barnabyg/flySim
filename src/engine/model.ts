@@ -166,17 +166,15 @@ const NO_CONTRIBUTIONS: Readonly<Record<DriverId, number>> = {
 };
 
 /**
- * How open the clock holds the way to sleep, from 0 to 1. It has two peaks of the same shape,
- * the midday siesta and the night, with shut gates around subjective dawn and dusk, which
- * leaves a morning and evening of activity. The siesta's peak is lower by its strength.
+ * How open the clock holds the way to sleep, from 0 to 1. It has two peaks, the midday
+ * siesta and the night, with shut gates around subjective dawn and dusk. The night's
+ * gate is broad and the siesta's narrow, which leaves a morning and evening of activity.
  */
 function sleepGate(circadianPhaseHours: number, parameters: ModelParameters): number {
   const dayPositive = sin((2 * Math.PI * circadianPhaseHours) / 24);
-  // Squared, the gate shuts gradually towards dawn and dusk. With the night's gate as a square
-  // root and the siesta's as a fourth power, as before model 0.8.0, no parameter values gave
-  // the published daily profile's sharp dusk and gradual pre-dawn fall (#73).
-  const shape = dayPositive * dayPositive;
-  return dayPositive > 0 ? parameters.siestaGateStrength * shape : shape;
+  return dayPositive > 0
+    ? parameters.siestaGateStrength * power(dayPositive, 4)
+    : Math.sqrt(-dayPositive);
 }
 
 /**

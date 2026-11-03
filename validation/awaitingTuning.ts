@@ -1,31 +1,43 @@
 /**
- * Comparisons the current model can't meet, by the id their result has in the report, with what
- * model 0.8.0 gives and why. Each still runs, and its test is expected to fail, so one that starts
- * to match fails the suite until it is taken off this list and becomes a test that must pass.
+ * Comparisons the current model doesn't meet, by the id their result has in the report, with what
+ * model 0.7.0 gives. Each still runs, and its test is expected to fail, so one that starts to
+ * match fails the suite until it is taken off this list and becomes a test that must pass.
  * Held-out targets are never on it, as they are reported and never tuned against.
  *
- * Dark-phase beam sleep (Zimmerman 2008) is short by about 90 min, while the Xu 2021 profile and
- * the ethoscope's daily sleep (Geissmann 2019) pass. All three can't pass together with model
- * 0.8.0, as tuning found (#73):
+ * Tuning against the tuning pack (#73) found parameter values that meet all of them but
+ * Zimmerman 2008's dark-phase beam sleep, but they were not adopted. They kept the fly's walking
+ * hazard high at rest, so it rarely stayed awake and still for 5 minutes, which is the behaviour
+ * the project set out to explain. Rebound after lost sleep weakened, and darkness no longer cut
+ * walking at once. Both held-out targets failed with them, which says the same: real flies keep
+ * still and awake far more than that model did. So the current model can't meet these targets
+ * and keep its long awake Immobility:
  *
- * - A beam monitor scores 995 min a day (Zimmerman 2008) and an ethoscope 618 (Geissmann 2019), so
- *   a real fly spends a few hundred minutes a day awake in stretches of 5 minutes or more without
- *   crossing a beam, grooming or moving a little. The model scores only 100 to 130 min a day more by beam than by ethoscope,
- *   as its awake fly rarely keeps still for 5 minutes. The hazard that starts it walking, which
- *   arousal sets by its square, stays high enough at rest to end most awake Immobility within a
- *   few minutes. Making it lower at rest, through a lower resting arousal or less arousal noise,
- *   also lowers it between the walks of a bout of activity, which spoils the Inactivity Bouts'
- *   power law (Xu 2021).
- * - So more beam sleep by night would need more true sleep by night, which the ethoscope's daily
- *   sleep allows only by taking it from the day, and the day's beam sleep (Zimmerman 2008, light)
- *   is already near its lower bound. Xu 2021's night, 483 min by its virtual beam, is also well
- *   below Zimmerman's 604, and the profile follows Xu.
+ * - The Inactivity Bouts' power law (Xu 2021) needs many short pauses ended quickly, so the
+ *   hazard of walking must stay high soon after the fly stops. Arousal sets that hazard by its
+ *   square, and is the same arousal that must fall low for long awake Immobility, so the model
+ *   can have one or the other. Cascallares 2018's Activity Bout tail rate needs short walks,
+ *   which pull the same way.
+ * - The daily Scored Sleep profile (Xu 2021) needs a sharp dusk and a gradual fall in sleep
+ *   before dawn. The clock's sleep gate, a square root by night and a fourth power by day, can't
+ *   give them with any parameter values, which a search of 3000 parameter sets showed: r reached
+ *   0.79 at best. Squaring both peaks reached r 0.93.
+ * - Real beam monitors score about 380 min a day more sleep than an ethoscope (Zimmerman 2008,
+ *   Geissmann 2019), from awake flies that keep still or groom in place for minutes. The model's
+ *   beam monitor scores almost the same as its ethoscope, so the ethoscope's daily sleep can't
+ *   fall to its target without the beam's light-phase sleep falling below its own.
  *
- * What it would need: a walking hazard that falls far lower once the fly has settled than between
- * walks, such as one that rises more steeply than the square of arousal, or a slow Driver of
- * activity that tells a bout of activity from rest. Then a settled, awake fly could groom in place
- * for many minutes without walking, which a beam monitor scores as sleep and an ethoscope doesn't.
+ * What they need: a walking hazard that falls far lower once the fly has settled than between
+ * the walks of a bout of activity, such as a slow Driver of activity that tells a bout of
+ * activity from rest, or a steeper dependence on arousal, and a sleep gate whose siesta and night
+ * peaks have the same shape. Then a settled, awake fly could keep still or groom for minutes, as
+ * the beam monitor and video targets say it does, while a fly between walks resumes quickly.
+ * Values can be tried with `npm run tune`, which never runs a held-out target.
  */
 export const AWAITING_TUNING: ReadonlyMap<string, string> = new Map<string, string>([
-  ["zimmerman-2008-beam-dark-phase-sleep", "432 min, against 524.9 to 682.9"],
+  ["xu-2021-inactivity-bouts-power-law:light", "CCDF exponent 0.12, against 0.55 to 0.91"],
+  ["xu-2021-inactivity-bouts-power-law:dark", "CCDF exponent 0.21, against 0.69 to 0.87"],
+  ["xu-2021-male-scored-sleep-profile", "r = 0.56 and a mean difference of 6.2 min a bin"],
+  ["zimmerman-2008-beam-light-phase-sleep", "325 min, against 337.5 to 444.9"],
+  ["geissmann-2019-daily-scored-sleep-ethoscope", "909 min, against 485.9 to 751.1"],
+  ["cascallares-2018-activity-bouts-exponential", "a tail rate of 0.072 /s, against 0.11 to 0.17"],
 ]);

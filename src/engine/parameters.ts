@@ -1,13 +1,9 @@
 /**
- * Model values. Since model 0.8.0, arousal, walking, grooming, sleep pressure, the sleep and
- * wake hazards and the circadian sleep gate are tuned against the Evidence Pack's tuning targets
- * (#73), never its held-out ones: the Inactivity Bouts' power law (Xu 2021), the daily Scored
- * Sleep profile (Xu 2021), light-phase beam sleep (Zimmerman 2008), the ethoscope's daily sleep
- * (Geissmann 2019) and the Activity Bouts' exponential tail (Cascallares 2018). Dark-phase beam
- * sleep (Zimmerman 2008) isn't met; `validation/awaitingTuning.ts` says why. Matching those
- * targets doesn't validate any one value, so every value stays Provisional: flight, startle,
- * light, the clock's entrainment, energy use, water loss, intake, and how Hunger, Thirst, odour
- * and humidity act are still only roughly tuned, so that a default run is worth watching.
+ * Model values for Phases 1 to 3. They are roughly tuned so that about 10 simulated minutes
+ * shows all four awake behaviours, a settled fly often stays in awake Immobility for more than
+ * 5 minutes, a day shows a morning, siesta, evening and night of sleep, and a part-fed fly
+ * finds food within hours. They are not validated: every relationship here is Provisional,
+ * including energy use, water loss, intake and how Hunger, Thirst and odour act.
  */
 export interface ModelParameters {
   /** Arousal relaxes towards this level during Immobility. */
@@ -175,30 +171,30 @@ export interface ModelParameters {
 }
 
 export const DEFAULT_PARAMETERS: ModelParameters = {
-  arousalTargetImmobile: 0.057,
-  arousalTargetGrooming: 0.2,
-  arousalTargetWalking: 1,
+  arousalTargetImmobile: 0.05,
+  arousalTargetGrooming: 0.3,
+  arousalTargetWalking: 0.75,
   arousalTargetFlying: 0.9,
   arousalTargetSleeping: 0.02,
   arousalTargetFeeding: 0.3,
   arousalTargetDrinking: 0.3,
-  arousalTimeConstantSeconds: 40,
+  arousalTimeConstantSeconds: 120,
   arousalNoise: 0.015,
   initialArousal: 0.5,
-  startWalkingSpontaneousRate: 0.0016,
-  startWalkingArousalRate: 1.9,
-  startWalkingLightRate: 0.0033,
-  startWalkingHungerRate: 0.1,
+  startWalkingSpontaneousRate: 0.0003,
+  startWalkingArousalRate: 0.25,
+  startWalkingLightRate: 0.002,
+  startWalkingHungerRate: 0.03,
   startWalkingOdourRate: 0.02,
   startWalkingThirstRate: 0.03,
-  stopWalkingSpontaneousRate: 0.44,
-  stopWalkingLowArousalRate: 0.07,
-  startGroomingSpontaneousRate: 0.0009,
-  startGroomingArousalRate: 0.034,
+  stopWalkingSpontaneousRate: 0.02,
+  stopWalkingLowArousalRate: 0.06,
+  startGroomingSpontaneousRate: 0.001,
+  startGroomingArousalRate: 0.04,
   stopGroomingSpontaneousRate: 0.04,
   walkAfterGroomingSpontaneousRate: 0.005,
   walkAfterGroomingArousalRate: 0.03,
-  walkAfterGroomingHungerRate: 0.1,
+  walkAfterGroomingHungerRate: 0.06,
   walkAfterGroomingOdourRate: 0.02,
   walkAfterGroomingThirstRate: 0.06,
   takeOffFromImmobilitySpontaneousRate: 0.002,
@@ -207,24 +203,24 @@ export const DEFAULT_PARAMETERS: ModelParameters = {
   takeOffFromWalkingArousalRate: 0.06,
   landingContactRate: 100,
   lostContactRate: 100,
-  sleepPressureRiseTimeConstantSeconds: 4700,
-  sleepPressureFallTimeConstantSeconds: 16_000,
+  sleepPressureRiseTimeConstantSeconds: 28_800,
+  sleepPressureFallTimeConstantSeconds: 21_600,
   initialSleepPressure: 0.1,
-  fallAsleepSleepPressureRate: 0.0001,
-  wakeSpontaneousRate: 0.00014,
-  wakeLowSleepPressureRate: 0.0024,
+  fallAsleepSleepPressureRate: 0.002,
+  wakeSpontaneousRate: 0.0002,
+  wakeLowSleepPressureRate: 0.0004,
   sleepDepthAtOnset: 0.05,
   sleepDepthBaseTarget: 0.2,
-  sleepDepthSleepPressureGain: 0.42,
+  sleepDepthSleepPressureGain: 1,
   sleepDepthTimeConstantSeconds: 600,
   sleepDepthNoise: 0.008,
   wakeSleepDepthReduction: 0.85,
   circadianPeriodHours: 24,
   clockEntrainmentRate: 0.4,
-  fallAsleepCircadianRate: 0.0056,
-  siestaGateStrength: 0.6,
-  wakeCircadianRate: 0.00013,
-  wakeLightRate: 0.00015,
+  fallAsleepCircadianRate: 0.012,
+  siestaGateStrength: 0.35,
+  wakeCircadianRate: 0.0015,
+  wakeLightRate: 0.0003,
   startleTimeConstantSeconds: 8,
   startWalkingStartleRate: 3,
   walkAfterGroomingStartleRate: 2,
