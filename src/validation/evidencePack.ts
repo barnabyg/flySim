@@ -247,3 +247,11 @@ export function readEvidencePack(value: unknown): EvidencePack {
 export function countedTargets(pack: EvidencePack): readonly ValidationTarget[] {
   return pack.targets.filter((target) => target.counted);
 }
+
+/**
+ * The pack that tuning may read: every target but those held out, which are only ever checked
+ * after tuning, so the model can't have been fitted to them.
+ */
+export function tuningPack(pack: EvidencePack): EvidencePack {
+  return { ...pack, targets: pack.targets.filter((target) => !target.heldOut) };
+}

@@ -39,7 +39,7 @@ interface Measured {
  * One comparison a target asks for. Most targets have one, but some ask for the same comparison
  * in the light and the dark separately, with their own bounds.
  */
-interface Comparison {
+export interface Comparison {
   readonly id: string;
   readonly title: string;
   readonly phase: Phase;
@@ -47,7 +47,7 @@ interface Comparison {
   readonly published: readonly PublishedValue[];
 }
 
-function numberParameter(criterion: TargetCriterion, name: string): number {
+export function numberParameter(criterion: TargetCriterion, name: string): number {
   const value = criterion[name];
   if (typeof value !== "number" || !Number.isFinite(value)) {
     throw new UnsupportedTargetError(`Its criterion has no number ${name}`);
@@ -60,7 +60,7 @@ function isPhase(value: unknown): value is Phase {
 }
 
 /** A target's comparisons: one per phase when its criterion lists phases, or else just one. */
-function comparisonsOf(target: ValidationTarget): Comparison[] {
+export function comparisonsOf(target: ValidationTarget): Comparison[] {
   const { phases, ...shared } = target.criterion;
   if (!Array.isArray(phases)) {
     const phase = target.criterion["phase"];

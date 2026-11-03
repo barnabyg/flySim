@@ -1,8 +1,11 @@
-import type { ModelParameters } from "../engine";
+import type { DriverRelationship, ModelParameters, RelationshipLabel } from "../engine";
+import type { BoutKind, BoutKindShape } from "./boutShapes";
+import type { Disagreement } from "./disagreement";
+import type { BoutBaseline } from "./targetBaselines";
 
 /** What every validation report says it is. */
 export const REPORT_FORMAT = "fly-sim-validation-report";
-export const REPORT_VERSION = 1;
+export const REPORT_VERSION = 2;
 
 /**
  * Where the validation suite writes its latest report, from the repo root. The viewer's dev server
@@ -71,6 +74,50 @@ export interface TargetResult {
   };
 }
 
+/**
+ * How often one Virtual Assay's Scored Sleep disagrees with the fly's true Vigilance State. It
+ * measures the 5-minute rule, not the model, so it never decides whether the model passes.
+ */
+export interface AssayDisagreement {
+  readonly id: string;
+  /** The study and instrument, such as "Zimmerman 2008: beam monitor, 30 s bins". */
+  readonly title: string;
+  readonly assay: string;
+  /** The ids of the targets measured with this assay. */
+  readonly targets: readonly string[];
+  readonly sleepThresholdMinutes: number;
+  readonly perFly: readonly ({ readonly seed: number } & Disagreement)[];
+  /** Every fly together, or null if none lived through the record. */
+  readonly pooled: Disagreement | null;
+}
+
+/**
+ * The shapes of one Virtual Assay's bouts across step sizes: ADR-0001's first validation stage,
+ * which needs non-exponential Inactivity Bouts and near-exponential Activity Bouts.
+ */
+export interface AssayBoutShapes {
+  readonly id: string;
+  readonly title: string;
+  /** The ids of the targets measured with this assay. */
+  readonly targets: readonly string[];
+  /** The width of the bins the assay scores bouts in. */
+  readonly binSeconds: number;
+  /** The suite's own step size first. */
+  readonly stepSizes: readonly {
+    readonly stepsPerSecond: number;
+    readonly kinds: readonly BoutKindShape[];
+  }[];
+  /** How far each other step size's pooled bouts are from the first's. */
+  readonly agreement: readonly {
+    readonly bouts: BoutKind;
+    readonly stepsPerSecond: readonly [number, number];
+    /** The two-sample Kolmogorov–Smirnov distance, or null with no bouts to compare. */
+    readonly distance: number | null;
+    readonly tolerance: number;
+    readonly pass: boolean;
+  }[];
+}
+
 /** What the validation suite found, tagged so it can be traced back to the model that made it. */
 export interface ValidationReport {
   readonly format: typeof REPORT_FORMAT;
@@ -81,6 +128,11 @@ export interface ValidationReport {
   readonly parameters: ModelParameters;
   readonly stepsPerSecond: number;
   readonly seeds: readonly number[];
+  /** Each parameter's and Driver relationship's label, as the model that made the report had them. */
+  readonly relationships: {
+    readonly parameters: Readonly<Record<string, RelationshipLabel>>;
+    readonly drivers: readonly DriverRelationship[];
+  };
   readonly targets: readonly TargetResult[];
   /** Counted targets the suite has no Virtual Assay or measure for yet, and why. */
   readonly skipped: readonly {
@@ -88,6 +140,15 @@ export interface ValidationReport {
     readonly title: string;
     readonly reason: string;
   }[];
+  /** Scoring Disagreement for each distinct Virtual Assay the targets use. */
+  readonly disagreement: readonly AssayDisagreement[];
+  /** Bout shapes for each Virtual Assay that scores bouts. */
+  readonly boutShapes: readonly AssayBoutShapes[];
+  /**
+   * The fitted descriptive baseline for each bout-duration comparison: an explicit time-in-bout
+   * model for comparison only, which the engine never uses.
+   */
+  readonly baselines: readonly BoutBaseline[];
 }
 
 /** Why a report no longer describes the model, or null if it still does. */
@@ -120,8 +181,13 @@ export function readValidationReport(json: string): ValidationReport {
     typeof parsed.parameters !== "object" ||
     typeof parsed.stepsPerSecond !== "number" ||
     !Array.isArray(parsed.seeds) ||
+    typeof parsed.relationships?.parameters !== "object" ||
+    !Array.isArray(parsed.relationships.drivers) ||
     !Array.isArray(parsed.targets) ||
-    !Array.isArray(parsed.skipped)
+    !Array.isArray(parsed.skipped) ||
+    !Array.isArray(parsed.disagreement) ||
+    !Array.isArray(parsed.boutShapes) ||
+    !Array.isArray(parsed.baselines)
   ) {
     throw new Error("This validation report is incomplete.");
   }

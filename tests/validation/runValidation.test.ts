@@ -1,9 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_PARAMETERS, MODEL_VERSION } from "../../src/engine";
+import {
+  DEFAULT_PARAMETERS,
+  DRIVER_RELATIONSHIPS,
+  MODEL_VERSION,
+  PARAMETER_LABELS,
+} from "../../src/engine";
 import {
   EvidencePackError,
   readEvidencePack,
   runValidation,
+  tuningPack,
   type EvidencePack,
   type ValidationTarget,
 } from "../../src/validation";
@@ -99,6 +105,11 @@ describe("the validation suite's runner", () => {
       stepsPerSecond: 50,
       seeds: [1, 2],
     });
+    // The labels travel with the parameters.
+    expect(report.relationships).toEqual({
+      parameters: PARAMETER_LABELS,
+      drivers: DRIVER_RELATIONSHIPS,
+    });
     expect(report.targets.map((each) => [each.id, each.heldOut])).toEqual([
       ["sleep", false],
       ["held-out-sleep", true],
@@ -108,12 +119,103 @@ describe("the validation suite's runner", () => {
     expect(sleep?.display).toEqual({ kind: "scalar", accepted: { low: 700, high: 1100 } });
     expect(typeof sleep?.model.pooled).toBe("number");
     expect(typeof sleep?.result.pass).toBe("boolean");
+    // Scoring Disagreement, once for the assay both targets use.
+    expect(report.disagreement.map((each) => [each.targets, each.title])).toEqual([
+      [["sleep", "held-out-sleep"], "Sleep: beam monitor, 60 s bins"],
+    ]);
+    expect(report.disagreement[0]?.perFly.map((fly) => fly.seed)).toEqual([1, 2]);
+    expect(report.disagreement[0]?.pooled?.scoredSleepMinutesPerDay).toBeGreaterThanOrEqual(0);
     // A target without its assay is listed, not dropped silently. A candidate isn't run.
     expect(report.skipped.map((each) => each.id)).toEqual(["video"]);
     expect(report.skipped[0]?.reason).toMatch(/no a-method-with-no-assay/);
 
     // The same command gives the same report.
     expect(await runValidation(options)).toEqual(report);
+  });
+
+  it("runs the model with the parameters it is given, and tags the report with them", async () => {
+    const parameters = { ...DEFAULT_PARAMETERS, fallAsleepCircadianRate: 0 };
+    const options = { pack: PACK, seeds: [1], jobs: 1 };
+    const tuned = await runValidation({ ...options, parameters });
+    const untuned = await runValidation(options);
+
+    expect(tuned.parameters).toEqual(parameters);
+    expect(tuned.targets[0]?.model.perFly).not.toEqual(untuned.targets[0]?.model.perFly);
+  });
+});
+
+describe("the bout shape stage", () => {
+  it("runs each assay that scores bouts at a second step size, and reports both", async () => {
+    const bouts = target("bouts", {
+      measure: "inactivity-bout-duration-distribution",
+      published: [
+        {
+          label: "males, survival exponent",
+          value: 0.7,
+          unit: "",
+          uncertainty: { kind: "none", value: null },
+          n: 10,
+          location: "Figure 2",
+        },
+      ],
+      criterion: {
+        kind: "exponent-within",
+        exponentForm: "ccdf",
+        description: "0.5 to 1",
+        xminSeconds: 60,
+        xmaxSeconds: 3600,
+        low: 0.5,
+        high: 1,
+      },
+    });
+    const report = await runValidation({
+      pack: { ...PACK, targets: [target("sleep"), bouts] },
+      seeds: [1, 2],
+      jobs: 4,
+    });
+
+    // The two targets watch the same flies with the same instrument, so it is one assay.
+    expect(report.boutShapes.map((each) => each.targets)).toEqual([["sleep", "bouts"]]);
+    const [shapes] = report.boutShapes;
+    expect(shapes?.binSeconds).toBe(60);
+    expect(shapes?.stepSizes.map((each) => each.stepsPerSecond)).toEqual([50, 25]);
+    for (const { kinds } of shapes?.stepSizes ?? []) {
+      expect(kinds.map((kind) => [kind.bouts, kind.expected])).toEqual([
+        ["inactivity", "falling"],
+        ["activity", "exponential"],
+      ]);
+      for (const kind of kinds) {
+        expect(kind.perFly.map((fly) => fly.seed)).toEqual([1, 2]);
+        expect(typeof kind.pass).toBe("boolean");
+        expect(typeof kind.fallingOnlyWhenPooled).toBe("boolean");
+      }
+    }
+    expect(shapes?.agreement.map((each) => [each.bouts, each.stepsPerSecond])).toEqual([
+      ["inactivity", [50, 25]],
+      ["activity", [50, 25]],
+    ]);
+    // The targets themselves are judged at the suite's own step size only.
+    expect(report.targets.map((each) => each.id)).toEqual(["sleep", "bouts"]);
+
+    // The descriptive baseline, fitted to the published fit, beside the model's bouts.
+    expect(report.baselines.map((each) => [each.id, each.targetId, each.bouts])).toEqual([
+      ["bouts", "bouts", "inactivity"],
+    ]);
+    const [baseline] = report.baselines;
+    expect(baseline?.fitted.beta).toBeCloseTo(0.7, 6);
+    expect(baseline?.fitted.tauSeconds).toBeNull();
+    expect(baseline?.fittedTo).toMatch(/published fit.*0\.7.*Figure 2/);
+    expect(baseline?.distance.published).toBeCloseTo(0, 6);
+    expect(baseline?.distance.model).toBeGreaterThan(0);
+  });
+});
+
+describe("tuning", () => {
+  it("never reads a held-out target", () => {
+    const pack = tuningPack(PACK);
+
+    expect(pack.targets.map((each) => each.id)).toEqual(["sleep", "video", "later"]);
+    expect(pack.targets.some((each) => each.heldOut)).toBe(false);
   });
 });
 

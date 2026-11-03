@@ -8,6 +8,20 @@ import {
   type ValidationReport,
 } from "../validation/report";
 import { VALIDATION_COLOURS as COLOURS } from "./palette";
+import { baselineExtras } from "./baselineView";
+import { boutShapesHtml } from "./boutShapeChart";
+import { disagreementHtml } from "./disagreementChart";
+import { relationshipsHtml } from "./relationshipList";
+import {
+  Chart,
+  PLOT,
+  escapeHtml,
+  formatNumber,
+  handleScaleSwitch,
+  linePath,
+  tipRow,
+  withUnit,
+} from "./validationChart";
 
 const BACK_ICON =
   '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M10 3L5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -26,17 +40,6 @@ const UNCERTAINTY_NAMES: Readonly<Record<PublishedValue["uncertainty"]["kind"], 
   none: "",
 };
 
-/** A chart's drawing area, in its viewBox's units, which scale with its width. */
-const WIDTH = 640;
-const HEIGHT = 300;
-const MARGIN = { left: 56, right: 16, top: 14, bottom: 36 };
-const PLOT = {
-  left: MARGIN.left,
-  right: WIDTH - MARGIN.right,
-  top: MARGIN.top,
-  bottom: HEIGHT - MARGIN.bottom,
-};
-
 type Loaded =
   | { readonly kind: "report"; readonly report: ValidationReport }
   | { readonly kind: "missing" }
@@ -46,23 +49,6 @@ export interface ValidationView {
   open(): void;
   close(): void;
   isOpen(): boolean;
-}
-
-function escapeHtml(text: string): string {
-  return text
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
-}
-
-/** A number as it reads in a chart: whole above 100, else to three significant figures. */
-function formatNumber(value: number): string {
-  return Math.abs(value) >= 100 ? String(Math.round(value)) : String(Number(value.toPrecision(3)));
-}
-
-function withUnit(value: number, unit: string): string {
-  return unit === "" ? formatNumber(value) : `${formatNumber(value)} ${escapeHtml(unit)}`;
 }
 
 function asNumber(value: number | readonly number[] | null): number | null {
@@ -128,65 +114,6 @@ function uncertaintySpan(
   const [low, high] = spread;
   if (spread.length !== 2 || low === undefined || high === undefined) return null;
   return { low, high, text: `${name} ${formatNumber(low)} to ${formatNumber(high)}` };
-}
-
-/** Round ticks covering a range, and the range they cover. */
-function niceScale(
-  low: number,
-  high: number,
-): { low: number; high: number; ticks: readonly number[] } {
-  if (!Number.isFinite(low) || !Number.isFinite(high)) return niceScale(0, 1);
-  if (high - low < 1e-9) return niceScale(low - Math.max(1, Math.abs(low) * 0.1), high + 1);
-  const rough = (high - low) / 5;
-  const magnitude = 10 ** Math.floor(Math.log10(rough));
-  const step = ([1, 2, 2.5, 5, 10].find((each) => each * magnitude >= rough) ?? 10) * magnitude;
-  const start = Math.floor(low / step) * step;
-  const end = Math.ceil(high / step) * step;
-  const ticks: number[] = [];
-  for (let tick = start; tick <= end + step / 2; tick += step) ticks.push(Number(tick.toFixed(10)));
-  return { low: start, high: end, ticks };
-}
-
-/** Builds a chart's SVG, collecting what each hoverable mark says. */
-class Chart {
-  readonly parts: string[] = [];
-  readonly tips: string[];
-  readonly y: (value: number) => number;
-
-  constructor(tips: string[], values: readonly number[], unit: string, includeZero: boolean) {
-    this.tips = tips;
-    const low = Math.min(...values, ...(includeZero ? [0] : []));
-    const high = Math.max(...values, ...(includeZero ? [0] : []));
-    const pad = (high - low) * 0.06;
-    const scale = niceScale(includeZero && low >= 0 ? low : low - pad, high + pad);
-    this.y = (value) =>
-      PLOT.top + ((scale.high - value) / (scale.high - scale.low)) * (PLOT.bottom - PLOT.top);
-    for (const tick of scale.ticks) {
-      const y = this.y(tick).toFixed(1);
-      this.parts.push(
-        `<line class="grid" x1="${PLOT.left}" x2="${PLOT.right}" y1="${y}" y2="${y}"/>`,
-        `<text class="tick" x="${PLOT.left - 6}" y="${y}" text-anchor="end" dominant-baseline="middle">${formatNumber(tick)}</text>`,
-      );
-    }
-    this.parts.push(
-      `<text class="axis-label" transform="translate(14 ${(PLOT.top + PLOT.bottom) / 2}) rotate(-90)" text-anchor="middle">${escapeHtml(unit)}</text>`,
-    );
-  }
-
-  /** Remembers what a mark says on hover, as the attribute that points to it. */
-  tip(html: string): string {
-    this.tips.push(html);
-    return `data-tip="${this.tips.length - 1}"`;
-  }
-
-  svg(label: string): string {
-    return `<svg class="chart" viewBox="0 0 ${WIDTH} ${HEIGHT}" role="img" aria-label="${escapeHtml(label)}">${this.parts.join("")}</svg>`;
-  }
-}
-
-function tipRow(colour: string | null, label: string, value: string): string {
-  const swatch = colour === null ? "" : `<span class="swatch" style="background:${colour}"></span>`;
-  return `<div class="tooltip-row">${swatch}${label}<b>${value}</b></div>`;
 }
 
 /** A published value with its uncertainty, how many flies and where it comes from. */
@@ -306,24 +233,6 @@ function scalarChart(
     ),
   );
   return chart.svg(`${target.title} chart`);
-}
-
-function linePath(
-  values: readonly (number | null)[],
-  x: (bin: number) => number,
-  y: (value: number) => number,
-): string {
-  let path = "";
-  let drawing = false;
-  values.forEach((value, bin) => {
-    if (value === null) {
-      drawing = false;
-      return;
-    }
-    path += `${drawing ? "L" : "M"}${x(bin).toFixed(1)},${y(value).toFixed(1)}`;
-    drawing = true;
-  });
-  return path;
 }
 
 function profileChart(target: TargetResult, binLabels: readonly string[], tips: string[]): string {
@@ -581,10 +490,16 @@ export function createValidationView(container: HTMLElement, room: HTMLElement):
     const reason = staleness(report, MODEL_VERSION, DEFAULT_PARAMETERS);
     stale.hidden = reason === null;
     stale.textContent = reason === null ? "" : `Stale. ${reason}`;
-    body.innerHTML =
+    const targets =
       report.targets.length === 0
         ? `<div id="validation-message" class="validation-message" data-state="empty"><p>The report has no Validation Targets.</p></div>`
         : `<div class="targets">${report.targets.map((target) => targetHtml(target, tips)).join("")}</div>`;
+    body.innerHTML = [
+      targets,
+      boutShapesHtml(report, tips, baselineExtras(report, tips)),
+      disagreementHtml(report, tips),
+      relationshipsHtml(report, tips),
+    ].join("");
   }
 
   async function load(): Promise<void> {
@@ -641,6 +556,7 @@ export function createValidationView(container: HTMLElement, room: HTMLElement):
     if (returnFocus instanceof HTMLElement) returnFocus.focus();
   }
 
+  body.addEventListener("click", handleScaleSwitch);
   back.addEventListener("click", close);
   container.addEventListener("keydown", (event) => {
     if (event.key === "Escape") close();

@@ -2,9 +2,11 @@ import {
   DEFAULT_LIGHT_SCHEDULE,
   createSimulationRun,
   type LightSchedule,
+  type ModelParameters,
   type SimulationSetup,
 } from "../engine";
 import type { ValidationTarget } from "./evidencePack";
+import { vigilanceRecord, type VigilanceRecord } from "./disagreement";
 import { observeRun, type InstrumentSettings, type Observation } from "./instruments";
 import type { ScoringRule } from "./scoring";
 
@@ -46,6 +48,12 @@ export interface Assay {
   readonly scoring: ScoringRule;
 }
 
+/** How a simulated fly is run: its step size and model parameters, each the model's default if not given. */
+export interface FlyRunOptions {
+  readonly stepsPerSecond?: number;
+  readonly parameters?: ModelParameters;
+}
+
 /** The standard beam monitor: a 65 mm tube, 5 mm across, with one beam across its middle. */
 export const ACTIVITY_MONITOR: Assay = {
   study: {
@@ -70,7 +78,7 @@ export const ACTIVITY_MONITOR: Assay = {
 export function assaySetup(
   study: StudySetup,
   seed: number,
-  stepsPerSecond?: number,
+  { stepsPerSecond, parameters }: FlyRunOptions = {},
 ): SimulationSetup {
   const { chamber } = study;
   const plug = { x: 0, y: chamber.widthMetres / 2 };
@@ -88,22 +96,44 @@ export function assaySetup(
     // Only the instruments' records are kept, so the run holds just its latest sample.
     maxRecordedSamples: 1,
     ...(stepsPerSecond !== undefined && { stepsPerSecond }),
+    ...(parameters !== undefined && { parameters }),
   };
+}
+
+/** What a study's instruments recorded of one fly, and beside it, what they couldn't see. */
+export interface FlyRecording {
+  /** One per instrument. Scoring sees only these. */
+  readonly observations: Observation[];
+  /** The fly's true Vigilance State over the same span, for Scoring Disagreement alone. */
+  readonly vigilance: VigilanceRecord;
 }
 
 /**
  * Runs one fly through a study, and returns what each instrument recorded after acclimation, as
- * the study recorded its flies with each at once.
+ * the study recorded its flies with each at once, and the true Vigilance State over that time.
  */
 export function observeFly(
   study: StudySetup,
   instruments: readonly InstrumentSettings[],
   seed: number,
-  stepsPerSecond?: number,
-): Observation[] {
-  const run = createSimulationRun(assaySetup(study, seed, stepsPerSecond));
+  options: FlyRunOptions = {},
+): FlyRecording {
+  const run = createSimulationRun(assaySetup(study, seed, options));
   run.advanceSeconds(study.acclimationHours * 3600);
-  return observeRun(run, instruments, (study.acclimationHours + study.recordedDays * 24) * 3600);
+  const start = run.current();
+  const firedBefore = run.firedTransitions.length;
+  const observations = observeRun(
+    run,
+    instruments,
+    (study.acclimationHours + study.recordedDays * 24) * 3600,
+  );
+  const vigilance = vigilanceRecord(
+    start.vigilanceState,
+    run.firedTransitions.slice(firedBefore),
+    start.timeSeconds,
+    run.current().timeSeconds,
+  );
+  return { observations, vigilance };
 }
 
 /** Thrown for a target the validation suite has no way to measure or judge yet. */

@@ -19,6 +19,44 @@ export default tseslint.config(
     },
   },
   {
+    // An assay's scoring and everything that judges it see only what an instrument could record.
+    // Only Scoring Disagreement, which no target uses, may set the true Vigilance State beside it.
+    files: [
+      "src/validation/instruments.ts",
+      "src/validation/scoring.ts",
+      "src/validation/measures.ts",
+      "src/validation/targets.ts",
+      "src/validation/boutShapes.ts",
+      "src/validation/baseline.ts",
+      "src/validation/targetBaselines.ts",
+    ],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "../engine",
+              importNames: ["VigilanceState"],
+              message: "Scoring and targets can't use the true Vigilance State.",
+            },
+            {
+              name: "./assays",
+              importNames: ["FlyRecording", "observeFly"],
+              message: "Scoring and targets see an Observation, never a fly's whole recording.",
+            },
+          ],
+          patterns: [
+            {
+              group: ["./disagreement", "**/validation/disagreement"],
+              message: "Scoring and targets can't use the true Vigilance State.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     // All engine randomness must come from the seeded generator, all time from the
     // fixed step and all elementary functions from exactMath, so runs reproduce exactly,
     // in Node and in every browser.
@@ -65,6 +103,12 @@ export default tseslint.config(
             {
               group: ["three", "three/*", "**/viewer/**"],
               message: "The engine has no rendering or UI dependencies.",
+            },
+            {
+              // Validation, the descriptive baseline above all, judges the model and never
+              // shapes it: ADR-0001 rules out any hazard of time spent in a bout.
+              group: ["**/validation/**"],
+              message: "The engine doesn't depend on validation or its descriptive baseline.",
             },
           ],
         },

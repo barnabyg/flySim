@@ -160,6 +160,10 @@ _Avoid_: Active phase
 An Inactivity Bout of 5 minutes or longer, classified as sleep from the movement record alone, as a lab would classify it.
 _Avoid_: Sleep (when the observed measure is meant)
 
+**Scoring Disagreement**:
+How often a Virtual Assay's Scored Sleep disagrees with the fly's true Vigilance State, in both directions: awake Immobility scored as sleep, as a share of Scored Sleep, and true sleep not scored as sleep, because it was shorter than 5 minutes or broken by movement the instrument saw, as a share of true sleep. It is also counted as bouts, awake stretches of 5 minutes or more scored as sleep and sleep bouts missed entirely, and broken down by time of day. It measures the 5-minute rule, not the model, so it is never a Validation Target, and it is the only place the Vigilance State is set beside an assay's scoring.
+_Avoid_: Scoring error, false sleep rate
+
 ### Validation
 
 **Virtual Assay**:
@@ -173,3 +177,31 @@ _Avoid_: Benchmark, expected result
 **Evidence Pack**:
 The curated set of Validation Targets, including at least one held out from parameter tuning. Every counted target's source was read in full, and each published value records where in it it comes from.
 _Avoid_: Test data, references
+
+**Validation Report**:
+What the validation suite writes and the validation view shows: the model against each Validation Target, bout shapes, the Descriptive Baseline, Scoring Disagreement and each relationship's label, tagged with the model version, parameters, step size and seeds that made it. It is stale once the model or its parameters change.
+_Avoid_: Results, scorecard
+
+**Held-out Target**:
+A Validation Target the model is checked against only after tuning and never tuned against, so its result can't have been fitted. Tuning reads the Evidence Pack without them, and the report gives their result whether it passes or not.
+_Avoid_: Test set, hidden target
+
+**Established**:
+The label for a model relationship that a counted Evidence Pack target supports, which it cites. The parameters that size an Established relationship can still be Provisional, as a source may show that a push exists without saying how strong it is.
+_Avoid_: Validated, proven
+
+**Provisional**:
+The label for a model relationship or parameter that is roughly tuned or plausible but not validated. Every relationship is Provisional until the Evidence Pack supports it, and a tuned value stays Provisional unless a target supports the value itself.
+_Avoid_: Assumed, default
+
+**Hypothesis**:
+The label for a model relationship that is the model's own proposal and that no source measures, such as its answer to what ends Inactivity Bouts under 5 minutes: background arousal left over from activity, drifting down during Immobility.
+_Avoid_: Guess, speculation
+
+**Descriptive Baseline**:
+A fitted curve of bout durations, a power law with an exponential tail whose chance of ending falls with time in the bout as β/t + 1/τ, set beside the published data and the model's bouts. It describes the data rather than explaining it, which is why ADR-0001 rejects it as a mechanism, and nothing in the model uses it. It is fitted to a target's published data, or to its published fit where the source gives only that.
+_Avoid_: Null model, reference model, fit (when the model's own bouts are meant)
+
+**Bout Shape**:
+Whether a Virtual Assay's bout durations are close to exponential, as a memoryless process gives, or have a falling hazard, as a heavy tail does, judged per simulated fly as well as pooled and at more than one step size. ADR-0001's first validation stage needs Inactivity Bouts with a falling hazard and Activity Bouts close to exponential.
+_Avoid_: Bout distribution (when the verdict is meant)

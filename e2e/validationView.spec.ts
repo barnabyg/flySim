@@ -108,6 +108,128 @@ test("the validation control opens a chart per target over the Room, which runs 
   expect(await interventionCount(page)).toBe(0);
 });
 
+test("the view lists the model's relationships by label, with the source of an Established one", async ({
+  page,
+}) => {
+  await serveReport(page, current);
+  await page.goto("/?view=validation");
+  const section = page.locator("#validation-relationships");
+  await expect(section).toBeVisible();
+  const group = (status: string) => section.locator(`.relationship-group[data-status="${status}"]`);
+  await expect(group("established").locator("h3")).toContainText("Established");
+  await expect(group("established").locator("li")).toHaveCount(1);
+  await expect(group("provisional").locator("li")).toHaveCount(2);
+  await expect(group("hypothesis").locator("li")).toHaveCount(2);
+  await expect(group("hypothesis")).toContainText("arousalTimeConstantSeconds");
+  await expect(group("hypothesis")).toContainText("Arousal: Immobility → walking");
+
+  await group("established")
+    .locator('[data-relationship="immobility-to-sleeping circadian"]')
+    .hover();
+  await expect(tip(page)).toContainText("Circadian Clock: Immobility → sleeping");
+  await expect(tip(page)).toContainText("siesta");
+  // The source is the target it cites.
+  const profile = fixture.targets.find((each) => each.id === "example-sleep-profile");
+  await expect(tip(page)).toContainText(profile?.citation ?? "missing");
+});
+
+test("the view charts where each assay's Scored Sleep disagrees with true sleep, across the day", async ({
+  page,
+}) => {
+  await serveReport(page, current);
+  await page.goto("/?view=validation");
+  const section = page.locator("#validation-disagreement");
+  await expect(section).toContainText("Scoring Disagreement");
+  await expect(page.locator("#disagreement-note")).toContainText(
+    "a measure of the 5-minute rule, not a Validation Target",
+    { ignoreCase: true },
+  );
+  const assay = section.locator('[data-disagreement-id="example-daily-sleep"]');
+  await expect(assay).toContainText("Example 2020: beam monitor, 60 s bins");
+  await expect(
+    assay.locator('.disagreement-figure[data-direction="awakeScoredAsSleep"]'),
+  ).toContainText("20% of Scored Sleep");
+  await expect(
+    assay.locator('.disagreement-figure[data-direction="sleepNotScored"]'),
+  ).toContainText("10% of true sleep");
+
+  // As time, with each hour's numbers on hover.
+  const minutes = assay.locator('[data-scale-chart="minutes"]');
+  await expect(minutes.locator("svg.chart")).toBeVisible();
+  await expect(minutes.locator(".pooled-line")).toHaveCount(2);
+  await minutes.locator('[data-bin="6"]').hover();
+  await expect(tip(page)).toContainText("ZT6–7");
+  await expect(tip(page)).toContainText("min per hour");
+  await expect(tip(page)).toContainText("Awake, scored as sleep67.5");
+  await expect(tip(page)).toContainText("flies 45–90");
+
+  // And as bouts.
+  await assay.getByRole("button", { name: "Bouts" }).click();
+  await expect(minutes).toBeHidden();
+  const bouts = assay.locator('[data-scale-chart="bouts"]');
+  await expect(bouts.locator("svg.chart")).toBeVisible();
+  await bouts.locator('[data-bin="14"]').hover();
+  await expect(tip(page)).toContainText("bouts per hour");
+  await expect(tip(page)).toContainText("Asleep, not scored7.5");
+});
+
+test("the view charts bout shapes per fly and pooled, on log–log or log–linear axes, with the baseline", async ({
+  page,
+}) => {
+  await serveReport(page, current);
+  await page.goto("/?view=validation");
+  const section = page.locator("#validation-bout-shapes");
+  await expect(section).toContainText("Bout shapes");
+  const inactivity = section.locator('[data-bout-shape="example-bouts"][data-bouts="inactivity"]');
+  const activity = section.locator('[data-bout-shape="example-bouts"][data-bouts="activity"]');
+  await expect(inactivity).toContainText("Expected: a falling hazard");
+  await expect(activity).toContainText("Expected: close to exponential");
+
+  // The test's result at each step size, and how far the step sizes agree.
+  await expect(inactivity.locator('[data-steps="50"] .result')).toHaveText("Pass");
+  await expect(inactivity.locator('[data-steps="25"]')).toContainText("Weibull shape");
+  await expect(inactivity.locator('[data-agreement="50-25"]')).toContainText("at most 0.05");
+  await expect(inactivity.locator('[data-steps="50"]')).toContainText(
+    "No falling hazard shows only when pooled",
+  );
+
+  // Survival curves per fly and pooled, with an exponential for reference.
+  const logLog = inactivity.locator('[data-scale-chart="loglog"]');
+  await expect(logLog.locator(".fly-line")).toHaveCount(2);
+  await expect(logLog.locator('[data-curve="pooled"]')).toHaveCount(1);
+  await expect(logLog.locator('[data-curve="exponential"]')).toHaveCount(1);
+  await logLog.locator('[data-column="16"]').hover();
+  await expect(tip(page)).toContainText("share of bouts");
+  await expect(tip(page)).toContainText("Pooled");
+  await expect(tip(page)).toContainText("Exponential");
+  await expect(tip(page)).toContainText("Baseline, light");
+  await expect(tip(page)).toContainText("Published, light");
+
+  await inactivity.getByRole("button", { name: "Log–linear" }).click();
+  await expect(logLog).toBeHidden();
+  await expect(inactivity.locator('[data-scale-chart="loglinear"] svg.chart')).toBeVisible();
+  await inactivity.getByRole("button", { name: "Log–log" }).click();
+  await expect(logLog).toBeVisible();
+
+  // The published data and the descriptive baseline, labelled as such, with its numbers.
+  await expect(logLog.locator('[data-curve="Published, light"]')).toHaveCount(1);
+  await expect(logLog.locator('[data-curve="Baseline, light"]')).toHaveCount(1);
+  await expect(section.locator(".chart-legend")).toContainText(
+    "Descriptive baseline, not the model",
+  );
+  const baseline = inactivity.locator('[data-baseline-id="example-bouts:light"]');
+  await expect(baseline).toContainText("Descriptive baseline");
+  await expect(baseline).toContainText("β 0.7");
+  await expect(baseline).toContainText("no exponential tail");
+  await expect(baseline.locator('[data-distance="model"]')).toHaveText("0.179");
+  await expect(baseline.locator('[data-distance="published"]')).toHaveText("0");
+  await baseline.hover();
+  await expect(tip(page)).toContainText("power law with an exponential tail");
+  await expect(tip(page)).toContainText("published fit");
+  // Activity Bouts have no baseline here.
+  await expect(activity.locator("[data-baseline-id]")).toHaveCount(0);
+});
+
 test("a report from another model version, or other parameters, is marked stale", async ({
   page,
 }) => {

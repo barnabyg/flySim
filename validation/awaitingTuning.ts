@@ -1,9 +1,37 @@
 /**
- * Comparisons the model doesn't meet yet, before it is tuned against the Evidence Pack (#73), by
- * the id their result has in the report, with what the untuned model gave on 2026-11-03. Each still
- * runs, and its test is expected to fail, so one that starts to match fails the suite until it is
- * taken off this list and becomes a test that must pass. Held-out targets are never on it, as
- * they are reported and never tuned against.
+ * Comparisons the current model doesn't meet, by the id their result has in the report, with what
+ * model 0.7.0 gives. Each still runs, and its test is expected to fail, so one that starts to match
+ * fails the suite until it is taken off this list and becomes a test that must pass. Held-out
+ * targets are never on it, as they are reported and never tuned against.
+ *
+ * Tuning against the tuning pack (#73) found parameter values that meet all of them but Zimmerman
+ * 2008's dark-phase beam sleep, but they were not adopted. They kept the fly's walking hazard high
+ * even once it had settled, so it rarely stayed in awake Immobility for 5 minutes, which is the
+ * behaviour the project set out to explain. Rebound after lost sleep weakened, and darkness no
+ * longer cut walking at once. Both held-out targets failed with them, which says the same: real
+ * flies keep still and awake far more than that model did. So these targets can be met only by
+ * giving up long awake Immobility, which was judged the worse loss, unless the model changes:
+ *
+ * - The Inactivity Bouts' power law (Xu 2021) needs many short pauses ended quickly, so the hazard
+ *   of walking must stay high soon after the fly stops. Arousal sets that hazard by its square, and
+ *   is the same arousal that must fall low for long awake Immobility, so the model can have one or
+ *   the other. Cascallares 2018's Activity Bout tail rate needs short walks, which pull the same
+ *   way.
+ * - The daily Scored Sleep profile (Xu 2021) needs a sharp dusk and a gradual fall in sleep before
+ *   dawn. The clock's sleep gate, a square root by night and a fourth power by day, can't give them
+ *   with any parameter values, which a search of 3000 parameter sets showed: r reached 0.79 at
+ *   best. Squaring both peaks reached r 0.93.
+ * - Real beam monitors score about 380 min a day more sleep than an ethoscope (Zimmerman 2008,
+ *   Geissmann 2019), from awake flies that keep still or groom in place for minutes. The model's
+ *   beam monitor scores almost the same as its ethoscope, so the ethoscope's daily sleep can't fall
+ *   to its target without the beam's light-phase sleep falling below its own.
+ *
+ * What they need: a walking hazard that falls far lower once the fly has settled than between the
+ * walks of a bout of activity, such as a slow Driver of activity that tells a bout of activity from
+ * a settled fly, or a steeper dependence on arousal, and a sleep gate whose siesta and night peaks
+ * have the same shape. Then a settled, awake fly could keep still or groom for minutes, as the beam
+ * monitor and video targets say it does, while a fly between walks resumes quickly. Values can be
+ * tried with `npm run tune`, which never runs a held-out target.
  */
 export const AWAITING_TUNING: ReadonlyMap<string, string> = new Map<string, string>([
   ["xu-2021-inactivity-bouts-power-law:light", "CCDF exponent 0.12, against 0.55 to 0.91"],

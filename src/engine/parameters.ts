@@ -1,9 +1,12 @@
 /**
- * Model values for Phases 1 to 3. They are roughly tuned so that about 10 simulated minutes
- * shows all four awake behaviours, a settled fly often stays in awake Immobility for more than
- * 5 minutes, a day shows a morning, siesta, evening and night of sleep, and a part-fed fly
- * finds food within hours. They are not validated: every relationship here is Provisional,
- * including energy use, water loss, intake and how Hunger, Thirst and odour act.
+ * Model values. Phases 1 to 3 tuned them roughly, so that about 10 simulated minutes shows all
+ * four awake behaviours, a settled fly often stays in awake Immobility for more than 5 minutes, a
+ * day shows a morning, siesta, evening and night of sleep, and a part-fed fly finds food within
+ * hours. Phase 5 tried tuning them against the Evidence Pack's tuning targets (#73), but the
+ * values that met them gave up long awake Immobility, so these remain, and
+ * validation/awaitingTuning.ts says which targets they miss and why. No value is validated:
+ * each is Provisional, apart from those of the arousal that ends short Inactivity Bouts, which
+ * are a Hypothesis. PARAMETER_LABELS in relationships.ts labels each.
  */
 export interface ModelParameters {
   /** Arousal relaxes towards this level during Immobility. */
