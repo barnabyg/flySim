@@ -94,7 +94,7 @@ The validation suite runs Virtual Assays of the Reference Fly against the [Evide
 npm run validate:view
 ```
 
-This runs the suite and then opens the app on the validation view. `npm run validate` runs the suite alone. Each study's Chamber, Light Schedule and instruments are set up as the study set up its own, and each simulated fly runs in its own Node process, as a batch's seeds do: 16 seeds per study, about two and a half minutes on a machine with 20 threads. A study that let its flies settle for days is simulated with a day of it, as the model doesn't age. The report goes to `validation-output/report.json`, tagged with the model version, parameters, step size and seeds, and the same command gives the same report apart from when it was made.
+This runs the suite and then opens the app on the validation view. `npm run validate` runs the suite alone. Each study's Chamber, Light Schedule and instruments are set up as the study set up its own, and each simulated fly runs in its own Node process, as a batch's seeds do: 16 seeds per study, about two and a half minutes on a machine with 20 threads. The report goes to `validation-output/report.json`, tagged with the model version, parameters, step size and seeds, and the same command gives the same report apart from when it was made.
 
 Each target is a test. A target the model doesn't meet fails the suite, except a held-out target, which is reported but never tuned against, and the targets listed in `validation/awaitingTuning.ts`, which the model doesn't meet yet before tuning. Those are expected to fail, so one that starts to match fails the suite until it is taken off the list.
 

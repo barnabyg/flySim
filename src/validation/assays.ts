@@ -119,16 +119,42 @@ export interface AssayCalibration {
   /** Whether grooming in place counts as movement, when the source doesn't say. */
   readonly groomingCountsAsMovement?: boolean;
   readonly minInactivitySeconds?: number;
+  /**
+   * How far the food reaches into the chamber from its end, which the fly can't walk on. The
+   * simulated chamber is shorter by this much, and the pack's beam positions, measured from the
+   * chamber's end, move with it.
+   */
+  readonly foodLengthMm?: number;
   readonly reason: string;
 }
+
+/** Xu 2021's food fills 15 to 20 mm of its channel's length. */
+const XU_FOOD_LENGTH_MM = 17.5;
+
+/** Cascallares 2018's 1 cm³ of food fills its 10 × 7 mm track's sealed end to about 14 mm. */
+const CASCALLARES_FOOD_LENGTH_MM = 14;
 
 export const CALIBRATIONS: Readonly<Record<string, AssayCalibration>> = {
   "xu-2021-inactivity-bouts-power-law": {
     movementThresholdMetres: 0.0001,
     groomingCountsAsMovement: false,
     minInactivitySeconds: 1,
+    foodLengthMm: XU_FOOD_LENGTH_MM,
     reason:
-      "Xu 2021 tracks the centroid, and any change of location of a pixel is movement, but doesn't give the pixel's size. 0.1 mm is below any step the fly walks in a frame, so any walking shows. A centroid doesn't move when the fly grooms in place. Its Methods score only a stay of more than 1 s as an Inactivity Bout.",
+      "Xu 2021 tracks the centroid, and any change of location of a pixel is movement, but doesn't give the pixel's size. 0.1 mm is below any step the fly walks in a frame, so any walking shows. A centroid doesn't move when the fly grooms in place. Its Methods score only a stay of more than 1 s as an Inactivity Bout. Its food fills 15 to 20 mm of the channel.",
+  },
+  "xu-2021-male-scored-sleep-profile": {
+    foodLengthMm: XU_FOOD_LENGTH_MM,
+    reason:
+      "Xu 2021's food fills 15 to 20 mm of the channel, so its virtual beam, at the middle of where the fly walks, is 47.75 mm from the channel's end.",
+  },
+  "cascallares-2018-activity-bouts-exponential": {
+    foodLengthMm: CASCALLARES_FOOD_LENGTH_MM,
+    reason: "About 1 cm³ of food fills the sealed end of the 10 × 7 mm track.",
+  },
+  "cascallares-2018-quiescence-power-law": {
+    foodLengthMm: CASCALLARES_FOOD_LENGTH_MM,
+    reason: "About 1 cm³ of food fills the sealed end of the 10 × 7 mm track.",
   },
   "geissmann-2019-daily-scored-sleep-ethoscope": {
     movementThresholdMetres: 0.001,
@@ -155,7 +181,8 @@ function thresholdMetres(target: ValidationTarget, calibration?: AssayCalibratio
 export function assayFor(target: ValidationTarget): Assay {
   const { assay, fly } = target;
   const calibration = CALIBRATIONS[target.id];
-  const lengthMetres = assay.chamber.lengthMm / 1000;
+  const foodMm = calibration?.foodLengthMm ?? 0;
+  const lengthMetres = (assay.chamber.lengthMm - foodMm) / 1000;
   const study: StudySetup = {
     chamber: {
       name: assay.chamber.description,
@@ -179,7 +206,9 @@ export function assayFor(target: ValidationTarget): Assay {
         study,
         instrument: {
           kind: "beam-crossing",
-          beamPositionsMetres: assay.beamPositionsMm?.map((mm) => mm / 1000) ?? [lengthMetres / 2],
+          beamPositionsMetres: assay.beamPositionsMm?.map((mm) => (mm - foodMm) / 1000) ?? [
+            lengthMetres / 2,
+          ],
           binSeconds: assay.binSeconds,
         },
         scoring,
