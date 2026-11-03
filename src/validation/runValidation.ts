@@ -7,11 +7,17 @@ import {
   type ModelParameters,
 } from "../engine";
 import { runInProcesses } from "../batch/processPool";
-import { UnsupportedTargetError, assayFor, type Assay } from "./assays";
+import { UnsupportedTargetError, assayFor, type Assay, type FlyRecording } from "./assays";
+import { disagreementOf, poolDisagreement } from "./disagreement";
 import { countedTargets, type EvidencePack, type ValidationTarget } from "./evidencePack";
-import type { InstrumentSettings, Observation } from "./instruments";
+import type { InstrumentSettings } from "./instruments";
 import type { ObserveJob } from "./observeProcess";
-import { REPORT_FORMAT, REPORT_VERSION, type ValidationReport } from "./report";
+import {
+  REPORT_FORMAT,
+  REPORT_VERSION,
+  type AssayDisagreement,
+  type ValidationReport,
+} from "./report";
 import { scoreObservation } from "./scoring";
 import { evaluateTarget, type AssayedFly } from "./targets";
 
@@ -86,7 +92,7 @@ export async function runValidation(options: ValidationOptions): Promise<Validat
       },
     })),
   );
-  const recorded = await runInProcesses<Observation[]>(
+  const recorded = await runInProcesses<FlyRecording>(
     OBSERVE_PROCESS,
     jobs.map(({ job }): ObserveJob => job),
     options.jobs,
@@ -96,7 +102,7 @@ export async function runValidation(options: ValidationOptions): Promise<Validat
   const targets = runnable.flatMap(({ target, assay, study, instrument }) => {
     const flies: AssayedFly[] = [];
     jobs.forEach(({ key, job }, index) => {
-      const observation = recorded[index]?.[instrument];
+      const observation = recorded[index]?.observations[instrument];
       // A fly that died is left out, as a study leaves out its dead flies.
       if (key !== study || !observation || observation.died) return;
       flies.push({
@@ -114,6 +120,8 @@ export async function runValidation(options: ValidationOptions): Promise<Validat
     }
   });
 
+  const disagreement = assayDisagreements(runnable, jobs, recorded);
+
   return {
     format: REPORT_FORMAT,
     version: REPORT_VERSION,
@@ -125,5 +133,71 @@ export async function runValidation(options: ValidationOptions): Promise<Validat
     relationships: { parameters: PARAMETER_LABELS, drivers: DRIVER_RELATIONSHIPS },
     targets,
     skipped,
+    disagreement,
   };
+}
+
+function seconds(value: number): string {
+  return `${String(value)} s`;
+}
+
+/** What a Virtual Assay is, as its study and instrument, such as "Xu 2021: beam monitor, 60-s bins". */
+function assayTitle(target: ValidationTarget, assay: Assay): string {
+  // Ids start with the first author and the year, as in xu-2021-male-scored-sleep-profile.
+  const [author = "", year = ""] = target.id.split("-");
+  const name = `${author.charAt(0).toUpperCase()}${author.slice(1)}`;
+  const study = /^\d{4}$/.test(year) ? `${name} ${year}` : name;
+  const { instrument } = assay;
+  const method =
+    instrument.kind === "beam-crossing"
+      ? `beam monitor, ${seconds(instrument.binSeconds)} bins`
+      : `video, a frame every ${seconds(instrument.frameSeconds)}, ${
+          instrument.groomingCountsAsMovement
+            ? "grooming counts as movement"
+            : "grooming doesn't count"
+        }`;
+  return `${study}: ${method}`;
+}
+
+/**
+ * Scoring Disagreement for each distinct Virtual Assay: each study, instrument and scoring rule,
+ * however many targets use it.
+ */
+function assayDisagreements(
+  runnable: readonly {
+    target: ValidationTarget;
+    assay: Assay;
+    study: string;
+    instrument: number;
+  }[],
+  jobs: readonly { key: string; job: ObserveJob }[],
+  recorded: readonly FlyRecording[],
+): AssayDisagreement[] {
+  const assays = new Map<string, { first: (typeof runnable)[number]; targets: string[] }>();
+  for (const each of runnable) {
+    const key = JSON.stringify([each.study, each.instrument, each.assay.scoring]);
+    const entry = assays.get(key) ?? { first: each, targets: [] };
+    if (!entry.targets.includes(each.target.id)) entry.targets.push(each.target.id);
+    assays.set(key, entry);
+  }
+  return [...assays.values()].map(({ first, targets }) => {
+    const perFly = jobs.flatMap(({ key, job }, index) => {
+      const recording = recorded[index];
+      const observation = recording?.observations[first.instrument];
+      if (key !== first.study || !recording || !observation || observation.died) return [];
+      const scored = scoreObservation(observation, first.assay.scoring);
+      return [
+        { seed: job.seed, ...disagreementOf(scored, recording.vigilance, first.assay.scoring) },
+      ];
+    });
+    return {
+      id: targets.join("+"),
+      title: assayTitle(first.target, first.assay),
+      assay: first.target.assay.kind,
+      targets,
+      sleepThresholdMinutes: first.assay.scoring.sleepThresholdMinutes,
+      perFly,
+      pooled: perFly.length === 0 ? null : poolDisagreement(perFly),
+    };
+  });
 }

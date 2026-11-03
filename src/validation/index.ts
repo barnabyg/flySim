@@ -7,6 +7,7 @@ export {
   assaySetup,
   observeFly,
   type Assay,
+  type FlyRecording,
   type FlyRunOptions,
   type AssayCalibration,
   type StudySetup,
@@ -39,3 +40,11 @@ export {
 } from "./evidencePack";
 export { VALIDATION_SEEDS, runValidation, type ValidationOptions } from "./runValidation";
 export * from "./report";
+export {
+  disagreementOf,
+  poolDisagreement,
+  vigilanceRecord,
+  type Disagreement,
+  type DisagreementMeasure,
+  type VigilanceRecord,
+} from "./disagreement";

@@ -19,6 +19,29 @@ export default tseslint.config(
     },
   },
   {
+    // An assay's scoring and the targets judge only what an instrument could record. Only
+    // Scoring Disagreement, which no target uses, may set the true Vigilance State beside it.
+    files: [
+      "src/validation/instruments.ts",
+      "src/validation/scoring.ts",
+      "src/validation/measures.ts",
+      "src/validation/targets.ts",
+    ],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["./disagreement", "**/validation/disagreement"],
+              message: "Scoring and targets can't use the true Vigilance State.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     // All engine randomness must come from the seeded generator, all time from the
     // fixed step and all elementary functions from exactMath, so runs reproduce exactly,
     // in Node and in every browser.

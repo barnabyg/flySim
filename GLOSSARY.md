@@ -160,6 +160,10 @@ _Avoid_: Active phase
 An Inactivity Bout of 5 minutes or longer, classified as sleep from the movement record alone, as a lab would classify it.
 _Avoid_: Sleep (when the observed measure is meant)
 
+**Scoring Disagreement**:
+How often a Virtual Assay's Scored Sleep disagrees with the fly's true Vigilance State, in both directions: awake Immobility scored as sleep, as a share of Scored Sleep, and true sleep not scored as sleep, because it was shorter than 5 minutes or broken by movement the instrument saw, as a share of true sleep. It is also counted as bouts, awake stretches of 5 minutes or more scored as sleep and sleep bouts missed entirely, and broken down by time of day. It measures the 5-minute rule, not the model, so it is never a Validation Target, and it is the only place the Vigilance State is set beside an assay's scoring.
+_Avoid_: Scoring error, false sleep rate
+
 ### Validation
 
 **Virtual Assay**:

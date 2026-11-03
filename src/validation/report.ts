@@ -1,4 +1,5 @@
 import type { DriverRelationship, ModelParameters, RelationshipLabel } from "../engine";
+import type { Disagreement } from "./disagreement";
 
 /** What every validation report says it is. */
 export const REPORT_FORMAT = "fly-sim-validation-report";
@@ -71,6 +72,23 @@ export interface TargetResult {
   };
 }
 
+/**
+ * How often one Virtual Assay's Scored Sleep disagrees with the fly's true Vigilance State. It
+ * measures the 5-minute rule, not the model, so it never decides whether the model passes.
+ */
+export interface AssayDisagreement {
+  readonly id: string;
+  /** The study and instrument, such as "Zimmerman 2008: beam monitor, 30 s bins". */
+  readonly title: string;
+  readonly assay: string;
+  /** The ids of the targets measured with this assay. */
+  readonly targets: readonly string[];
+  readonly sleepThresholdMinutes: number;
+  readonly perFly: readonly ({ readonly seed: number } & Disagreement)[];
+  /** Every fly together, or null if none lived through the record. */
+  readonly pooled: Disagreement | null;
+}
+
 /** What the validation suite found, tagged so it can be traced back to the model that made it. */
 export interface ValidationReport {
   readonly format: typeof REPORT_FORMAT;
@@ -93,6 +111,8 @@ export interface ValidationReport {
     readonly title: string;
     readonly reason: string;
   }[];
+  /** Scoring Disagreement for each distinct Virtual Assay the targets use. */
+  readonly disagreement: readonly AssayDisagreement[];
 }
 
 /** Why a report no longer describes the model, or null if it still does. */
@@ -128,7 +148,8 @@ export function readValidationReport(json: string): ValidationReport {
     typeof parsed.relationships?.parameters !== "object" ||
     !Array.isArray(parsed.relationships.drivers) ||
     !Array.isArray(parsed.targets) ||
-    !Array.isArray(parsed.skipped)
+    !Array.isArray(parsed.skipped) ||
+    !Array.isArray(parsed.disagreement)
   ) {
     throw new Error("This validation report is incomplete.");
   }

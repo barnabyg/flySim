@@ -6,6 +6,7 @@ import {
   type SimulationSetup,
 } from "../engine";
 import type { ValidationTarget } from "./evidencePack";
+import { vigilanceRecord, type VigilanceRecord } from "./disagreement";
 import { observeRun, type InstrumentSettings, type Observation } from "./instruments";
 import type { ScoringRule } from "./scoring";
 
@@ -99,19 +100,40 @@ export function assaySetup(
   };
 }
 
+/** What a study's instruments recorded of one fly, and beside it, what they couldn't see. */
+export interface FlyRecording {
+  /** One per instrument. Scoring sees only these. */
+  readonly observations: Observation[];
+  /** The fly's true Vigilance State over the same span, for Scoring Disagreement alone. */
+  readonly vigilance: VigilanceRecord;
+}
+
 /**
  * Runs one fly through a study, and returns what each instrument recorded after acclimation, as
- * the study recorded its flies with each at once.
+ * the study recorded its flies with each at once, and the true Vigilance State over that time.
  */
 export function observeFly(
   study: StudySetup,
   instruments: readonly InstrumentSettings[],
   seed: number,
   options: FlyRunOptions = {},
-): Observation[] {
+): FlyRecording {
   const run = createSimulationRun(assaySetup(study, seed, options));
   run.advanceSeconds(study.acclimationHours * 3600);
-  return observeRun(run, instruments, (study.acclimationHours + study.recordedDays * 24) * 3600);
+  const start = run.current();
+  const firedBefore = run.firedTransitions.length;
+  const observations = observeRun(
+    run,
+    instruments,
+    (study.acclimationHours + study.recordedDays * 24) * 3600,
+  );
+  const vigilance = vigilanceRecord(
+    start.vigilanceState,
+    run.firedTransitions.slice(firedBefore),
+    start.timeSeconds,
+    run.current().timeSeconds,
+  );
+  return { observations, vigilance };
 }
 
 /** Thrown for a target the validation suite has no way to measure or judge yet. */

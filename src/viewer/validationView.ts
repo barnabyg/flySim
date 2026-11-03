@@ -8,6 +8,7 @@ import {
   type ValidationReport,
 } from "../validation/report";
 import { VALIDATION_COLOURS as COLOURS } from "./palette";
+import { disagreementHtml, handleScaleSwitch } from "./disagreementChart";
 import { relationshipsHtml } from "./relationshipList";
 import {
   Chart,
@@ -490,7 +491,11 @@ export function createValidationView(container: HTMLElement, room: HTMLElement):
       report.targets.length === 0
         ? `<div id="validation-message" class="validation-message" data-state="empty"><p>The report has no Validation Targets.</p></div>`
         : `<div class="targets">${report.targets.map((target) => targetHtml(target, tips)).join("")}</div>`;
-    body.innerHTML = [targets, relationshipsHtml(report, tips)].join("");
+    body.innerHTML = [
+      targets,
+      disagreementHtml(report, tips),
+      relationshipsHtml(report, tips),
+    ].join("");
   }
 
   async function load(): Promise<void> {
@@ -547,6 +552,7 @@ export function createValidationView(container: HTMLElement, room: HTMLElement):
     if (returnFocus instanceof HTMLElement) returnFocus.focus();
   }
 
+  body.addEventListener("click", handleScaleSwitch);
   back.addEventListener("click", close);
   container.addEventListener("keydown", (event) => {
     if (event.key === "Escape") close();

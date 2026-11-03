@@ -119,6 +119,12 @@ describe("the validation suite's runner", () => {
     expect(sleep?.display).toEqual({ kind: "scalar", accepted: { low: 700, high: 1100 } });
     expect(typeof sleep?.model.pooled).toBe("number");
     expect(typeof sleep?.result.pass).toBe("boolean");
+    // Scoring Disagreement, once for the assay both targets use.
+    expect(report.disagreement.map((each) => [each.targets, each.title])).toEqual([
+      [["sleep", "held-out-sleep"], "Sleep: beam monitor, 60 s bins"],
+    ]);
+    expect(report.disagreement[0]?.perFly.map((fly) => fly.seed)).toEqual([1, 2]);
+    expect(report.disagreement[0]?.pooled?.scoredSleepMinutesPerDay).toBeGreaterThanOrEqual(0);
     // A target without its assay is listed, not dropped silently. A candidate isn't run.
     expect(report.skipped.map((each) => each.id)).toEqual(["video"]);
     expect(report.skipped[0]?.reason).toMatch(/no a-method-with-no-assay/);

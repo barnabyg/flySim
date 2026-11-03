@@ -133,6 +133,46 @@ test("the view lists the model's relationships by label, with the source of an E
   await expect(tip(page)).toContainText(profile?.citation ?? "missing");
 });
 
+test("the view charts where each assay's Scored Sleep disagrees with true sleep, across the day", async ({
+  page,
+}) => {
+  await serveReport(page, current);
+  await page.goto("/?view=validation");
+  const section = page.locator("#validation-disagreement");
+  await expect(section).toContainText("Scoring Disagreement");
+  await expect(page.locator("#disagreement-note")).toContainText(
+    "a measure of the 5-minute rule, not a Validation Target",
+    { ignoreCase: true },
+  );
+  const assay = section.locator('[data-disagreement-id="example-daily-sleep"]');
+  await expect(assay).toContainText("Example 2020: beam monitor, 60 s bins");
+  await expect(
+    assay.locator('.disagreement-figure[data-direction="awakeScoredAsSleep"]'),
+  ).toContainText("20% of Scored Sleep");
+  await expect(
+    assay.locator('.disagreement-figure[data-direction="sleepNotScored"]'),
+  ).toContainText("10% of true sleep");
+
+  // As time, with each hour's numbers on hover.
+  const minutes = assay.locator('[data-scale-chart="minutes"]');
+  await expect(minutes.locator("svg.chart")).toBeVisible();
+  await expect(minutes.locator(".pooled-line")).toHaveCount(2);
+  await minutes.locator('[data-bin="6"]').hover();
+  await expect(tip(page)).toContainText("ZT6–7");
+  await expect(tip(page)).toContainText("min per hour");
+  await expect(tip(page)).toContainText("Awake, scored as sleep67.5");
+  await expect(tip(page)).toContainText("flies 45–90");
+
+  // And as bouts.
+  await assay.getByRole("button", { name: "Bouts" }).click();
+  await expect(minutes).toBeHidden();
+  const bouts = assay.locator('[data-scale-chart="bouts"]');
+  await expect(bouts.locator("svg.chart")).toBeVisible();
+  await bouts.locator('[data-bin="14"]').hover();
+  await expect(tip(page)).toContainText("bouts per hour");
+  await expect(tip(page)).toContainText("Asleep, not scored7.5");
+});
+
 test("a report from another model version, or other parameters, is marked stale", async ({
   page,
 }) => {
