@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_PARAMETERS,
   DEFAULT_ROOM,
-  STEPS_PER_SECOND,
+  DEFAULT_STEPS_PER_SECOND,
   createSimulationRun,
   type Intervention,
   type LightSchedule,
@@ -26,7 +26,7 @@ describe("changing the light schedule during a run", () => {
     expect(after.senses.lightLevel).toBe(0);
     expect(after.lightSchedule).toEqual(ALWAYS_OFF);
     expect(after.timeOfDayHours - before.timeOfDayHours).toBeCloseTo(
-      1 / STEPS_PER_SECOND / HOUR,
+      1 / DEFAULT_STEPS_PER_SECOND / HOUR,
       9,
     );
   });
@@ -37,7 +37,9 @@ describe("changing the light schedule during a run", () => {
     const run = createSimulationRun({
       room: DEFAULT_ROOM,
       seed: 5,
-      interventions: [{ step: 2 * HOUR * STEPS_PER_SECOND, type: "light-schedule", lightSchedule }],
+      interventions: [
+        { step: 2 * HOUR * DEFAULT_STEPS_PER_SECOND, type: "light-schedule", lightSchedule },
+      ],
     });
     run.advanceSeconds(24 * HOUR);
     const at = (hourOfDay: number) =>
@@ -136,7 +138,7 @@ describe("changing the light schedule during a run", () => {
 
 describe("the light's effect on the fly", () => {
   it("is a Driver of its own, which follows the sensed light at once", () => {
-    const switchAt = HOUR * STEPS_PER_SECOND;
+    const switchAt = HOUR * DEFAULT_STEPS_PER_SECOND;
     const run = createSimulationRun({
       room: DEFAULT_ROOM,
       seed: 5,
@@ -170,7 +172,7 @@ describe("the light's effect on the fly", () => {
           water: null,
           parameters: { ...DEFAULT_PARAMETERS, initialEnergy: 0.95, initialHydration: 0.95 },
           interventions: lightSchedule
-            ? [{ step: 2 * HOUR * STEPS_PER_SECOND, type: "light-schedule", lightSchedule }]
+            ? [{ step: 2 * HOUR * DEFAULT_STEPS_PER_SECOND, type: "light-schedule", lightSchedule }]
             : [],
         });
         run.advanceSeconds(2 * HOUR);

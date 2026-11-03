@@ -9,7 +9,7 @@ export {
   type VigilanceState,
 } from "./model";
 export { DEFAULT_PARAMETERS, type ModelParameters } from "./parameters";
-export { STEPS_PER_SECOND } from "./physiology";
+export { DEFAULT_STEPS_PER_SECOND, MAX_STEPS_PER_SECOND, MIN_STEPS_PER_SECOND } from "./physiology";
 export { DEFAULT_LIGHT_SCHEDULE, lightLevel, type LightSchedule } from "./lightSchedule";
 export {
   SOURCE_KINDS,
@@ -19,12 +19,19 @@ export {
   type FloorPlace,
   type SourceKind,
 } from "./roomContents";
-export { SURFACES, type Position, type RoomSetup, type Surface } from "./movement";
+export {
+  SURFACES,
+  type MovementPose,
+  type Position,
+  type RoomSetup,
+  type Surface,
+} from "./movement";
 export {
   DEFAULT_ROOM,
   MODEL_VERSION,
   createSimulationRun,
   replaySetup,
+  type Chamber,
   type Death,
   type FiredTransition,
   type Intervention,

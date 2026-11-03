@@ -2,6 +2,7 @@ import * as THREE from "three";
 import {
   DEFAULT_LIGHT_SCHEDULE,
   DEFAULT_PARAMETERS,
+  DEFAULT_STEPS_PER_SECOND,
   MODEL_VERSION,
   SOURCE_KINDS,
   lightLevel,
@@ -32,6 +33,7 @@ import {
 import { startSimulation } from "./simulationClient";
 import { createSourceDragging } from "./sourceDragging";
 import { INITIAL_SPEED, SPEEDS, createTimeControls } from "./timeControls";
+import { createValidationView } from "./validationView";
 import { createViews, type ViewState } from "./views";
 
 /** Lets browser tests and the console observe a run. It can't change one. */
@@ -99,6 +101,11 @@ async function openRun(file: File): Promise<void> {
     return;
   }
   const { run, sameModelVersion } = reading;
+  if (run.chamber) {
+    // Chambers are for Virtual Assays, which run without the viewer.
+    report(new Error(`This run is in a study's chamber, the ${run.chamber.name}, not the Room.`));
+    return;
+  }
   if (
     !sameModelVersion &&
     !confirm(
@@ -128,8 +135,16 @@ const fieldOverlay = createFieldOverlay(room, setup.parameters ?? DEFAULT_PARAME
 roomScene.scene.add(fieldOverlay.object);
 const simulation = startSimulation(setup, speed);
 
+const validationView = createValidationView(
+  requireElement("#validation", HTMLElement),
+  requireElement("#app", HTMLElement),
+);
+
 const driverPanel = createDriverPanel(requireElement("#drivers", HTMLElement));
-const ribbon = createRibbon(requireElement("#ribbon", HTMLCanvasElement));
+const ribbon = createRibbon(
+  requireElement("#ribbon", HTMLCanvasElement),
+  setup.stepsPerSecond ?? DEFAULT_STEPS_PER_SECOND,
+);
 ribbon.setSpeed(speed);
 const timeControls = createTimeControls(
   requireElement("#controls", HTMLElement),
@@ -180,6 +195,9 @@ const runControls = createRunControls(
     },
     onOpen: (file) => {
       void openRun(file);
+    },
+    onValidation: () => {
+      validationView.open();
     },
     onSourcePresenceChange: (kind, present) => {
       changing.set(kind, present ? (lastPlaces.get(kind) ?? null) : null);
@@ -283,6 +301,9 @@ renderer.setAnimationLoop(() => {
   views.render();
   ribbon.draw();
 });
+
+// The validation view opens over the Room, which starts and runs underneath it as usual.
+if (new URLSearchParams(location.search).get("view") === "validation") validationView.open();
 
 window.flySim = {
   seed,

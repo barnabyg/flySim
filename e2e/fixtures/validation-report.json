@@ -1,0 +1,307 @@
+{
+  "format": "fly-sim-validation-report",
+  "version": 1,
+  "generatedAt": "2026-11-03T12:00:00.000Z",
+  "modelVersion": "0.6.0",
+  "parameters": {
+    "arousalTargetImmobile": 0.05,
+    "arousalTargetGrooming": 0.3,
+    "arousalTargetWalking": 0.75,
+    "arousalTargetFlying": 0.9,
+    "arousalTargetSleeping": 0.02,
+    "arousalTargetFeeding": 0.3,
+    "arousalTargetDrinking": 0.3,
+    "arousalTimeConstantSeconds": 120,
+    "arousalNoise": 0.015,
+    "initialArousal": 0.5,
+    "startWalkingSpontaneousRate": 0.0003,
+    "startWalkingArousalRate": 0.25,
+    "startWalkingLightRate": 0.002,
+    "startWalkingHungerRate": 0.03,
+    "startWalkingOdourRate": 0.02,
+    "startWalkingThirstRate": 0.03,
+    "stopWalkingSpontaneousRate": 0.02,
+    "stopWalkingLowArousalRate": 0.06,
+    "startGroomingSpontaneousRate": 0.001,
+    "startGroomingArousalRate": 0.04,
+    "stopGroomingSpontaneousRate": 0.04,
+    "walkAfterGroomingSpontaneousRate": 0.005,
+    "walkAfterGroomingArousalRate": 0.03,
+    "walkAfterGroomingHungerRate": 0.06,
+    "walkAfterGroomingOdourRate": 0.02,
+    "walkAfterGroomingThirstRate": 0.06,
+    "takeOffFromImmobilitySpontaneousRate": 0.002,
+    "takeOffFromImmobilityArousalRate": 0.02,
+    "takeOffFromWalkingSpontaneousRate": 0.018,
+    "takeOffFromWalkingArousalRate": 0.06,
+    "landingContactRate": 100,
+    "lostContactRate": 100,
+    "sleepPressureRiseTimeConstantSeconds": 28800,
+    "sleepPressureFallTimeConstantSeconds": 21600,
+    "initialSleepPressure": 0.1,
+    "fallAsleepSleepPressureRate": 0.002,
+    "wakeSpontaneousRate": 0.0002,
+    "wakeLowSleepPressureRate": 0.0004,
+    "sleepDepthAtOnset": 0.05,
+    "sleepDepthBaseTarget": 0.2,
+    "sleepDepthSleepPressureGain": 1,
+    "sleepDepthTimeConstantSeconds": 600,
+    "sleepDepthNoise": 0.008,
+    "wakeSleepDepthReduction": 0.85,
+    "circadianPeriodHours": 24,
+    "clockEntrainmentRate": 0.4,
+    "fallAsleepCircadianRate": 0.012,
+    "siestaGateStrength": 0.35,
+    "wakeCircadianRate": 0.0015,
+    "wakeLightRate": 0.0003,
+    "startleTimeConstantSeconds": 8,
+    "startWalkingStartleRate": 3,
+    "walkAfterGroomingStartleRate": 2,
+    "takeOffFromImmobilityStartleRate": 1,
+    "takeOffFromWalkingStartleRate": 1,
+    "wakeStartleRate": 0.3,
+    "walkingSpeedMetresPerSecond": 0.02,
+    "walkingTurnNoise": 0.8,
+    "flightSpeedMetresPerSecond": 1,
+    "initialEnergy": 0.6,
+    "energyUseResting": 5e-6,
+    "energyUseWalking": 1.2e-5,
+    "energyUseFlying": 5e-5,
+    "energyUseSleeping": 3e-6,
+    "startFeedingHungerRate": 1,
+    "stopFeedingLowHungerRate": 0.15,
+    "stopFeedingStartleRate": 2,
+    "feedingIntake": 0.004,
+    "initialHydration": 0.6,
+    "waterLossResting": 5e-6,
+    "waterLossWalking": 8e-6,
+    "waterLossFlying": 2e-5,
+    "waterLossSleeping": 3.5e-6,
+    "startDrinkingThirstRate": 1,
+    "stopDrinkingLowThirstRate": 0.15,
+    "stopDrinkingStartleRate": 2,
+    "drinkingIntake": 0.006,
+    "odourRangeMetres": 0.3,
+    "odourAdaptationSeconds": 1,
+    "odourDetectionFloor": 0.01,
+    "odourContrast": 0.05,
+    "odourSteeringGain": 2,
+    "humidityRangeMetres": 0.3,
+    "globalHumidity": 0.4,
+    "humidityRise": 0.4,
+    "humidityAdaptationSeconds": 1,
+    "humidityContrast": 0.01,
+    "humiditySteeringGain": 2,
+    "startWalkingHumidityRate": 0.02,
+    "walkAfterGroomingHumidityRate": 0.02,
+    "feedingThirstInhibition": 0.8,
+    "weaknessReserve": 0.15
+  },
+  "stepsPerSecond": 50,
+  "seeds": [1, 2, 3, 4, 5, 6, 7, 8],
+  "targets": [
+    {
+      "id": "example-daily-sleep",
+      "title": "Males sleep about 12 hours a day in an activity monitor.",
+      "heldOut": false,
+      "citation": "Example A, et al. (2020) A fixture study. Fixture Journal.",
+      "assay": "beam-crossing",
+      "measure": "daily-scored-sleep-minutes",
+      "unit": "min",
+      "published": [
+        {
+          "label": "Canton-S males",
+          "value": 720,
+          "unit": "min",
+          "uncertainty": {
+            "kind": "sd",
+            "value": 60
+          },
+          "n": 32,
+          "location": "Figure 1A"
+        }
+      ],
+      "model": {
+        "perFly": [
+          {
+            "seed": 1,
+            "value": 702
+          },
+          {
+            "seed": 2,
+            "value": 655
+          },
+          {
+            "seed": 3,
+            "value": 748
+          },
+          {
+            "seed": 4,
+            "value": 690
+          },
+          {
+            "seed": 5,
+            "value": 610
+          },
+          {
+            "seed": 6,
+            "value": 731
+          },
+          {
+            "seed": 7,
+            "value": 688
+          },
+          {
+            "seed": 8,
+            "value": 720
+          }
+        ],
+        "pooled": 693
+      },
+      "criterion": {
+        "kind": "within-interval",
+        "description": "Pooled mean within 600 to 840 min (published mean ± 2 SD)."
+      },
+      "display": {
+        "kind": "scalar",
+        "accepted": {
+          "low": 600,
+          "high": 840
+        }
+      },
+      "result": {
+        "pass": true,
+        "statistic": 693,
+        "description": "Pooled mean 693 min is within 600 to 840 min."
+      }
+    },
+    {
+      "id": "example-sleep-profile",
+      "title": "Sleep follows a siesta and night pattern across the day.",
+      "heldOut": true,
+      "citation": "Example B, et al. (2019) Another fixture study. Fixture Journal.",
+      "assay": "beam-crossing",
+      "measure": "scored-sleep-profile",
+      "unit": "min per hour",
+      "published": [
+        {
+          "label": "Canton-S males",
+          "value": [
+            30, 24, 17, 12, 23, 21, 20, 21, 23, 12, 18, 24, 30, 36, 43, 48, 52, 54, 55, 54, 52, 48,
+            43, 36
+          ],
+          "unit": "min per hour",
+          "uncertainty": {
+            "kind": "sem",
+            "value": [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+          },
+          "n": 24,
+          "location": "Figure 2B, read off the plot to about 2 min"
+        }
+      ],
+      "model": {
+        "perFly": [
+          {
+            "seed": 1,
+            "value": [
+              30, 24, 17, 12, 23, 21, 20, 21, 23, 12, 18, 24, 30, 36, 43, 48, 52, 54, 55, 54, 52,
+              48, 43, 36
+            ]
+          },
+          {
+            "seed": 2,
+            "value": [
+              24, 17, 12, 8, 21, 20, 21, 23, 27, 18, 24, 30, 36, 43, 48, 52, 54, 55, 54, 52, 48, 43,
+              36, 30
+            ]
+          },
+          {
+            "seed": 3,
+            "value": [
+              17, 12, 8, 6, 20, 21, 23, 27, 33, 24, 30, 36, 43, 48, 52, 54, 55, 54, 52, 48, 43, 36,
+              30, 24
+            ]
+          },
+          {
+            "seed": 4,
+            "value": [
+              30, 24, 17, 12, 23, 21, 20, 21, 23, 12, 18, 24, 30, 36, 43, 48, 52, 54, 55, 54, 52,
+              48, 43, 36
+            ]
+          },
+          {
+            "seed": 5,
+            "value": [
+              24, 17, 12, 8, 21, 20, 21, 23, 27, 18, 24, 30, 36, 43, 48, 52, 54, 55, 54, 52, 48, 43,
+              36, 30
+            ]
+          },
+          {
+            "seed": 6,
+            "value": [
+              17, 12, 8, 6, 20, 21, 23, 27, 33, 24, 30, 36, 43, 48, 52, 54, 55, 54, 52, 48, 43, 36,
+              30, 24
+            ]
+          },
+          {
+            "seed": 7,
+            "value": [
+              30, 24, 17, 12, 23, 21, 20, 21, 23, 12, 18, 24, 30, 36, 43, 48, 52, 54, 55, 54, 52,
+              48, 43, 36
+            ]
+          },
+          {
+            "seed": 8,
+            "value": [
+              24, 17, 12, 8, 21, 20, 21, 23, 27, 18, 24, 30, 36, 43, 48, 52, 54, 55, 54, 52, 48, 43,
+              36, 30
+            ]
+          }
+        ],
+        "pooled": [
+          24, 17, 12, 8, 21, 20, 21, 23, 27, 18, 24, 30, 36, 43, 48, 52, 54, 55, 54, 52, 48, 43, 36,
+          30
+        ]
+      },
+      "criterion": {
+        "kind": "profile-correlation",
+        "description": "Pearson r of the pooled profile with the published one is at least 0.8."
+      },
+      "display": {
+        "kind": "profile",
+        "binLabels": [
+          "ZT0",
+          "ZT1",
+          "ZT2",
+          "ZT3",
+          "ZT4",
+          "ZT5",
+          "ZT6",
+          "ZT7",
+          "ZT8",
+          "ZT9",
+          "ZT10",
+          "ZT11",
+          "ZT12",
+          "ZT13",
+          "ZT14",
+          "ZT15",
+          "ZT16",
+          "ZT17",
+          "ZT18",
+          "ZT19",
+          "ZT20",
+          "ZT21",
+          "ZT22",
+          "ZT23"
+        ]
+      },
+      "result": {
+        "pass": false,
+        "statistic": 0.62,
+        "description": "r = 0.62, below 0.8."
+      }
+    }
+  ],
+  "skipped": []
+}

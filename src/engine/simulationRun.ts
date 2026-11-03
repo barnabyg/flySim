@@ -16,11 +16,10 @@ import {
 } from "./model";
 import { DEFAULT_PARAMETERS, type ModelParameters } from "./parameters";
 import {
-  STEPS_PER_SECOND,
-  SQRT_STEP_SECONDS,
-  STEP_SECONDS,
+  DEFAULT_STEPS_PER_SECOND,
   adaptToSenses,
   advanceBodyState,
+  clockOf,
   initialBodyState,
   internalStateOf,
 } from "./physiology";
@@ -49,7 +48,7 @@ import {
 } from "./roomContents";
 
 /** Changes whenever the same seed and setup could give a different run. */
-export const MODEL_VERSION = "0.6.0";
+export const MODEL_VERSION = "0.7.0";
 
 const AROUSAL_NOISE_STREAM = 1;
 const MOVEMENT_STREAM = 2;
@@ -73,8 +72,27 @@ export type InterventionType = InterventionAction["type"];
 /** An action applied at the start of its step. */
 export type Intervention = InterventionAction & { readonly step: number };
 
+/**
+ * A study's chamber, such as an activity-monitor tube, which a Virtual Assay runs the fly in
+ * instead of the Room. Its size is the setup's room.
+ */
+export interface Chamber {
+  /** What the study calls it, which the Run Record shows. */
+  readonly name: string;
+  /** Whether the fly can take off at all. When it can't, no take-off is ever available. */
+  readonly flightPossible: boolean;
+  /**
+   * How close to a source's place the fly touches it, from any surface, as it would a food plug
+   * filling the chamber's end. Food and water may share a place, as a plug provides both.
+   */
+  readonly sourceReachMetres: number;
+}
+
 export interface SimulationSetup {
+  /** The box the fly lives in: the Room, or a study's chamber when one is given. */
   readonly room: RoomSetup;
+  /** A study's chamber, for a Virtual Assay. The default is the Room. */
+  readonly chamber?: Chamber | null;
   readonly seed: number;
   readonly parameters?: ModelParameters;
   /**
@@ -95,6 +113,11 @@ export interface SimulationSetup {
   readonly triggerStream?: number;
   /** Keeps only the latest samples, for long viewer runs. The default keeps them all. */
   readonly maxRecordedSamples?: number;
+  /**
+   * How many fixed steps the run takes per simulated second, 50 by default. Rates, time constants
+   * and noise act per simulated second, so another step size changes the run only by chance.
+   */
+  readonly stepsPerSecond?: number;
 }
 
 export interface TransitionState {
@@ -161,6 +184,8 @@ export interface RunRecord {
   /** Which random stream drew Trigger Levels. */
   readonly triggerStream: number;
   readonly room: RoomSetup;
+  /** The study's chamber the fly lived in, or null for the Room. */
+  readonly chamber: Chamber | null;
   readonly parameters: ModelParameters;
   /** Where the food started, or null if there was none. */
   readonly food: FloorPlace | null;
@@ -189,7 +214,9 @@ export type RecordedSetup = Pick<
   RunRecord,
   | "seed"
   | "triggerStream"
+  | "stepsPerSecond"
   | "room"
+  | "chamber"
   | "parameters"
   | "food"
   | "water"
@@ -205,7 +232,9 @@ export function replaySetup(recorded: RecordedSetup): SimulationSetup {
   return {
     seed: recorded.seed,
     triggerStream: recorded.triggerStream,
+    stepsPerSecond: recorded.stepsPerSecond,
     room: recorded.room,
+    chamber: recorded.chamber,
     parameters: recorded.parameters,
     food: recorded.food,
     water: recorded.water,
@@ -220,6 +249,17 @@ export interface SimulationRun {
   advanceSeconds(seconds: number): void;
   /** The state at the current step. */
   current(): RunSample;
+  /**
+   * Where the fly is and which way it faces, which is all a camera or a beam can see of it. Much
+   * cheaper than {@link current}, so a Virtual Assay can watch every step.
+   */
+  pose(): MovementPose;
+  /**
+   * Whether any part of the fly is moving, as its legs do while it walks or grooms in place and
+   * its wings do in flight. A camera can see this, but not the Vigilance State: a sleeping fly
+   * and an immobile one both keep still.
+   */
+  moving(): boolean;
   /** All transitions so far, as a live view that grows as the run advances. */
   readonly firedTransitions: readonly FiredTransition[];
   /** Applies an intervention at the start of the next step, and returns it with that step. */
@@ -264,12 +304,27 @@ function validateAction(action: InterventionAction, room: RoomSetup): void {
 
 export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   const { room, seed, maxRecordedSamples = Infinity } = setup;
+  const clock = clockOf(setup.stepsPerSecond ?? DEFAULT_STEPS_PER_SECOND);
+  const { stepsPerSecond, stepSeconds } = clock;
   const parameters = setup.parameters ?? DEFAULT_PARAMETERS;
   const initialPlaces = {
     food: setup.food === undefined ? defaultPlace("food", room) : setup.food,
     water: setup.water === undefined ? defaultPlace("water", room) : setup.water,
   };
-  const contents = createRoomContents(room, initialPlaces, parameters);
+  const chamber = setup.chamber ?? null;
+  if (chamber && !(chamber.sourceReachMetres > 0)) {
+    throw new Error(`A chamber's sources must reach some way, not ${chamber.sourceReachMetres} m`);
+  }
+  const contents = createRoomContents(
+    room,
+    initialPlaces,
+    parameters,
+    chamber?.sourceReachMetres ?? null,
+  );
+  /** The transitions this setup allows at all. A chamber may make flight impossible. */
+  const possibleTransitions = TRANSITIONS.filter(
+    (definition) => definition.to !== "flying" || (chamber?.flightPossible ?? true),
+  );
   const initialLightSchedule = setup.lightSchedule ?? DEFAULT_LIGHT_SCHEDULE;
   validateLightSchedule(initialLightSchedule);
   let lightSchedule = initialLightSchedule;
@@ -300,15 +355,17 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   let pending = drawTriggerLevels();
 
   function drawTriggerLevels(): PendingTransition[] {
-    return TRANSITIONS.filter((definition) => definition.from === behaviour).map((definition) => ({
-      definition,
-      triggerLevel: triggerLevelStream.exponential(),
-      accumulatedHazard: 0,
-    }));
+    return possibleTransitions
+      .filter((definition) => definition.from === behaviour)
+      .map((definition) => ({
+        definition,
+        triggerLevel: triggerLevelStream.exponential(),
+        accumulatedHazard: 0,
+      }));
   }
 
   function currentTimeOfDay(): number {
-    return timeOfDayHours(initialLightSchedule.lightsOnHour, step * STEP_SECONDS);
+    return timeOfDayHours(initialLightSchedule.lightsOnHour, step * stepSeconds);
   }
 
   function currentLightLevel(): number {
@@ -365,12 +422,12 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
     const state = internalState();
     for (const item of pending) {
       const parts = hazardOf(item.definition.id, state);
-      item.accumulatedHazard += parts.hazard * STEP_SECONDS;
+      item.accumulatedHazard += parts.hazard * stepSeconds;
       if (item.accumulatedHazard >= item.triggerLevel) {
         firedTransitions.push({
           ...withStrip(parts),
           step: step + 1,
-          timeSeconds: (step + 1) * STEP_SECONDS,
+          timeSeconds: (step + 1) * stepSeconds,
           from: item.definition.from,
           to: item.definition.to,
           triggerLevel: item.triggerLevel,
@@ -438,10 +495,10 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   /** Steers by comparing what the fly senses now with what it has sensed lately. */
   function walk(senses: Senses): void {
     movement.walk(
-      parameters.walkingSpeedMetresPerSecond * STEP_SECONDS,
+      parameters.walkingSpeedMetresPerSecond * stepSeconds,
       turningScale(internalState(), senses, parameters) *
         parameters.walkingTurnNoise *
-        SQRT_STEP_SECONDS *
+        clock.sqrtStepSeconds *
         movementNoise.normal(),
     );
   }
@@ -449,7 +506,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   function current(): RunSample {
     return {
       step,
-      timeSeconds: step * STEP_SECONDS,
+      timeSeconds: step * stepSeconds,
       timeOfDayHours: currentTimeOfDay(),
       lightLevel: currentLightLevel(),
       lightSchedule,
@@ -470,7 +527,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   function checkForDeath(): boolean {
     const cause = body.energy <= 0 ? "starvation" : body.hydration <= 0 ? "desiccation" : undefined;
     if (!cause) return false;
-    death = { step, timeSeconds: step * STEP_SECONDS, cause };
+    death = { step, timeSeconds: step * stepSeconds, cause };
     behaviour = "immobility";
     body = { ...body, sleepDepth: null };
     movement.fall();
@@ -490,11 +547,10 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       sensed = undefined;
       fireDueTransition();
       const senses = currentSenses();
-      body = advanceBodyState(body, behaviour, senses, parameters, bodyNoise);
+      body = advanceBodyState(body, behaviour, senses, parameters, bodyNoise, clock);
       if (behaviour === "walking") walk(senses);
-      body = adaptToSenses(body, senses, parameters);
-      if (behaviour === "flying")
-        movement.fly(parameters.flightSpeedMetresPerSecond * STEP_SECONDS);
+      body = adaptToSenses(body, senses, parameters, clock);
+      if (behaviour === "flying") movement.fly(parameters.flightSpeedMetresPerSecond * stepSeconds);
       const surface = movement.surface();
       if (surface) stepsOnSurface.set(surface, (stepsOnSurface.get(surface) ?? 0) + 1);
       stepsInBehaviour.set(behaviour, (stepsInBehaviour.get(behaviour) ?? 0) + 1);
@@ -503,7 +559,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       sensed = undefined;
       const died = checkForDeath();
       // The record always ends with the moment of death.
-      if (step % STEPS_PER_SECOND === 0 || died) recordSample();
+      if (step % stepsPerSecond === 0 || died) recordSample();
     }
   }
 
@@ -512,9 +568,12 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   return {
     advanceSteps,
     advanceSeconds: (seconds) => {
-      advanceSteps(Math.round(seconds * STEPS_PER_SECOND));
+      advanceSteps(Math.round(seconds * stepsPerSecond));
     },
     current,
+    pose: () => movement.pose(),
+    moving: () =>
+      !death && (behaviour === "walking" || behaviour === "grooming" || behaviour === "flying"),
     firedTransitions,
     intervene: (action) => {
       if (death) throw new Error("The fly has died, so the run can't change");
@@ -531,21 +590,22 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       seed,
       triggerStream,
       room,
+      chamber,
       parameters,
       food: initialPlaces.food,
       water: initialPlaces.water,
       lightSchedule: initialLightSchedule,
-      stepsPerSecond: STEPS_PER_SECOND,
+      stepsPerSecond,
       step,
       samples: [...samples],
       firedTransitions: [...firedTransitions],
       // One due later isn't in the record yet, as it wouldn't be if made during the run.
       interventions: interventions.filter((each) => each.step <= step),
       timeOnSurfaceSeconds: Object.fromEntries(
-        SURFACES.map((surface) => [surface, (stepsOnSurface.get(surface) ?? 0) * STEP_SECONDS]),
+        SURFACES.map((surface) => [surface, (stepsOnSurface.get(surface) ?? 0) * stepSeconds]),
       ) as Record<Surface, number>,
       timeInBehaviourSeconds: Object.fromEntries(
-        BEHAVIOURS.map((each) => [each, (stepsInBehaviour.get(each) ?? 0) * STEP_SECONDS]),
+        BEHAVIOURS.map((each) => [each, (stepsInBehaviour.get(each) ?? 0) * stepSeconds]),
       ) as Record<Behaviour, number>,
       death,
     }),

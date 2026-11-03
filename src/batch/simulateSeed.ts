@@ -1,5 +1,4 @@
 import {
-  STEPS_PER_SECOND,
   createSimulationRun,
   exportRun,
   setupFromOptions,
@@ -18,8 +17,9 @@ export function simulateSeed(options: BatchOptions, seed: number): RunExport {
     // The run's own record keeps only the latest sample, as the export's are gathered here.
     maxRecordedSamples: 1,
   });
-  const stepsApart = options.sampleIntervalSeconds * STEPS_PER_SECOND;
-  const lastStep = Math.round(options.durationSeconds * STEPS_PER_SECOND);
+  const { stepsPerSecond } = run.record();
+  const stepsApart = options.sampleIntervalSeconds * stepsPerSecond;
+  const lastStep = Math.round(options.durationSeconds * stepsPerSecond);
   const samples: RunSample[] = [run.current()];
   while (run.current().step < lastStep && !run.current().death) {
     run.advanceSteps(Math.min(stepsApart, lastStep - run.current().step));

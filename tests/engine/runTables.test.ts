@@ -4,7 +4,7 @@ import {
   DEFAULT_ROOM,
   DRIVERS,
   MODEL_VERSION,
-  STEPS_PER_SECOND,
+  DEFAULT_STEPS_PER_SECOND,
   TRANSITIONS,
   createSimulationRun,
   exportRun,
@@ -259,14 +259,14 @@ describe("exporting a run as CSV tables", () => {
       record.samples.find((sample) => sample.step === step)?.behaviour;
     for (const { start, end } of fromTable) {
       for (
-        let second = Math.ceil(start / STEPS_PER_SECOND);
-        second * STEPS_PER_SECOND < end;
+        let second = Math.ceil(start / DEFAULT_STEPS_PER_SECOND);
+        second * DEFAULT_STEPS_PER_SECOND < end;
         second++
       ) {
-        expect(INACTIVE).toContain(behaviourAt(second * STEPS_PER_SECOND));
+        expect(INACTIVE).toContain(behaviourAt(second * DEFAULT_STEPS_PER_SECOND));
       }
     }
-    const lengths = fromTable.map(({ start, end }) => (end - start) / STEPS_PER_SECOND);
+    const lengths = fromTable.map(({ start, end }) => (end - start) / DEFAULT_STEPS_PER_SECOND);
     const inactiveSeconds = INACTIVE.reduce(
       (total, behaviour) => total + record.timeInBehaviourSeconds[behaviour],
       0,

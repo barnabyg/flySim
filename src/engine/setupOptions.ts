@@ -1,6 +1,7 @@
 import { DEFAULT_LIGHT_SCHEDULE } from "./lightSchedule";
 import type { RoomSetup } from "./movement";
 import { DEFAULT_PARAMETERS } from "./parameters";
+import { clockOf } from "./physiology";
 import { SOURCE_KINDS, validateFloorPlace, type FloorPlace } from "./roomContents";
 import type { SimulationSetup } from "./simulationRun";
 
@@ -28,6 +29,8 @@ export interface SetupOptions {
   readonly hydration?: number;
   /** The starting hours of light, if not the default. Lights-on stays at its default. */
   readonly lightHours?: number;
+  /** How many steps the run takes per simulated second, if not the default. */
+  readonly stepsPerSecond?: number;
 }
 
 /** Throws a message saying what is wrong with any choice outside what a run allows. */
@@ -59,6 +62,7 @@ export function validateSetupOptions(options: SetupOptions): void {
       );
     }
   }
+  if (options.stepsPerSecond !== undefined) clockOf(options.stepsPerSecond);
   const { lightHours } = options;
   if (lightHours !== undefined && !(lightHours >= 0 && lightHours <= 24)) {
     throw new Error(`The light can be on from 0 to 24 hours a day, not ${lightHours}`);
@@ -80,5 +84,6 @@ export function setupFromOptions(options: SetupOptions): SimulationSetup {
     },
     ...(options.food && { food: options.food }),
     ...(options.water && { water: options.water }),
+    ...(options.stepsPerSecond !== undefined && { stepsPerSecond: options.stepsPerSecond }),
   };
 }

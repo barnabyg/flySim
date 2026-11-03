@@ -46,6 +46,13 @@ const SURFACE_PLANES: Readonly<Record<Surface, { readonly axis: Axis; readonly s
  */
 const CLEARANCE_METRES = 0.002;
 
+/**
+ * The narrowest box the fly fits in, about twice its width. In a box narrower than four
+ * clearances, such as a 3 mm activity-monitor tube, the fly keeps a quarter of the box's
+ * width from each side instead, as its legs fold in to fit.
+ */
+const MIN_BOX_METRES = 0.002;
+
 function surfaceAt(axis: Axis, side: Side): Surface {
   const found = SURFACES.find((surface) => {
     const plane = SURFACE_PLANES[surface];
@@ -129,10 +136,11 @@ export function createMovement(room: RoomSetup, random: RandomStream): Movement 
     z: room.heightMetres,
   };
   for (const axis of AXES) {
-    if (extents[axis] <= 2 * CLEARANCE_METRES) {
-      throw new Error(`The Room is too small for the fly along ${axis}`);
+    if (!(extents[axis] >= MIN_BOX_METRES)) {
+      throw new Error(`The Room, or Chamber, is too small for the fly along ${axis}`);
     }
   }
+  const clearance = Math.min(CLEARANCE_METRES, Math.min(extents.x, extents.y, extents.z) / 4);
 
   const position: Record<Axis, number> = {
     x: room.widthMetres * (0.25 + 0.5 * random.uniform()),
@@ -190,9 +198,7 @@ export function createMovement(room: RoomSetup, random: RandomStream): Movement 
     const old = SURFACE_PLANES[surface];
     position[axis] = side === "min" ? 0 : extents[axis];
     position[old.axis] =
-      old.side === "min"
-        ? CLEARANCE_METRES + overshoot
-        : extents[old.axis] - CLEARANCE_METRES - overshoot;
+      old.side === "min" ? clearance + overshoot : extents[old.axis] - clearance - overshoot;
     forward[old.axis] = normalSign(old.side) * Math.abs(forward[axis]);
     forward[axis] = 0;
     normaliseForward();
@@ -203,8 +209,8 @@ export function createMovement(room: RoomSetup, random: RandomStream): Movement 
     const onAxis = SURFACE_PLANES[surface].axis;
     for (const axis of AXES) {
       if (axis === onAxis) continue;
-      const below = CLEARANCE_METRES - position[axis];
-      const above = position[axis] - (extents[axis] - CLEARANCE_METRES);
+      const below = clearance - position[axis];
+      const above = position[axis] - (extents[axis] - clearance);
       if (below > 0) {
         crossEdge(axis, "min", below);
         return true;
@@ -219,7 +225,7 @@ export function createMovement(room: RoomSetup, random: RandomStream): Movement 
 
   function randomInRoom(): Record<Axis, number> {
     const within = (axis: Axis): number =>
-      CLEARANCE_METRES + random.uniform() * (extents[axis] - 2 * CLEARANCE_METRES);
+      clearance + random.uniform() * (extents[axis] - 2 * clearance);
     return { x: within("x"), y: within("y"), z: within("z") };
   }
 
@@ -325,7 +331,7 @@ export function createMovement(room: RoomSetup, random: RandomStream): Movement 
       flight.travelled += distanceMetres;
       const { points, distances } = flight;
       // Stopping short keeps the body clear of the surface right up to arrival.
-      if (flight.travelled >= (distances.at(-1) ?? 0) - CLEARANCE_METRES) {
+      if (flight.travelled >= (distances.at(-1) ?? 0) - clearance) {
         arrive(flight);
         return;
       }
@@ -355,10 +361,7 @@ export function createMovement(room: RoomSetup, random: RandomStream): Movement 
       surface = "floor";
       position.z = 0;
       for (const axis of ["x", "y"] as const) {
-        position[axis] = Math.min(
-          extents[axis] - CLEARANCE_METRES,
-          Math.max(CLEARANCE_METRES, position[axis]),
-        );
+        position[axis] = Math.min(extents[axis] - clearance, Math.max(clearance, position[axis]));
       }
       forward.z = 0;
       if (hypot(forward.x, forward.y) < 0.01) forward.x = 1;

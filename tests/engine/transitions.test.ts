@@ -3,7 +3,7 @@ import {
   DEFAULT_PARAMETERS,
   DEFAULT_ROOM,
   DRIVERS,
-  STEPS_PER_SECOND,
+  DEFAULT_STEPS_PER_SECOND,
   createSimulationRun,
   type Behaviour,
   type ModelParameters,
@@ -48,7 +48,7 @@ describe("Transition Hazards", () => {
     // the fly at the start brings in Thirst.
     const { position } = createSimulationRun({ room: DEFAULT_ROOM, seed: 2 }).current();
     const { samples, firedTransitions } = recordOf(2, 12 * HOUR, {
-      interventions: [{ step: 6 * HOUR * STEPS_PER_SECOND, type: "disturb" }],
+      interventions: [{ step: 6 * HOUR * DEFAULT_STEPS_PER_SECOND, type: "disturb" }],
       water: { x: position.x, y: position.y },
     });
     const states = [...samples.flatMap((sample) => sample.transitions), ...firedTransitions];

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_PARAMETERS,
   DEFAULT_ROOM,
-  STEPS_PER_SECOND,
+  DEFAULT_STEPS_PER_SECOND,
   createSimulationRun,
   type FloorPlace,
   type Intervention,
@@ -34,7 +34,7 @@ describe("moving a source", () => {
       type: "move-source",
       source: "water",
       place: { x: 0.2, y: 0.8 },
-      step: 10 * STEPS_PER_SECOND,
+      step: 10 * DEFAULT_STEPS_PER_SECOND,
     });
     expect(interventions).toEqual([moved]);
     expect(samples.at(-1)?.water).toEqual({ x: 0.2, y: 0.8 });
@@ -79,13 +79,13 @@ describe("moving a source", () => {
   it("is reproduced exactly by the same seed, setup and moves", () => {
     const moves: Intervention[] = [
       {
-        step: 5 * MINUTE * STEPS_PER_SECOND,
+        step: 5 * MINUTE * DEFAULT_STEPS_PER_SECOND,
         type: "move-source",
         source: "food",
         place: startOf(3),
       },
       {
-        step: 20 * MINUTE * STEPS_PER_SECOND,
+        step: 20 * MINUTE * DEFAULT_STEPS_PER_SECOND,
         type: "move-source",
         source: "water",
         place: { x: 0.1, y: 0.9 },
@@ -117,7 +117,12 @@ describe("a fly after its food has moved", () => {
       food: startOf(seed),
       water: null,
       interventions: [
-        { step: 10 * MINUTE * STEPS_PER_SECOND, type: "move-source", source: "food", place: to },
+        {
+          step: 10 * MINUTE * DEFAULT_STEPS_PER_SECOND,
+          type: "move-source",
+          source: "food",
+          place: to,
+        },
       ],
     });
   }

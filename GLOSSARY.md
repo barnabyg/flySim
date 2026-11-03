@@ -7,7 +7,7 @@ A personal visual simulator for watching a single adult fruit fly live in a room
 ### The fly
 
 **Reference Fly**:
-The single fly the model represents: an adult male *Drosophila melanogaster* of a named wild-type strain, 3–7 days old and housed alone.
+The single fly the model represents: an adult male *Drosophila melanogaster* of the wild-type strain Canton-S, 3–7 days old and housed alone. Canton-S has the best matching data in the Evidence Pack, which records why.
 _Avoid_: The fly in the sink, generic fly
 
 **Vigilance State**:
@@ -82,7 +82,11 @@ _Avoid_: Threshold, cutoff
 
 **Room**:
 The box-shaped world the user watches, containing the fly and features such as food, water and light sources.
-_Avoid_: Arena, sandbox, chamber
+_Avoid_: Arena, sandbox, chamber (which is a study's)
+
+**Chamber**:
+A study's own small box, such as a 65 × 5 × 5 mm activity-monitor tube, that a Virtual Assay runs the fly in instead of the Room, with food and water where the study puts them. A tube's food plug provides both at one end, and the fly touches it from any surface close to it. A chamber can make flight impossible, so no take-off is ever available. The viewer shows only the Room.
+_Avoid_: Arena, tube (when any chamber is meant), Room
 
 **Food Source**:
 A patch of food on the Room's floor, at a place a Simulation Run's setup gives. It never runs out, and the fly touches it only by standing on it.
@@ -119,7 +123,7 @@ _Avoid_: Poke, tap, stimulus
 ### Runs
 
 **Simulation Run**:
-One seeded run of the model from a setup of Room, Light Schedule, model parameters and Interventions. The same setup and seed always give the same run, at any time speed, in the viewer in any browser and in a Batch. A test can also choose which random stream draws Trigger Levels.
+One seeded run of the model from a setup of Room, Light Schedule, model parameters, step size and Interventions. The same setup and seed always give the same run, at any time speed, in the viewer in any browser and in a Batch. The step size is how many fixed steps the run takes per simulated second, 50 by default. Rates, time constants and noise act per simulated second, so another step size changes a run only by chance. A test can also choose which random stream draws Trigger Levels.
 _Avoid_: Simulation, session, episode
 
 **Replay**:
@@ -159,7 +163,7 @@ _Avoid_: Sleep (when the observed measure is meant)
 ### Validation
 
 **Virtual Assay**:
-A published study's measurement method and setup, applied to a simulated fly so the result can be compared with that study's.
+A published study's measurement method and setup, applied to a simulated fly so the result can be compared with that study's. It runs the fly in the study's Chamber, records only what the study's instrument could, such as a beam monitor's crossings or a camera's frames, and scores Inactivity Bouts, Activity Bouts and Scored Sleep from that observation alone, never from the Vigilance State. Whether grooming in place counts as movement depends on the instrument.
 _Avoid_: Simulated experiment, metric
 
 **Validation Target**:
@@ -167,5 +171,5 @@ A sourced, published finding the model must reproduce, tied to a specific study,
 _Avoid_: Benchmark, expected result
 
 **Evidence Pack**:
-The curated set of Validation Targets, including at least one held out from parameter tuning.
+The curated set of Validation Targets, including at least one held out from parameter tuning. Every counted target's source was read in full, and each published value records where in it it comes from.
 _Avoid_: Test data, references

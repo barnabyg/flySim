@@ -1,13 +1,13 @@
-import { fork } from "node:child_process";
 import { createWriteStream, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { once } from "node:events";
 import { createGzip, gunzipSync } from "node:zlib";
 import { MODEL_VERSION, RECORD_FORMAT_VERSION, RUN_TABLE_NAMES, type Death } from "../engine";
 import type { BatchOptions } from "./batchOptions";
-import type { SeedJob, SeedOutcome } from "./seedProcess";
+import { runInProcesses } from "./processPool";
+import type { FinishedSeed, SeedJob } from "./seedProcess";
 
-export type FinishedSeed = Exclude<SeedOutcome, { error: string }>;
+export type { FinishedSeed } from "./seedProcess";
 
 /** What a batch ran, written beside its files. */
 export interface BatchManifest {
@@ -30,28 +30,6 @@ export interface BatchManifest {
 export const MANIFEST_FILE = "manifest.json";
 
 const SEED_PROCESS = new URL("./seedProcess.ts", import.meta.url);
-const RESOLVE_TYPESCRIPT = new URL("./resolveTypeScript.ts", import.meta.url).href;
-
-/** Runs one seed in a process of its own. */
-async function runSeed(options: BatchOptions, seed: number): Promise<FinishedSeed> {
-  const child = fork(SEED_PROCESS, [], { execArgv: ["--import", RESOLVE_TYPESCRIPT] });
-  const outcome = new Promise<SeedOutcome>((resolve, reject) => {
-    child.once("message", (message) => {
-      resolve(message as SeedOutcome);
-    });
-    child.once("exit", (code) => {
-      reject(
-        new Error(`Seed ${seed}'s process stopped (exit code ${String(code)}) before finishing`),
-      );
-    });
-    child.once("error", reject);
-  });
-  const job: SeedJob = { options, seed };
-  child.send(job);
-  const result = await outcome;
-  if ("error" in result) throw new Error(`Seed ${seed} failed: ${result.error}`);
-  return result;
-}
 
 /** Writes one table across every seed, with a single header row, in the order the seeds ran. */
 async function combineTable(directory: string, seedFiles: readonly string[], to: string) {
@@ -74,24 +52,12 @@ export async function runBatch(
   onFinished: (seed: FinishedSeed, finished: number) => void,
 ): Promise<BatchManifest> {
   mkdirSync(options.outputDirectory, { recursive: true });
-  const waiting = [...options.seeds];
-  const finished = new Map<number, FinishedSeed>();
-  async function worker(): Promise<void> {
-    for (let seed = waiting.shift(); seed !== undefined; seed = waiting.shift()) {
-      const outcome = await runSeed(options, seed);
-      finished.set(seed, outcome);
-      onFinished(outcome, finished.size);
-    }
-  }
-  await Promise.all(
-    Array.from({ length: Math.min(options.jobs, options.seeds.length) }, () => worker()),
+  const runs = await runInProcesses<FinishedSeed>(
+    SEED_PROCESS,
+    options.seeds.map((seed): SeedJob => ({ options, seed })),
+    options.jobs,
+    onFinished,
   );
-
-  const runs = options.seeds.map((seed) => {
-    const outcome = finished.get(seed);
-    if (!outcome) throw new Error(`Seed ${seed} never finished`);
-    return outcome;
-  });
   const tables = Object.fromEntries(
     RUN_TABLE_NAMES.map((name) => [name, `${name}.csv.gz`]),
   ) as BatchManifest["tables"];

@@ -13,6 +13,7 @@ import {
   createSimulationRun,
   exportRun,
   readRunExport,
+  replaySetup,
   type RunExport,
 } from "../../src/engine";
 import { settingsFromUrl, setupForSettings } from "../../src/viewer/runSettings";
@@ -208,6 +209,31 @@ describe("a batch of seeded runs", () => {
     }
   });
 
+  it("runs at the step size it is given, which its exports keep and replay", async () => {
+    const fine = outputDirectory();
+    const { code } = await batch(
+      "--seeds",
+      "3",
+      "--duration",
+      "10m",
+      "--steps-per-second",
+      "100",
+      "--out",
+      fine,
+    );
+    expect(code).toBe(0);
+    const [seed] = manifestIn(fine).runs;
+    if (!seed) throw new Error("no seed");
+    expect(manifestIn(fine).options.setup.stepsPerSecond).toBe(100);
+    const file = readRunExport(readGzipped(join(fine, seed.files.json))).run;
+    expect(file.stepsPerSecond).toBe(100);
+    expect(file.step).toBe(600 * 100);
+
+    const replay = createSimulationRun(replaySetup(file));
+    replay.advanceSteps(file.step);
+    expect(JSON.parse(JSON.stringify(exportRun(replay.record())))).toEqual(file);
+  });
+
   it("fails with a clear message before any run starts when an option is invalid", async () => {
     for (const [args, message] of [
       [["--width", "0.01"], /Room's width must be from 0\.1 to 5 m/],
@@ -215,6 +241,7 @@ describe("a batch of seeded runs", () => {
       [["--seeds", "9-3"], /runs backwards/],
       [["--duration", "10"], /--duration must be a simulated time with a unit/],
       [["--hydration", "0"], /hydration reserve must start from 0\.01 to 1/],
+      [["--steps-per-second", "10"], /whole number of steps a second from 25 to 1000/],
       [["--colour", "red"], /Unknown option '--colour'/],
     ] as const) {
       const empty = join(outputDirectory(), "never");

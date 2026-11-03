@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import {
   DEFAULT_ROOM,
-  STEPS_PER_SECOND,
+  DEFAULT_STEPS_PER_SECOND,
   createSimulationRun,
   type FiredTransition,
   type Intervention,
@@ -19,7 +19,7 @@ const DISTURB_EVERY_SECONDS = 60;
 function deprivation(fromHour: number, toHour: number): Intervention[] {
   const interventions: Intervention[] = [];
   for (let time = fromHour * HOUR; time < toHour * HOUR; time += DISTURB_EVERY_SECONDS) {
-    interventions.push({ step: time * STEPS_PER_SECOND, type: "disturb" });
+    interventions.push({ step: time * DEFAULT_STEPS_PER_SECOND, type: "disturb" });
   }
   return interventions;
 }

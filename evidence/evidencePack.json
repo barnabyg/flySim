@@ -1,0 +1,1026 @@
+{
+  "format": "fly-sim-evidence-pack",
+  "version": 1,
+  "referenceFly": {
+    "strain": "Canton-S",
+    "reason": "Four of the five studies behind the counted targets used Canton-S males (Xu 2021, Zimmerman 2008, Geissmann 2019, Cascallares 2018). Zimmerman 2008 measured Canton-S males with a beam monitor and with video at the same time, which no other wild-type strain in the sources has. Zimmerman 2008 also shows that wild-type strains differ in sleep and in how much a beam monitor overestimates it (Table 3: genotype and method x genotype effects, P < 0.001), so the strain has to be fixed. No source read showed another wild-type strain with better matching male data.",
+    "sex": "male",
+    "ageDays": { "min": 3, "max": 7 },
+    "housing": "Housed alone in a narrow tube or channel with food at one end, as in the Drosophila Activity Monitor and the video studies in this pack."
+  },
+  "targets": [
+    {
+      "id": "xu-2021-inactivity-bouts-power-law",
+      "title": "Short Inactivity Bouts follow a power law with CCDF exponent about 0.73 by day and 0.78 by night.",
+      "counted": true,
+      "phase": 5,
+      "heldOut": false,
+      "verification": {
+        "status": "read-in-full",
+        "readFrom": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC7979771/fullTextXML",
+        "notes": "Read the whole text, the methods, the equations and all figure legends. Fig. 3 was read from https://media.springernature.com/full/springer-static/image/art%3A10.1038%2Fs42003-021-01883-y/MediaObjects/42003_2021_1883_Fig3_HTML.png. The equations define beta on the complementary cumulative probability: P(X > t) proportional to t^-beta for t <= K. The authors used Clauset's package with the lower bound fixed at 3 s; they don't say whether the fit was cut off at K. The +/- values are SEM over five biologically independent experiments (Fig. 3 legend), not over flies. The supplementary source data (Supplementary Data 1, xlsx) was not downloaded."
+      },
+      "source": {
+        "citation": "Xu X, Yang W, Tian B, Sui X, Chen W, Rao Y, Tang C. Quantitative investigation reveals distinct phases in Drosophila sleep. Communications Biology 2021;4:340.",
+        "doi": "10.1038/s42003-021-01883-y",
+        "url": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC7979771/fullTextXML"
+      },
+      "study": {
+        "description": "Infrared video tracking of single flies at 25 fps for 3 days under 12:12 LD. Rest bouts were split by light phase. For each fly the authors fitted a power law to short rests and an exponential to rests longer than a fitted latency K."
+      },
+      "assay": {
+        "kind": "video-tracking",
+        "chamber": {
+          "description": "Xu 2021 '1D chamber': an acrylic channel under a glass plate, 5 mm wide, 78 mm long and 2.5-3 mm deep. Food fills the full height of one end and takes up 15-20 mm of the length; flies cannot walk on it. A sponge closes the other end. The height here is 2.75 mm, the midpoint of the stated 2.5-3 mm.",
+          "lengthMm": 78,
+          "widthMm": 5,
+          "heightMm": 2.75,
+          "foodAndWater": "Food at one end, filling the full height and 15-20 mm of the length. No separate water source is stated."
+        },
+        "beamPositionsMm": null,
+        "samplingIntervalSeconds": 0.04,
+        "binSeconds": 0.04,
+        "movementRule": "Each frame, the fly's position is the centroid of the largest connected blob among the 100 pixels that differ most from a background image rebuilt for each light phase. The fly rests while its centroid stays at the same location. A stay of more than 1 s (25 frames) at one location is a rest bout, timed from arrival to departure. Any change of centroid location ends it.",
+        "movementThreshold": {
+          "value": 1,
+          "unit": "pixel",
+          "description": "Any change of centroid location is movement, which implies 1-pixel resolution. The source doesn't give the pixel size in mm: each frame is 560 x 960 px and covers many chambers. The code must choose an mm equivalent and record it."
+        },
+        "groomingCountsAsMovement": null,
+        "sleepThresholdMinutes": 5,
+        "acclimationHours": 24,
+        "recordedDays": 3
+      },
+      "fly": {
+        "sex": "male",
+        "strain": "Canton-S",
+        "ageDays": "Loaded on day 3 after eclosion. Data from days 5-7 after eclosion.",
+        "housing": "Virgin. Collected at eclosion and kept in groups in plastic tubes, then put alone into a chamber on day 3 under short CO2 anaesthesia.",
+        "lightSchedule": {
+          "lightHours": 12,
+          "description": "12 h light : 12 h dark from a cold LED light source. Flies were raised under a 12:12 LED cycle."
+        },
+        "temperatureC": 25,
+        "food": "Standard yeast medium (rearing). The chamber food is not described further."
+      },
+      "measure": "inactivity-bout-duration-distribution",
+      "measureDefinition": "For each simulated fly, take the video-tracking Inactivity Bouts and assign each to the light phase (ZT0-12) or dark phase (ZT12-24) by its start time, pooling all recorded days. In each phase, keep bouts with durations d in [xminSeconds, xmaxSeconds]. Fit a continuous power-law density p(d) proportional to d^-alpha, truncated to that range, by maximum likelihood. beta = alpha - 1 is the CCDF exponent in Xu's sense, P(X > t) proportional to t^-beta. Report the mean beta over simulated flies for each phase. The 1-s minimum rest and 3-s lower bound follow Xu's Methods. xmax is Xu's typical sleep latency K for that phase (text: about 200 s by day, about 300 s by night).",
+      "published": [
+        {
+          "label": "male, light phase, active index beta",
+          "value": 0.73,
+          "unit": "dimensionless (CCDF exponent)",
+          "uncertainty": { "kind": "sem", "value": 0.04 },
+          "n": 153,
+          "location": "Results, 'Parameters of the sleep pattern', paragraph 2: 'In the light phase, the active index was 0.73 +/- 0.04 for males'. Fig. 3a. SEM over five biologically independent experiments; n = 153 males from the Fig. 3 legend."
+        },
+        {
+          "label": "male, dark phase, active index beta",
+          "value": 0.78,
+          "unit": "dimensionless (CCDF exponent)",
+          "uncertainty": { "kind": "sem", "value": 0.02 },
+          "n": 153,
+          "location": "Results, 'Parameters of the sleep pattern', paragraph 2: 'In the dark phase, the active index was 0.78 +/- 0.02 for males'. Fig. 3a. SEM over five experiments."
+        }
+      ],
+      "criterion": {
+        "kind": "exponent-within",
+        "description": "In each phase, the mean of the per-fly fitted beta must lie within the published mean +/- 2 SD of experiment means. That SD is SEM x sqrt(5), because the SEM is over five experiments and a pooled model run is compared like one experiment. Light: 0.73 +/- 2 x 0.089. Dark: 0.78 +/- 2 x 0.045. Both phases must pass.",
+        "exponentForm": "ccdf",
+        "aggregate": "mean-of-per-fly-fits",
+        "phases": [
+          { "phase": "light", "xminSeconds": 3, "xmaxSeconds": 200, "low": 0.55, "high": 0.91 },
+          { "phase": "dark", "xminSeconds": 3, "xmaxSeconds": 300, "low": 0.69, "high": 0.87 }
+        ]
+      },
+      "claimChecked": "Spec Further Notes, Xu 2021: 'Inactivity Bouts follow a power law from about 3 s to 200-300 s, then an exponential tail.' Confirmed with caveats. The 3 s is the lower bound the authors chose for the fit, not a measured onset. The power law holds up to a per-fly latency K of about 200 s by day and 300 s by night. Beyond K the tail is exponential (KS test, and a better AIC than a Gaussian tail)."
+    },
+    {
+      "id": "xu-2021-male-scored-sleep-profile",
+      "title": "The male daily Scored Sleep profile has a midday siesta, dips at lights-on and lights-off, and consolidated night sleep.",
+      "counted": true,
+      "phase": 5,
+      "heldOut": false,
+      "verification": {
+        "status": "read-in-full",
+        "readFrom": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC7979771/fullTextXML",
+        "notes": "Read the whole text. The Fig. 1f values were digitised from https://media.springernature.com/full/springer-static/image/art%3A10.1038%2Fs42003-021-01883-y/MediaObjects/42003_2021_1883_Fig1_HTML.png (1887 x 1866 px). Axis ticks were located by pixel and the male (blue) mean markers read on gridded enlargements. Reading precision is about +/-0.7 min per bin, and about +/-1 min at ZT 7.5-10 and ZT 12, where the female series hides the markers. Markers sit at the bin centres ZT 0.25, 0.75, ... 23.75. The profile comes from a virtual midline beam: the paper says it counted midline crossings to mimic DAMS. The paper doesn't state the sleep criterion or bin length for this profile. The standard 5-min rule and 1-min bins are assumed. Summed from the readings: light phase about 424 min, dark phase about 483 min."
+      },
+      "source": {
+        "citation": "Xu X, Yang W, Tian B, Sui X, Chen W, Rao Y, Tang C. Quantitative investigation reveals distinct phases in Drosophila sleep. Communications Biology 2021;4:340.",
+        "doi": "10.1038/s42003-021-01883-y",
+        "url": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC7979771/fullTextXML"
+      },
+      "study": {
+        "description": "The same video recordings as the Xu bout target, scored as a single-beam monitor would score them. A virtual infrared beam sits at the midpoint of the fly's tracked positions along the channel. Sleep is averaged over 3 days in 30-min bins."
+      },
+      "assay": {
+        "kind": "beam-crossing",
+        "chamber": {
+          "description": "Xu 2021 '1D chamber': an acrylic channel under a glass plate, 5 mm wide, 78 mm long and 2.5-3 mm deep. Food fills one end over 15-20 mm, and a sponge closes the other end. The beam is virtual: the midpoint of the fly's tracked y-coordinates. 47.75 mm is a derived estimate: the middle of the walkable length, assuming 17.5 mm of food and a sponge of negligible length. The source gives the beam only as the midpoint of tracked positions.",
+          "lengthMm": 78,
+          "widthMm": 5,
+          "heightMm": 2.75,
+          "foodAndWater": "Food at one end, filling the full height and 15-20 mm of the length. No separate water source is stated."
+        },
+        "beamPositionsMm": [47.75],
+        "samplingIntervalSeconds": 0.04,
+        "binSeconds": 60,
+        "movementRule": "Each time the tracked position moves from one side of the virtual midline to the other is one beam crossing. A bin with zero crossings is inactive. The 60-s bin is an assumption; the source doesn't state one.",
+        "movementThreshold": null,
+        "groomingCountsAsMovement": false,
+        "sleepThresholdMinutes": 5,
+        "acclimationHours": 24,
+        "recordedDays": 3
+      },
+      "fly": {
+        "sex": "male",
+        "strain": "Canton-S",
+        "ageDays": "Loaded on day 3 after eclosion. Data from days 5-7 after eclosion.",
+        "housing": "Virgin. Collected at eclosion and kept in groups in plastic tubes, then put alone into a chamber on day 3 under short CO2 anaesthesia.",
+        "lightSchedule": {
+          "lightHours": 12,
+          "description": "12 h light : 12 h dark from a cold LED light source. Lights-on is ZT0."
+        },
+        "temperatureC": 25,
+        "food": "Standard yeast medium (rearing). The chamber food is not described further."
+      },
+      "measure": "scored-sleep-profile",
+      "measureDefinition": "For each simulated fly and recorded day, score the beam-crossing assay into 60-s bins and mark Scored Sleep as runs of at least 5 consecutive inactive bins. Count the minutes of Scored Sleep in each 30-min bin from ZT0, giving 48 bins. Average over days, then over flies. The result is minutes of Scored Sleep per 30 min (0-30) for bins starting at ZT 0, 0.5, ... 23.5.",
+      "published": [
+        {
+          "label": "male mean Scored Sleep per 30-min bin, ZT0-0.5 first (48 values)",
+          "value": [
+            4.3, 4.0, 9.4, 15.1, 19.1, 20.5, 21.7, 23.0, 23.0, 24.1, 24.4, 24.8, 25.3, 24.8, 24.6,
+            23.9, 22.2, 21.1, 20.1, 18.4, 14.1, 10.2, 4.6, 1.7, 1.3, 4.8, 10.8, 18.9, 24.8, 26.6,
+            27.8, 27.7, 27.6, 27.4, 27.6, 27.5, 27.4, 27.5, 27.1, 26.5, 25.1, 21.4, 17.0, 12.7,
+            10.8, 11.4, 12.1, 11.5
+          ],
+          "unit": "min per 30 min",
+          "uncertainty": { "kind": "sem", "value": null },
+          "n": 168,
+          "location": "Fig. 1f, blue (male) series, read off the plotted figure with about +/-0.7 min precision (+/-1 min where hidden). Error bars are SEM over five biologically independent experiments (Fig. 1 legend). Most are about 0.5-2.5 min; they weren't digitised. n = 168 males from the Fig. 1f key."
+        }
+      ],
+      "criterion": {
+        "kind": "profile-correlation",
+        "description": "The Pearson r between the 48-bin model profile and the published profile must be at least 0.9. The mean absolute difference must be at most 4.0 min per bin. Why 0.9: a crude 12-h cosine with dips at ZT0 and ZT12 already gives r = 0.88 against these values, and a 1-h phase error gives r = 0.76. So r >= 0.9 needs a correctly timed siesta, dawn and dusk dips, and a pre-dawn decline. The 4-min limit is about one SD between experiments (typical SEM 1.5 min x sqrt(5) = 3.4 min), plus reading error.",
+        "binSeconds": 1800,
+        "origin": "ZT0",
+        "minR": 0.9,
+        "maxMeanAbsoluteDifferenceMinutes": 4.0,
+        "toleranceMinutes": null,
+        "aggregate": "mean profile over recorded days and simulated flies"
+      },
+      "claimChecked": "Spec story 48 and stage 2 ('male midday siesta and consolidated night sleep'), recalled from memory. Confirmed: male sleep reaches about 24-25 min per 30 min at ZT 4.5-7.5, falls to about 1-2 min at lights-off, plateaus at about 27-28 min per 30 min from ZT 15 to ZT 19.5, and drops to about 11-12 min per 30 min from ZT 22 to 24, before lights-on."
+    },
+    {
+      "id": "zimmerman-2008-beam-light-phase-sleep",
+      "title": "A single-beam monitor scores about 391 min of light-phase sleep in Canton-S males.",
+      "counted": true,
+      "phase": 5,
+      "heldOut": false,
+      "verification": {
+        "status": "read-in-full",
+        "readFrom": "https://pmc.ncbi.nlm.nih.gov/articles/PMC2579987/",
+        "notes": "Read the whole article from the PMC page, including Tables 1-4 and all figure legends. Europe PMC's full-text XML service returned an error for this article; the PMC HTML page was used instead. The n is ambiguous: Table 1 lists 8 Canton-S males, but Table 4 lists N = 22 for 'CS Male 7 days' with the same light-phase and dark-phase values as Table 2. Table 2 gives no n. The tube's internal diameter isn't stated."
+      },
+      "source": {
+        "citation": "Zimmerman JE, Raizen DM, Maycock MH, Maislin G, Pack AI. A video method to study Drosophila sleep. Sleep 2008;31(11):1587-1598.",
+        "doi": "10.1093/sleep/31.11.1587",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC2579987/"
+      },
+      "study": {
+        "description": "The same flies were recorded at once by a TriKinetics single-beam DAMS (30-s bins) and by overhead video (one frame per 5 s) for one 24-h LD cycle. Sleep was scored with the 5-min rule for each method."
+      },
+      "assay": {
+        "kind": "beam-crossing",
+        "chamber": {
+          "description": "TriKinetics DAMS glass monitor tube 'approximately 6 cm long', with 5% sucrose/1% agar at one end and a yarn plug at the other. One infrared beam passes through the centre of the tube. The internal diameter isn't stated. 3 mm is assumed from the standard DAM tube; Ueno 2012 states 3 mm for its 6.5 cm DAM tubes.",
+          "lengthMm": 60,
+          "widthMm": 3,
+          "heightMm": 3,
+          "foodAndWater": "5% sucrose in 1% agar at one end, the only food and water source."
+        },
+        "beamPositionsMm": [30],
+        "samplingIntervalSeconds": 30,
+        "binSeconds": 30,
+        "movementRule": "A 30-s bin with at least one beam break is active; a bin with none is inactive.",
+        "movementThreshold": null,
+        "groomingCountsAsMovement": false,
+        "sleepThresholdMinutes": 5,
+        "acclimationHours": 120,
+        "recordedDays": 1
+      },
+      "fly": {
+        "sex": "male",
+        "strain": "Canton-S (gift of J. Hendricks, sib-mated for 20 generations)",
+        "ageDays": "Collected at eclosion, kept overnight on cornmeal agar, then 5 days in the tubes before recording. Table 4 calls these flies '7 days'.",
+        "housing": "Alone in a monitor tube from the day after eclosion. Mating status and the overnight housing before loading aren't stated.",
+        "lightSchedule": {
+          "lightHours": 12,
+          "description": "12 h white fluorescent light (425-892 lux) : 12 h infrared light (950 nm). ZT0 is lights-on."
+        },
+        "temperatureC": 25,
+        "food": "5% sucrose in 1% agar"
+      },
+      "measure": "light-phase-scored-sleep-minutes",
+      "measureDefinition": "For each simulated fly, find runs of consecutive inactive 30-s bins lasting at least 5 min (10 bins) in the beam-crossing assay. Count the Scored Sleep minutes that fall between ZT0 and ZT12, splitting a bout that crosses a phase boundary by minute. Average over recorded days and then over flies.",
+      "published": [
+        {
+          "label": "Canton-S male, daytime total sleep, DAMS",
+          "value": 391.2,
+          "unit": "min per 12 h light phase",
+          "uncertainty": { "kind": "sd", "value": 53.7 },
+          "n": null,
+          "location": "Table 2, 'Daytime' block, 'CS male' DAMS row: 391.2 +/- 53.7 (mean +/- SD; CV 13.7). n is 8 (Table 1) or 22 (Table 4)."
+        }
+      ],
+      "criterion": {
+        "kind": "within-interval",
+        "description": "The model mean (over simulated flies) must lie within the published mean +/- 1 SD between flies: 391.2 +/- 53.7.",
+        "low": 337.5,
+        "high": 444.9,
+        "aggregate": "mean over simulated flies"
+      },
+      "claimChecked": "Spec story 48 (less sleep by day than by night). Confirmed with DAMS: 391 min by day against 604 min by night."
+    },
+    {
+      "id": "zimmerman-2008-beam-dark-phase-sleep",
+      "title": "A single-beam monitor scores about 604 min of dark-phase sleep in Canton-S males.",
+      "counted": true,
+      "phase": 5,
+      "heldOut": false,
+      "verification": {
+        "status": "read-in-full",
+        "readFrom": "https://pmc.ncbi.nlm.nih.gov/articles/PMC2579987/",
+        "notes": "Same reading as zimmerman-2008-beam-light-phase-sleep. The n is ambiguous (8 in Table 1, 22 in Table 4)."
+      },
+      "source": {
+        "citation": "Zimmerman JE, Raizen DM, Maycock MH, Maislin G, Pack AI. A video method to study Drosophila sleep. Sleep 2008;31(11):1587-1598.",
+        "doi": "10.1093/sleep/31.11.1587",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC2579987/"
+      },
+      "study": {
+        "description": "The same flies were recorded at once by a TriKinetics single-beam DAMS (30-s bins) and by overhead video (one frame per 5 s) for one 24-h LD cycle. Sleep was scored with the 5-min rule for each method."
+      },
+      "assay": {
+        "kind": "beam-crossing",
+        "chamber": {
+          "description": "TriKinetics DAMS glass monitor tube 'approximately 6 cm long', with 5% sucrose/1% agar at one end and a yarn plug at the other. One infrared beam passes through the centre of the tube. The internal diameter isn't stated. 3 mm is assumed from the standard DAM tube; Ueno 2012 states 3 mm for its 6.5 cm DAM tubes.",
+          "lengthMm": 60,
+          "widthMm": 3,
+          "heightMm": 3,
+          "foodAndWater": "5% sucrose in 1% agar at one end, the only food and water source."
+        },
+        "beamPositionsMm": [30],
+        "samplingIntervalSeconds": 30,
+        "binSeconds": 30,
+        "movementRule": "A 30-s bin with at least one beam break is active; a bin with none is inactive.",
+        "movementThreshold": null,
+        "groomingCountsAsMovement": false,
+        "sleepThresholdMinutes": 5,
+        "acclimationHours": 120,
+        "recordedDays": 1
+      },
+      "fly": {
+        "sex": "male",
+        "strain": "Canton-S (gift of J. Hendricks, sib-mated for 20 generations)",
+        "ageDays": "Collected at eclosion, kept overnight on cornmeal agar, then 5 days in the tubes before recording. Table 4 calls these flies '7 days'.",
+        "housing": "Alone in a monitor tube from the day after eclosion. Mating status and the overnight housing before loading aren't stated.",
+        "lightSchedule": {
+          "lightHours": 12,
+          "description": "12 h white fluorescent light (425-892 lux) : 12 h infrared light (950 nm). ZT0 is lights-on."
+        },
+        "temperatureC": 25,
+        "food": "5% sucrose in 1% agar"
+      },
+      "measure": "dark-phase-scored-sleep-minutes",
+      "measureDefinition": "For each simulated fly, find runs of consecutive inactive 30-s bins lasting at least 5 min (10 bins) in the beam-crossing assay. Count the Scored Sleep minutes that fall between ZT12 and ZT24, splitting a bout that crosses a phase boundary by minute. Average over recorded days and then over flies.",
+      "published": [
+        {
+          "label": "Canton-S male, nighttime total sleep, DAMS",
+          "value": 603.9,
+          "unit": "min per 12 h dark phase",
+          "uncertainty": { "kind": "sd", "value": 79.0 },
+          "n": null,
+          "location": "Table 2, 'Nighttime' block, 'CS male' DAMS row: 603.9 +/- 79.0 (mean +/- SD; CV 13.1). n is 8 (Table 1) or 22 (Table 4)."
+        }
+      ],
+      "criterion": {
+        "kind": "within-interval",
+        "description": "The model mean (over simulated flies) must lie within the published mean +/- 1 SD between flies: 603.9 +/- 79.0.",
+        "low": 524.9,
+        "high": 682.9,
+        "aggregate": "mean over simulated flies"
+      },
+      "claimChecked": "Spec story 48 ('consolidated night sleep'). Confirmed: DAMS scores about 84% of the 720-min night as sleep in Canton-S males."
+    },
+    {
+      "id": "zimmerman-2008-video-light-phase-sleep",
+      "title": "Video scores about 217 min of light-phase sleep in the same Canton-S males, about 45% less than the beam monitor.",
+      "counted": true,
+      "phase": 5,
+      "heldOut": true,
+      "verification": {
+        "status": "read-in-full",
+        "readFrom": "https://pmc.ncbi.nlm.nih.gov/articles/PMC2579987/",
+        "notes": "Same reading as zimmerman-2008-beam-light-phase-sleep. The video method subtracts frames 5 s apart; resolution is 1 pixel = 189 um. Visual checks found the automated analysis missed 7.4% (range 5.0-10.6%) of visible small movements: wing flicks, single leg movements and proboscis extensions. Most in-place movement, grooming included, therefore counts as movement. The paper doesn't say so for grooming explicitly."
+      },
+      "source": {
+        "citation": "Zimmerman JE, Raizen DM, Maycock MH, Maislin G, Pack AI. A video method to study Drosophila sleep. Sleep 2008;31(11):1587-1598.",
+        "doi": "10.1093/sleep/31.11.1587",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC2579987/"
+      },
+      "study": {
+        "description": "The same flies and recording as the DAMS targets, scored from video. An epoch is quiescent when no pixel changes between frames 5 s apart. Sleep is 5 min or more of quiescence."
+      },
+      "assay": {
+        "kind": "video-tracking",
+        "chamber": {
+          "description": "The same DAMS tube, filmed from above: about 6 cm long, 5% sucrose/1% agar at one end, yarn at the other. The internal diameter isn't stated; 3 mm is assumed (standard DAM tube).",
+          "lengthMm": 60,
+          "widthMm": 3,
+          "heightMm": 3,
+          "foodAndWater": "5% sucrose in 1% agar at one end, the only food and water source."
+        },
+        "beamPositionsMm": null,
+        "samplingIntervalSeconds": 5,
+        "binSeconds": 5,
+        "movementRule": "Subtract two frames taken 5 s apart. A pixel has moved if its difference value leaves the noise band around 127: darker than 108 or whiter than 148. The number of pixels moved is the larger of the dark and white pixel counts. The 5-s epoch is active if at least one pixel moved, and inactive otherwise.",
+        "movementThreshold": {
+          "value": 0.189,
+          "unit": "mm",
+          "description": "Any change of at least 1 pixel (189 um, about 9% of body length) outside the noise band counts. A fly is 13-14 pixels long (Table 1 legend)."
+        },
+        "groomingCountsAsMovement": true,
+        "sleepThresholdMinutes": 5,
+        "acclimationHours": 120,
+        "recordedDays": 1
+      },
+      "fly": {
+        "sex": "male",
+        "strain": "Canton-S (gift of J. Hendricks, sib-mated for 20 generations)",
+        "ageDays": "Collected at eclosion, kept overnight on cornmeal agar, then 5 days in the tubes before recording. Table 4 calls these flies '7 days'.",
+        "housing": "Alone in a monitor tube from the day after eclosion. Mating status and the overnight housing before loading aren't stated.",
+        "lightSchedule": {
+          "lightHours": 12,
+          "description": "12 h white fluorescent light (425-892 lux) : 12 h infrared light (950 nm). ZT0 is lights-on."
+        },
+        "temperatureC": 25,
+        "food": "5% sucrose in 1% agar"
+      },
+      "measure": "light-phase-scored-sleep-minutes",
+      "measureDefinition": "For each simulated fly, find runs of consecutive inactive 5-s video epochs lasting at least 5 min (60 epochs). Count the Scored Sleep minutes between ZT0 and ZT12, splitting boundary-crossing bouts by minute. Average over recorded days and then over flies. Run it on the same simulated flies and days as zimmerman-2008-beam-light-phase-sleep, so the gap between assays can be reported too.",
+      "published": [
+        {
+          "label": "Canton-S male, daytime total sleep, video",
+          "value": 217.0,
+          "unit": "min per 12 h light phase",
+          "uncertainty": { "kind": "sd", "value": 92.3 },
+          "n": null,
+          "location": "Table 2, 'Daytime' block, 'CS male' Video row: 217.0 +/- 92.3 (mean +/- SD; CV 42.5; DAMS 80.3% higher). The same value appears in Table 4 ('CS Male 7 days', EXCLUDED, N = 22). Table 1 lists 8 Canton-S males."
+        }
+      ],
+      "criterion": {
+        "kind": "within-interval",
+        "description": "The model mean (over simulated flies) must lie within the published mean +/- 1 SD between flies: 217.0 +/- 92.3. This target is held out: tune on the beam-crossing targets, then check that video scoring of the same simulated flies gives this much less daytime sleep.",
+        "low": 124.7,
+        "high": 309.3,
+        "aggregate": "mean over simulated flies"
+      },
+      "claimChecked": "Spec Further Notes, Ueno 2012: 'overestimated rest in beam-break monitors'. Ueno cites this paper (its reference 12) for the point. Confirmed for Canton-S males: DAMS overestimates daytime sleep by 80.3%, nighttime sleep by 22.9% and 24-h sleep by 40.5% (Table 2)."
+    },
+    {
+      "id": "geissmann-2019-daily-scored-sleep-ethoscope",
+      "title": "Canton-S males sleep about 618 min a day when grooming and other micromovements count as movement.",
+      "counted": true,
+      "phase": 5,
+      "heldOut": false,
+      "verification": {
+        "status": "read-in-full",
+        "readFrom": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC6382397/fullTextXML",
+        "notes": "Read the whole text, the methods (including the behaviour equation) and all figure legends. The figure images couldn't be fetched at full size, but the counted value is stated in the text. The text says sleep was analysed 'for four consecutive days'; the Fig. 1 legend says 'over a period of 5 days'. Fly age at recording isn't stated: pupae were put in the tubes and eclosed there. The ethoscope velocity threshold and frame rate come from Geissmann et al. 2017 (PLoS Biol, read in full). Its S4 Text, which defines the velocity units, was not read. No acclimation period is stated for the Fig. 1 dataset, so acclimationHours is 0."
+      },
+      "source": {
+        "citation": "Geissmann Q, Beckwith EJ, Gilestro GF. Most sleep does not serve a vital function: Evidence from Drosophila melanogaster. Science Advances 2019;5(2):eaau9253.",
+        "doi": "10.1126/sciadv.aau9253",
+        "url": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC6382397/fullTextXML"
+      },
+      "study": {
+        "description": "485 Canton-S males were tracked in real time by ethoscopes. These classify each 10-s epoch as immobile or not by maximal velocity, so micromovements such as grooming, feeding and egg laying count as movement. Sleep is immobility bouts over 300 s."
+      },
+      "assay": {
+        "kind": "video-tracking",
+        "chamber": {
+          "description": "Glass tube 70 mm long, 5 mm external diameter and 3 mm internal diameter, in an ethoscope 'sleep arena' holding 20 tubes. Rearing food at one end, cotton wool at the other. The usable length depends on how much food and cotton is in each tube, so positions were normalised.",
+          "lengthMm": 70,
+          "widthMm": 3,
+          "heightMm": 3,
+          "foodAndWater": "Standard corn and yeast rearing food at one end, ad libitum, the only food and water source."
+        },
+        "beamPositionsMm": null,
+        "samplingIntervalSeconds": 1,
+        "binSeconds": 10,
+        "movementRule": "Ethoscope real-time tracking. A 10-s epoch is immobile if the fly's corrected maximal velocity stays below the validated threshold Tv throughout. Otherwise it is active: either walking (distance moved in the minute of at least 15 mm) or micromovement. Sampling: Geissmann 2017 states real-time tracking runs at 1-4 FPS depending on load. The 2019 paper doesn't state its rate, so 1 s is used as the conservative value.",
+        "movementThreshold": {
+          "value": 1,
+          "unit": "ethoscope corrected maximal velocity (relative unit)",
+          "description": "Geissmann 2017 Fig. 4B legend: 'thresholds used to detect movement (1: dotted line)'. The unit is defined in Geissmann 2017 S4 Text, which was not read. Ethoscope tracking error has a median of 0.3 mm (Geissmann 2017). The code needs its own mm-per-s calibration, recorded with this target."
+        },
+        "groomingCountsAsMovement": true,
+        "sleepThresholdMinutes": 5,
+        "acclimationHours": 0,
+        "recordedDays": 4
+      },
+      "fly": {
+        "sex": "male",
+        "strain": "Canton-S (from R. Stanewsky, University of Munster)",
+        "ageDays": "Not stated. Pupae aged 7-8 days were put in the tubes and eclosed there. 'Three days of baseline were recorded before any treatment.'",
+        "housing": "Alone in a tube from the pupal stage. Socially naive; sorted by sex after eclosion.",
+        "lightSchedule": {
+          "lightHours": 12,
+          "description": "12 h light : 12 h dark (LD), the same regimen as rearing."
+        },
+        "temperatureC": 25,
+        "food": "Standard corn and yeast medium (the rearing food)"
+      },
+      "measure": "daily-scored-sleep-minutes",
+      "measureDefinition": "For each simulated fly, classify each 10-s epoch as immobile if the maximal speed in it stays below the movement threshold, so any in-place movement such as grooming is active. Scored Sleep is every immobility bout longer than 300 s, all of it counted. Sum Scored Sleep minutes per 24 h from ZT0 and average over recorded days, then over flies.",
+      "published": [
+        {
+          "label": "Canton-S male, mean daily sleep (ethoscope)",
+          "value": 618.5,
+          "unit": "min per 24 h",
+          "uncertainty": { "kind": "ci95", "value": [606.7, 630.3] },
+          "n": 485,
+          "location": "Results, 'Virtually sleepless flies are found in a nonmutant population', paragraph 1: 'male flies sleeping for 618.5 (CI95%, 606.7 to 630.3) min a day' (mean with 95% bootstrap CI). Fig. 1B."
+        }
+      ],
+      "criterion": {
+        "kind": "within-interval",
+        "description": "The model mean (over simulated flies) must lie within the published mean +/- 1 SD between flies. The SD is derived from the bootstrap CI as half-width / 1.96 x sqrt(485) = 11.8 / 1.96 x 22.02 = 132.6 min, so the interval is 618.5 +/- 132.6. This assumes the CI is close to normal.",
+        "low": 485.9,
+        "high": 751.1,
+        "aggregate": "mean over simulated flies"
+      },
+      "claimChecked": "Daily sleep amount (spec 'sleep characteristics', recalled from memory). The amount depends on the assay. Canton-S males sleep 618.5 min a day when micromovements count (this target). They sleep 708 min with frame-subtraction video and 995 min with a single-beam DAMS (Zimmerman 2008 Table 2). About 908 min is the sum read off the virtual-beam profile in Xu 2021 Fig. 1f."
+    },
+    {
+      "id": "cascallares-2018-activity-bouts-exponential",
+      "title": "In LD, wild-type Activity Bouts have an exponential tail with rate about 0.14 per second.",
+      "counted": true,
+      "phase": 5,
+      "heldOut": false,
+      "verification": {
+        "status": "read-in-full",
+        "readFrom": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC6107170/fullTextXML",
+        "notes": "Read the whole text and all figure legends. Fig. 2 was viewed at https://journals.plos.org/plosone/article/figure/image?size=large&id=10.1371/journal.pone.0202505.g002. The y-axis P(t) starts near 0.7 at t = 1 s, so it is a cumulative (survival) distribution, not a density. The exponential fit line spans about t = 13-43 s (read off the figure). Below about 10 s the curve is steeper and curved, so only the tail is exponential. The paper gives no goodness-of-fit test, uncertainty or fitting method. The distribution pools the n = 10 wild-type flies. Wild type here means Canton-S. The paper doesn't say whether early LD days were discarded, so acclimationHours is 0 and all 6 LD days are used. Some flies with too little activity were discarded, mostly in DD (Methods)."
+      },
+      "source": {
+        "citation": "Cascallares G, Riva S, Franco DL, Risau-Gusman S, Gleiser PM. Role of the circadian clock in the statistics of locomotor activity in Drosophila. PLoS ONE 2018;13(8):e0202505.",
+        "doi": "10.1371/journal.pone.0202505",
+        "url": "https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0202505"
+      },
+      "study": {
+        "description": "Webcam tracking (Pysolo, one position per second) of single males in 100 mm tracks for 6 days LD, then 6 days DD. Movement is a displacement of at least about one fly length per second. Activity and quiescence bouts are runs of 1s and 0s."
+      },
+      "assay": {
+        "kind": "video-tracking",
+        "chamber": {
+          "description": "A transparent track 10 mm wide, 7 mm high and 100 mm long. One end is sealed and holds about 1 cm3 of banana-jaggery food; a cotton plug closes the other end. Filmed from 30 cm at 2.5-3 px/mm.",
+          "lengthMm": 100,
+          "widthMm": 10,
+          "heightMm": 7,
+          "foodAndWater": "About 1 cm3 of banana-jaggery fly medium at the sealed end, the only food and water source."
+        },
+        "beamPositionsMm": null,
+        "samplingIntervalSeconds": 1,
+        "binSeconds": 1,
+        "movementRule": "Subtract consecutive 1-Hz position readings. A second is active (1) if the displacement is at least the threshold, and quiescent (0) otherwise. An activity bout is a run of 1s; a quiescence bout is a run of 0s.",
+        "movementThreshold": {
+          "value": 1.8,
+          "unit": "mm",
+          "description": "Stated as a fixed threshold 'equivalent to the size of a fly (approximately 5 pixels)' at 2.5-3 px/mm, so 1.7-2.0 mm per second. 1.8 mm is the derived midpoint. Chosen so that grooming-induced position jitter counts as quiescence."
+        },
+        "groomingCountsAsMovement": false,
+        "sleepThresholdMinutes": 5,
+        "acclimationHours": 0,
+        "recordedDays": 6
+      },
+      "fly": {
+        "sex": "male",
+        "strain": "Canton-S",
+        "ageDays": "Selected 2-3 days after eclosion, then 6 days LD, so about 3-9 days old during the LD recording.",
+        "housing": "One fly per track. Mating status isn't stated.",
+        "lightSchedule": {
+          "lightHours": 12,
+          "description": "12 h white LED light (200 lux) : 12 h darkness with 850 nm infrared illumination, for 6 days (entrainment phase)."
+        },
+        "temperatureC": 23,
+        "food": "Banana-jaggery medium. The temperature is stated as 22-24 C at about 50% humidity; 23 C is the midpoint."
+      },
+      "measure": "activity-bout-duration-distribution",
+      "measureDefinition": "Score each simulated fly at 1 Hz: a second is active if the displacement since the previous reading is at least 1.8 mm. Pool all Activity Bout durations (whole seconds) from all LD days and all simulated flies. Compute the empirical CCDF P(t) = fraction of bouts with duration >= t at integer t. Fit ln P(t) = a - r t by least squares over t = 13-43 s. r is the exponential tail rate.",
+      "published": [
+        {
+          "label": "wild-type (Canton-S) male, LD, Activity Bout exponential rate",
+          "value": 0.14,
+          "unit": "1/s",
+          "uncertainty": { "kind": "none", "value": null },
+          "n": 10,
+          "location": "Results, paragraph after the Fig. 1 legend: 'the distributions of quiescence and activity can be well fitted by a power law (p(t) ~ t^-0.6) and by an exponential distribution (p(t) ~ e^-0.14t), respectively'. Also 'only a slight change in the exponent was observed (0.14 in LD and 0.16 in DD)'. Fig. 2B, A_LD curve. The fit range (about 13-43 s) was read off the figure."
+        }
+      ],
+      "criterion": {
+        "kind": "exponential-rate-within",
+        "description": "The fitted CCDF tail rate r over [xminSeconds, xmaxSeconds] must lie in [0.11, 0.17] per second. No uncertainty was published. The bounds are 0.14 +/- 0.03: wider than the 0.02 LD-to-DD shift in the same flies, and about +/-20% of the value. This is a judgment, not a published interval. Definition of this criterion: least-squares slope of ln(CCDF) on integer seconds from xmin to xmax, on bouts pooled over simulated flies, with rate = -slope.",
+        "xminSeconds": 13,
+        "xmaxSeconds": 43,
+        "low": 0.11,
+        "high": 0.17,
+        "aggregate": "pooled bouts over simulated flies and LD days"
+      },
+      "claimChecked": "Spec Further Notes, Cascallares 2018: 'exponential Activity Bouts'. Confirmed for the tail only. The CCDF is fitted by e^-0.14t in LD over about 13-43 s, but bouts under about 10 s decay faster than that exponential. The paper gives no goodness-of-fit test."
+    },
+    {
+      "id": "cascallares-2018-quiescence-power-law",
+      "title": "In LD, wild-type quiescence bouts follow a power law with CCDF exponent about 0.6, when grooming counts as quiescence.",
+      "counted": true,
+      "phase": 5,
+      "heldOut": true,
+      "verification": {
+        "status": "read-in-full",
+        "readFrom": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC6107170/fullTextXML",
+        "notes": "Same reading as cascallares-2018-activity-bouts-exponential. The power-law fit line in Fig. 2A runs from about 1.6 s to about 1100 s (read off the figure). The curve bends down sharply beyond about 1000-2000 s. The authors note that the fit lines were shifted sideways so they don't overlap the data, so only the slope is meaningful. The paper says the exponent equals Ueno 2012's; that matches Ueno's pdf exponent alpha of about 1.6, since CCDF exponent = alpha - 1. The paper calls Ueno's arena circular with a 5 cm diameter; Ueno's main arena was 2.5 cm, with 1 and 5 cm in Fig. S2."
+      },
+      "source": {
+        "citation": "Cascallares G, Riva S, Franco DL, Risau-Gusman S, Gleiser PM. Role of the circadian clock in the statistics of locomotor activity in Drosophila. PLoS ONE 2018;13(8):e0202505.",
+        "doi": "10.1371/journal.pone.0202505",
+        "url": "https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0202505"
+      },
+      "study": {
+        "description": "The same recordings as the Cascallares activity-bout target: quiescence bouts, which are runs of seconds with displacement below about one fly length, so grooming in place is quiescent."
+      },
+      "assay": {
+        "kind": "video-tracking",
+        "chamber": {
+          "description": "A transparent track 10 mm wide, 7 mm high and 100 mm long. One end is sealed and holds about 1 cm3 of banana-jaggery food; a cotton plug closes the other end. Filmed from 30 cm at 2.5-3 px/mm.",
+          "lengthMm": 100,
+          "widthMm": 10,
+          "heightMm": 7,
+          "foodAndWater": "About 1 cm3 of banana-jaggery fly medium at the sealed end, the only food and water source."
+        },
+        "beamPositionsMm": null,
+        "samplingIntervalSeconds": 1,
+        "binSeconds": 1,
+        "movementRule": "Subtract consecutive 1-Hz position readings. A second is active (1) if the displacement is at least the threshold, and quiescent (0) otherwise. A quiescence bout (Inactivity Bout) is a run of 0s.",
+        "movementThreshold": {
+          "value": 1.8,
+          "unit": "mm",
+          "description": "Stated as about 5 pixels ('the size of a fly') at 2.5-3 px/mm, so 1.7-2.0 mm per second. 1.8 mm is the derived midpoint."
+        },
+        "groomingCountsAsMovement": false,
+        "sleepThresholdMinutes": 5,
+        "acclimationHours": 0,
+        "recordedDays": 6
+      },
+      "fly": {
+        "sex": "male",
+        "strain": "Canton-S",
+        "ageDays": "Selected 2-3 days after eclosion, then 6 days LD, so about 3-9 days old during the LD recording.",
+        "housing": "One fly per track. Mating status isn't stated.",
+        "lightSchedule": {
+          "lightHours": 12,
+          "description": "12 h white LED light (200 lux) : 12 h darkness with 850 nm infrared illumination, for 6 days."
+        },
+        "temperatureC": 23,
+        "food": "Banana-jaggery medium. The temperature is stated as 22-24 C at about 50% humidity; 23 C is the midpoint."
+      },
+      "measure": "inactivity-bout-duration-distribution",
+      "measureDefinition": "Score each simulated fly at 1 Hz with the 1.8 mm displacement threshold. Pool all Inactivity Bout durations (whole seconds) from all LD days and all simulated flies, over the whole 24 h. Keep bouts in [xminSeconds, xmaxSeconds]. Fit a continuous power-law density p(d) proportional to d^-alpha, truncated to that range, by maximum likelihood. Report beta = alpha - 1, the CCDF exponent.",
+      "published": [
+        {
+          "label": "wild-type (Canton-S) male, LD, quiescence-bout CCDF power-law exponent",
+          "value": 0.6,
+          "unit": "dimensionless (CCDF exponent)",
+          "uncertainty": { "kind": "none", "value": null },
+          "n": 10,
+          "location": "Results: 'the distributions of quiescence ... can be well fitted by a power law (p(t) ~ t^-0.6)'. Also 'we obtain for the power law almost the same exponent (alpha = 0.6) as that found for w1118 flies [28]'. Fig. 2A, Q_LD curve with the fitted line 'P(t) ~ t^-0.6'."
+        }
+      ],
+      "criterion": {
+        "kind": "exponent-within",
+        "description": "The CCDF exponent fitted to pooled bouts over [2 s, 1000 s] must lie in [0.5, 0.7]. No uncertainty was published, and the value is given to one significant figure. The bounds are 0.6 +/- 0.1, twice the rounding half-interval. Ueno 2012's independent male value (alpha - 1 = 0.61, between-fly SD about 0.25) lies inside. This is a judgment. Held out: tune bout shape on Xu 2021 only.",
+        "exponentForm": "ccdf",
+        "aggregate": "pooled bouts over simulated flies and LD days",
+        "xminSeconds": 2,
+        "xmaxSeconds": 1000,
+        "low": 0.5,
+        "high": 0.7
+      },
+      "claimChecked": "Spec Further Notes on non-exponential Inactivity Bouts (story 60). Confirmed: with grooming counted as quiescence, Canton-S male quiescence bouts follow a power law (CCDF exponent 0.6) from about 1-2 s to about 1000 s, then fall off faster."
+    },
+    {
+      "id": "xu-2021-inactivity-bout-exponential-tail",
+      "title": "Beyond a latency K of about 200 s by day and 300 s by night, Inactivity Bout durations decay exponentially.",
+      "counted": false,
+      "phase": 5,
+      "heldOut": false,
+      "verification": {
+        "status": "read-in-full",
+        "readFrom": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC7979771/fullTextXML",
+        "notes": "A reserve target, not counted: it keeps the pack at 8 counted targets, and the text gives K only as 'around' values. The Fig. 3d male bars were measured by pixel from https://media.springernature.com/full/springer-static/image/art%3A10.1038%2Fs42003-021-01883-y/MediaObjects/42003_2021_1883_Fig3_HTML.png, precision about +/-3 s. The text's 'cutoff of around 100 s' (Results, 'Quantitative sleep pattern', paragraph 2) is a visual description; K is the fitted value."
+      },
+      "source": {
+        "citation": "Xu X, Yang W, Tian B, Sui X, Chen W, Rao Y, Tang C. Quantitative investigation reveals distinct phases in Drosophila sleep. Communications Biology 2021;4:340.",
+        "doi": "10.1038/s42003-021-01883-y",
+        "url": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC7979771/fullTextXML"
+      },
+      "study": {
+        "description": "Per fly and phase, K is the smallest candidate latency, scanned upward from 50 s, at which rest bouts longer than K, minus K, fit an exponential distribution (one-sample KS test not rejected at the 10% level)."
+      },
+      "assay": {
+        "kind": "video-tracking",
+        "chamber": {
+          "description": "Xu 2021 '1D chamber': 5 mm wide, 78 mm long and 2.5-3 mm deep, with food over 15-20 mm at one end and a sponge at the other.",
+          "lengthMm": 78,
+          "widthMm": 5,
+          "heightMm": 2.75,
+          "foodAndWater": "Food at one end, filling the full height and 15-20 mm of the length. No separate water source is stated."
+        },
+        "beamPositionsMm": null,
+        "samplingIntervalSeconds": 0.04,
+        "binSeconds": 0.04,
+        "movementRule": "Centroid tracking as in xu-2021-inactivity-bouts-power-law: a stay of more than 1 s at one centroid location is a rest bout.",
+        "movementThreshold": {
+          "value": 1,
+          "unit": "pixel",
+          "description": "Any centroid change; the pixel size in mm isn't stated."
+        },
+        "groomingCountsAsMovement": null,
+        "sleepThresholdMinutes": 5,
+        "acclimationHours": 24,
+        "recordedDays": 3
+      },
+      "fly": {
+        "sex": "male",
+        "strain": "Canton-S",
+        "ageDays": "Loaded on day 3 after eclosion. Data from days 5-7 after eclosion.",
+        "housing": "Virgin. Grouped until day 3, then alone in a chamber.",
+        "lightSchedule": {
+          "lightHours": 12,
+          "description": "12 h light : 12 h dark from a cold LED light source."
+        },
+        "temperatureC": 25,
+        "food": "Standard yeast medium."
+      },
+      "measure": "inactivity-bout-tail-onset-seconds",
+      "measureDefinition": "Per simulated fly and phase (bouts assigned by start time, pooled over days): for K = 50, 51, 52, ... s, take bouts longer than K and subtract K. Run a one-sample KS test against an exponential with the sample mean. K is the first value where the test is not rejected at the 10% level. Report the mean K over flies for each phase.",
+      "published": [
+        {
+          "label": "male, light phase, sleep latency K",
+          "value": 177,
+          "unit": "s",
+          "uncertainty": { "kind": "sem", "value": 27 },
+          "n": 153,
+          "location": "Fig. 3d, male hollow bar, measured by pixel (+/-3 s). Text, 'Parameters of the sleep pattern', paragraph 4: 'The K value during the day was around 200 s'. SEM over five experiments."
+        },
+        {
+          "label": "male, dark phase, sleep latency K",
+          "value": 286,
+          "unit": "s",
+          "uncertainty": { "kind": "sem", "value": 60 },
+          "n": 153,
+          "location": "Fig. 3d, male filled bar, measured by pixel (+/-3 s). Text: 'during the night was around 300 s'. SEM over five experiments."
+        }
+      ],
+      "criterion": {
+        "kind": "within-interval",
+        "description": "In each phase, the mean K must lie within the published mean +/- 2 SD of experiment means (SD = SEM x sqrt(5)). Light: 177 +/- 121. Dark: 286 +/- 268. Both phases must pass. These bounds are wide; it is a reserve target.",
+        "phases": [
+          { "phase": "light", "low": 56, "high": 298 },
+          { "phase": "dark", "low": 18, "high": 554 }
+        ],
+        "aggregate": "mean of per-fly K"
+      },
+      "claimChecked": "Spec Further Notes, Xu 2021: '... then an exponential tail'. Confirmed (see xu-2021-inactivity-bouts-power-law)."
+    },
+    {
+      "id": "zimmerman-2008-video-mean-sleep-bout",
+      "title": "Video scores Canton-S male sleep bouts averaging about 14 min by day and 21 min by night.",
+      "counted": false,
+      "phase": 5,
+      "heldOut": false,
+      "verification": {
+        "status": "read-in-full",
+        "readFrom": "https://pmc.ncbi.nlm.nih.gov/articles/PMC2579987/",
+        "notes": "A reserve target, not counted, to keep the pack at 8. Use it if a sleep-bout-length target is wanted. The DAMS bout means from the same flies are much longer and very variable: day 110.4 +/- 121.0 min, night 64.6 +/- 65.6 min (Table 2). The n is ambiguous (8 or 22)."
+      },
+      "source": {
+        "citation": "Zimmerman JE, Raizen DM, Maycock MH, Maislin G, Pack AI. A video method to study Drosophila sleep. Sleep 2008;31(11):1587-1598.",
+        "doi": "10.1093/sleep/31.11.1587",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC2579987/"
+      },
+      "study": {
+        "description": "The same video scoring as zimmerman-2008-video-light-phase-sleep."
+      },
+      "assay": {
+        "kind": "video-tracking",
+        "chamber": {
+          "description": "DAMS tube about 6 cm long, 5% sucrose/1% agar at one end, yarn at the other. The 3 mm internal diameter is assumed.",
+          "lengthMm": 60,
+          "widthMm": 3,
+          "heightMm": 3,
+          "foodAndWater": "5% sucrose in 1% agar at one end."
+        },
+        "beamPositionsMm": null,
+        "samplingIntervalSeconds": 5,
+        "binSeconds": 5,
+        "movementRule": "Frame subtraction 5 s apart. The epoch is active if at least one pixel leaves the noise band (below 108 or above 148).",
+        "movementThreshold": {
+          "value": 0.189,
+          "unit": "mm",
+          "description": "A 1-pixel change (189 um)."
+        },
+        "groomingCountsAsMovement": true,
+        "sleepThresholdMinutes": 5,
+        "acclimationHours": 120,
+        "recordedDays": 1
+      },
+      "fly": {
+        "sex": "male",
+        "strain": "Canton-S (sib-mated for 20 generations)",
+        "ageDays": "About 6-7 days (Table 4: '7 days').",
+        "housing": "Alone in a monitor tube from the day after eclosion.",
+        "lightSchedule": {
+          "lightHours": 12,
+          "description": "12 h white light : 12 h infrared light."
+        },
+        "temperatureC": 25,
+        "food": "5% sucrose in 1% agar"
+      },
+      "measure": "mean-sleep-bout-minutes",
+      "measureDefinition": "Per simulated fly and phase: the total Scored Sleep minutes in that phase divided by the number of Scored Sleep bouts starting in that phase (video assay, 5-s epochs, at least 5 min). Report the mean over flies.",
+      "published": [
+        {
+          "label": "Canton-S male, daytime mean sleep bout, video",
+          "value": 13.8,
+          "unit": "min",
+          "uncertainty": { "kind": "sd", "value": 7.8 },
+          "n": null,
+          "location": "Table 2, 'Daytime' block, 'CS male' Video row: 13.8 +/- 7.8 (mean +/- SD)."
+        },
+        {
+          "label": "Canton-S male, nighttime mean sleep bout, video",
+          "value": 20.8,
+          "unit": "min",
+          "uncertainty": { "kind": "sd", "value": 13.0 },
+          "n": null,
+          "location": "Table 2, 'Nighttime' block, 'CS male' Video row: 20.8 +/- 13.0 (mean +/- SD)."
+        }
+      ],
+      "criterion": {
+        "kind": "within-interval",
+        "description": "In each phase, the mean over flies must lie within the published mean +/- 1 SD. Both phases must pass.",
+        "phases": [
+          { "phase": "light", "low": 6.0, "high": 21.6 },
+          { "phase": "dark", "low": 7.8, "high": 33.8 }
+        ],
+        "aggregate": "mean over simulated flies"
+      },
+      "claimChecked": "Spec Further Notes, Ueno 2012, beam monitors overestimate rest: DAMS overestimates mean sleep bout length by 702% by day and 210% by night in Canton-S males (Table 2)."
+    },
+    {
+      "id": "ueno-2012-rest-bouts-power-law-dd",
+      "title": "In constant darkness, w1118 male rest bouts are heavy-tailed: a power law that can't be told apart from a lognormal.",
+      "counted": false,
+      "phase": 6,
+      "heldOut": false,
+      "verification": {
+        "status": "read-in-full",
+        "readFrom": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC3281125/fullTextXML",
+        "notes": "Read the whole text, Table 1 and all figure legends. Fig. 2 was viewed and its bars measured by pixel from https://journals.plos.org/plosone/article/figure/image?size=large&id=10.1371/journal.pone.0032007.g002. Not counted: the flies are w1118 (not a wild-type strain), recorded in constant darkness (a light manipulation, phase 6), aged 2-5 days. Ueno's alpha is the density exponent from Clauset's method; the CCDF exponent is alpha - 1."
+      },
+      "source": {
+        "citation": "Ueno T, Masuda N, Kume S, Kume K. Dopamine modulates the rest period length without perturbation of its power law distribution in Drosophila melanogaster. PLoS ONE 2012;7(2):e32007.",
+        "doi": "10.1371/journal.pone.0032007",
+        "url": "https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0032007"
+      },
+      "study": {
+        "description": "Infrared video at 1 frame per second of single flies in 25 mm circular arenas over food, for 24 h in DD after at least 24 h of LD acclimation. Each 1-s bin is classed as rest or activity by a per-fly k-means threshold on the fraction of changed pixels."
+      },
+      "assay": {
+        "kind": "video-tracking",
+        "chamber": {
+          "description": "A circular hole 25 mm across in a 2 mm thick black acrylic plate, laid over food, with a clear acrylic lid. Length and width are the diameter.",
+          "lengthMm": 25,
+          "widthMm": 25,
+          "heightMm": 2,
+          "foodAndWater": "Corn meal, yeast and glucose agar food forming the floor of the arena."
+        },
+        "beamPositionsMm": null,
+        "samplingIntervalSeconds": 1,
+        "binSeconds": 1,
+        "movementRule": "Subtract consecutive frames pixel by pixel, Gaussian-filter the result, and binarise at a grey difference of 20 (of 256). The movement index is the percentage of above-threshold pixels in the arena. Each 1-s bin is rest or activity by a k-means threshold fitted per fly. Movement index rather than distance moved was used so that small movements such as grooming are detected.",
+        "movementThreshold": null,
+        "groomingCountsAsMovement": true,
+        "sleepThresholdMinutes": 5,
+        "acclimationHours": 24,
+        "recordedDays": 1
+      },
+      "fly": {
+        "sex": "male",
+        "strain": "w1118 (control; background for outcrossing)",
+        "ageDays": "2-5",
+        "housing": "One fly per arena.",
+        "lightSchedule": {
+          "lightHours": 0,
+          "description": "At least 24 h of 12:12 LD acclimation, then 24 h recorded in constant darkness (DD) with infrared illumination."
+        },
+        "temperatureC": 25,
+        "food": "Corn meal, yeast and glucose agar"
+      },
+      "measure": "inactivity-bout-duration-distribution",
+      "measureDefinition": "Per simulated fly: pool rest (Inactivity) bouts from the 1-s movement-index assay over 24 h of DD. Fit a power-law density by Clauset's maximum-likelihood method with xmin estimated. Report the mean alpha (density exponent) over flies.",
+      "published": [
+        {
+          "label": "control male, power-law exponent alpha (density form)",
+          "value": 1.61,
+          "unit": "dimensionless (pdf exponent)",
+          "uncertainty": { "kind": "sem", "value": 0.08 },
+          "n": 10,
+          "location": "Fig. 2d, male bar, measured by pixel (+/-0.01). SEM per the Fig. 2 legend."
+        },
+        {
+          "label": "control rest bouts: log-likelihood ratio, power law vs exponential (p)",
+          "value": [9.65, 0.0],
+          "unit": "LR, p",
+          "uncertainty": { "kind": "none", "value": null },
+          "n": 10,
+          "location": "Table 1, 'control' row, Rest columns: exponential LR 9.65, p 0.00. Positive LR with p < 0.05 favours the power law."
+        },
+        {
+          "label": "control rest bouts: log-likelihood ratio, power law vs lognormal (p)",
+          "value": [-1.17, 0.37],
+          "unit": "LR, p",
+          "uncertainty": { "kind": "none", "value": null },
+          "n": 10,
+          "location": "Table 1, 'control' row, Rest columns: log-normal LR -1.17, p 0.37 (not distinguishable)."
+        }
+      ],
+      "criterion": {
+        "kind": "exponent-within",
+        "description": "Candidate only. The mean per-fly alpha (density form) must lie within the published mean +/- 1 SD between flies (SD = SEM x sqrt(10) = 0.25): [1.36, 1.86]. Also the pooled-bout likelihood ratio, power law vs exponential, must be positive with p < 0.05.",
+        "exponentForm": "pdf",
+        "aggregate": "mean-of-per-fly-fits",
+        "xminSeconds": null,
+        "xmaxSeconds": null,
+        "low": 1.36,
+        "high": 1.86
+      },
+      "claimChecked": "Spec Further Notes, Ueno 2012: 'a power law over about 3 decades that couldn't be distinguished from lognormal'. Confirmed. The text says 'The approximately linear region of the distribution nearly 3 decades', and Table 1 gives power law vs lognormal LR -1.17, p = 0.37. Caveats: the 3 decades is on bouts pooled from 10 flies; the strain is w1118 in DD; and Fig. 2a shows the male data above the fitted line from about 30 s to 3000 s."
+    },
+    {
+      "id": "ueno-2012-activity-bout-mean-dd",
+      "title": "In constant darkness, w1118 male Activity Bouts average about 11.5 s and are not power-law.",
+      "counted": false,
+      "phase": 6,
+      "heldOut": false,
+      "verification": {
+        "status": "read-in-full",
+        "readFrom": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC3281125/fullTextXML",
+        "notes": "Same reading as ueno-2012-rest-bouts-power-law-dd. The paper never fits or tests an exponential for activity bouts. It only shows that a power law isn't favoured over an exponential (LR 0.02, p 0.54), while the power law's own goodness of fit isn't rejected (p' = 0.23). The Discussion's 'the distribution of activity bouts showed exponential distribution' is therefore an assertion, not a tested result."
+      },
+      "source": {
+        "citation": "Ueno T, Masuda N, Kume S, Kume K. Dopamine modulates the rest period length without perturbation of its power law distribution in Drosophila melanogaster. PLoS ONE 2012;7(2):e32007.",
+        "doi": "10.1371/journal.pone.0032007",
+        "url": "https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0032007"
+      },
+      "study": {
+        "description": "The same recordings as ueno-2012-rest-bouts-power-law-dd: activity bouts are runs of active 1-s bins."
+      },
+      "assay": {
+        "kind": "video-tracking",
+        "chamber": {
+          "description": "A circular hole 25 mm across in a 2 mm thick black acrylic plate, laid over food, with a clear acrylic lid.",
+          "lengthMm": 25,
+          "widthMm": 25,
+          "heightMm": 2,
+          "foodAndWater": "Corn meal, yeast and glucose agar food forming the floor of the arena."
+        },
+        "beamPositionsMm": null,
+        "samplingIntervalSeconds": 1,
+        "binSeconds": 1,
+        "movementRule": "Movement index (percentage of pixels changed between consecutive frames) per 1-s bin, classed as rest or activity by a per-fly k-means threshold.",
+        "movementThreshold": null,
+        "groomingCountsAsMovement": true,
+        "sleepThresholdMinutes": 5,
+        "acclimationHours": 24,
+        "recordedDays": 1
+      },
+      "fly": {
+        "sex": "male",
+        "strain": "w1118 (control)",
+        "ageDays": "2-5",
+        "housing": "One fly per arena.",
+        "lightSchedule": {
+          "lightHours": 0,
+          "description": "At least 24 h of 12:12 LD acclimation, then 24 h recorded in DD."
+        },
+        "temperatureC": 25,
+        "food": "Corn meal, yeast and glucose agar"
+      },
+      "measure": "mean-activity-bout-seconds",
+      "measureDefinition": "Per simulated fly: the mean Activity Bout length in seconds, from the 1-s movement-index assay over 24 h of DD. Report the mean over flies.",
+      "published": [
+        {
+          "label": "control male, mean activity bout length",
+          "value": 11.5,
+          "unit": "s",
+          "uncertainty": { "kind": "sem", "value": 1.4 },
+          "n": 10,
+          "location": "Fig. 2e, male bar, measured by pixel (+/-0.1 s). SEM per the Fig. 2 legend."
+        },
+        {
+          "label": "control activity bouts: log-likelihood ratio, power law vs exponential (p)",
+          "value": [0.02, 0.54],
+          "unit": "LR, p",
+          "uncertainty": { "kind": "none", "value": null },
+          "n": 10,
+          "location": "Table 1, 'control' row, Activity columns: exponential LR 0.02, p 0.54. Power-law p' = 0.23; lognormal LR -1.89, p 0.18."
+        }
+      ],
+      "criterion": {
+        "kind": "within-interval",
+        "description": "Candidate only. The mean activity bout must lie within the published mean +/- 1 SD between flies (SD = SEM x sqrt(10) = 4.4 s).",
+        "low": 7.1,
+        "high": 15.9,
+        "aggregate": "mean over simulated flies"
+      },
+      "claimChecked": "Spec Further Notes, Ueno 2012: 'exponential Activity Bouts'. Corrected. Ueno shows only that activity bouts are not demonstrably power-law: the test doesn't favour a power law over an exponential (LR 0.02, p = 0.54). It never fits or tests an exponential."
+    }
+  ],
+  "excluded": [
+    {
+      "citation": "Garbe DS, Bollinger WL, Vigderman A, et al. Context-specific comparison of sleep acquisition systems in Drosophila. Biology Open 2015;4(11):1558-1568.",
+      "url": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC4728345/fullTextXML",
+      "reason": "Read in full. All flies were iso31, an isogenic white-background strain, not a wild-type strain. The male single-beam vs multi-beam values exist only in Fig. 2 bar charts and supplementary Table S2, which wasn't read. Useful later for a DAM5 multi-beam assay: the paper reports more sleep bouts and shorter night bouts with multi-beam monitors than with single-beam ones, and no difference in total sleep."
+    },
+    {
+      "citation": "Faville R, Kottler B, Goodhill GJ, Shaw PJ, van Swinderen B. How deeply does your mutant sleep? Probing arousal to better understand sleep defects in Drosophila. Scientific Reports 2015;5:8454.",
+      "url": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC4326961/fullTextXML",
+      "reason": "Read in full. Only virgin females of the w1118 and w2202 strains were used, so there are no male targets. It does show that a virtual beam placed nearer to or further from the food changes scored sleep. Arousal-threshold methods are relevant to phase 6."
+    },
+    {
+      "citation": "Geissmann Q, Garcia Rodriguez L, Beckwith EJ, et al. Ethoscopes: An open platform for high-throughput ethomics. PLoS Biology 2017;15(10):e2003026.",
+      "url": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC5648103/fullTextXML",
+      "reason": "Read in full. It is a methods paper with no male baseline sleep values in text or tables, and the strain of its sleep-deprivation example isn't stated. Used only for the ethoscope movement definition behind geissmann-2019-daily-scored-sleep-ethoscope."
+    },
+    {
+      "citation": "Catterson JH, Knowles-Barley S, James K, et al. Dietary modulation of Drosophila sleep-wake behaviour. PLoS ONE 2010;5(8):e12062.",
+      "url": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC2919389/fullTextXML",
+      "reason": "Not read in full; only searched within the full text. The main experiments use w1118. Canton-S appears only as a secondary check, and the experiments vary the diet."
+    },
+    {
+      "citation": "Isaac RE, Li C, Leedale AE, Shirras AD. Drosophila male sex peptide inhibits siesta sleep and promotes locomotor activity in the post-mated female. Proc R Soc B 2010;277:65-70.",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC2842620/",
+      "reason": "Not read in full; only searched within the full text. The main strain is Oregon R, and male sleep appears only in figures as context for female mating effects."
+    },
+    {
+      "citation": "Linford NJ, Chan TP, Pletcher SD. Re-patterning sleep architecture in Drosophila through gustatory perception and nutritional quality. PLoS Genetics 2012;8(5):e1002668.",
+      "url": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC3342939/fullTextXML",
+      "reason": "Not read in full; only searched within the full text. The main control strain is yw. Canton-S appears only in supplementary figures, and the experiments vary the diet."
+    },
+    {
+      "citation": "Ishimoto H, Lark A, Kitamoto T. Factors that differentially affect daytime and nighttime sleep in Drosophila melanogaster. Frontiers in Neurology 2012;3:24.",
+      "url": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC3286790/fullTextXML",
+      "reason": "Not read in full; only searched within the full text. It is a perspective on mutants, temperature and ecdysone, with figures adapted from earlier work and no baseline Canton-S male values."
+    },
+    {
+      "citation": "Bushey D, Hughes KA, Tononi G, Cirelli C. Sleep, aging, and lifespan in Drosophila. BMC Neuroscience 2010;11:56.",
+      "url": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC2871268/fullTextXML",
+      "reason": "Not read in full; only searched within the full text. It compares Hyperkinetic and Shaker mutants with sibling controls from outcrosses to Canton-S, not a wild-type baseline."
+    },
+    {
+      "citation": "Wiggin TD, Goodwin PR, Donelson NC, et al. Covert sleep-related biological processes are revealed by probabilistic analysis in Drosophila. PNAS 2020;117(18):10024-10034.",
+      "url": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC7211995/fullTextXML",
+      "reason": "Not read in full; only searched within the full text. The Canton-S data are from females. Its P(Wake)/P(Doze) measures are a candidate for a later phase if male data can be found."
+    },
+    {
+      "citation": "Beckwith EJ, Geissmann Q, French AS, Gilestro GF. Regulation of sleep homeostasis by sexual arousal. eLife 2017;6:e27445.",
+      "url": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC5630259/fullTextXML",
+      "reason": "Not read in full; only searched within the full text. It covers Canton-S male sleep rebound after social or sexual interaction and sleep deprivation, which belongs to phase 7. Read it in full before using it then."
+    },
+    {
+      "citation": "Huber R, Hill SL, Holladay C, et al. Sleep homeostasis in Drosophila melanogaster. Sleep 2004;27(4):628-639.",
+      "url": null,
+      "reason": "No open-access full text found: Europe PMC has no PMC record. Not read."
+    },
+    {
+      "citation": "Vienne J, Spann R, Guo F, Rosbash M. Age-related reduction of recovery sleep and arousal threshold in Drosophila. Sleep 2016;39(8):1613-1624.",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC4945321/",
+      "reason": "Not read. Europe PMC lists it outside the open-access full-text set. It is a lead for phase 6 arousal-threshold and phase 7 recovery-sleep targets."
+    }
+  ]
+}
