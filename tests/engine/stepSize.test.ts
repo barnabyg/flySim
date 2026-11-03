@@ -97,7 +97,8 @@ describe("a Simulation Run's step size", () => {
     const json = readFileSync(new URL("../fixtures/export-v1.json", import.meta.url), "utf8");
     const { run: file, sameModelVersion } = readRunExport(json);
     expect(file.recordFormatVersion).toBe(1);
-    expect(sameModelVersion).toBe(true);
+    // Model 0.7.0 runs Chambers differently, but a run in the Room is the same, so it reproduces.
+    expect(sameModelVersion).toBe(false);
 
     // As saved, where JSON writes -0 as 0.
     const again = JSON.parse(
