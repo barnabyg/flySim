@@ -23,12 +23,128 @@ This installs dependencies if needed, starts the app and opens it in your browse
 - **Sleep:** the ribbon shows true sleep in violet, darker when deeper, which a lab's camera can't see. In the Room a sleeping fly looks exactly like an awake immobile one.
 - **Disturb:** the lightning bolt disturbs the fly. An orange segment jumps up in the bars it pushes, and a white line marks the moment on the ribbon. Hover over a row for numbers, including Sleep Depth while the fly sleeps. Holding the button down repeats it about 20 times a second, which can keep the fly from sleeping.
 - **Cameras:** drag the main view to orbit. The inset always tracks the fly, and clicking it swaps it with the main view. The fly is drawn at true scale, and the amber ring only marks where it is. A dark spot on the floor shows where the fly is above the floor. It is a marker of a fixed size, as a true-scale shadow would be too small to see.
-- **Restart:** the circular arrow repeats the run with the same seed, and the die starts one with a new seed. The cube sets the Room's size, from 0.1 to 5 m in each direction, and restarts with the same seed. Your time speed is kept. All of this is in the page's URL as `seed`, `width`, `depth`, `height` and `speed`, for example `?seed=123&width=0.3&depth=0.5&height=0.2&speed=10`. A restart gives the run without any Disturb presses, schedule changes, or moved or removed food and water. Replaying them comes in phase 4.
+- **Restart:** the circular arrow repeats the run with the same seed, and the die starts one with a new seed. The cube sets the Room's size, from 0.1 to 5 m in each direction, and restarts with the same seed. Your time speed is kept. All of this is in the page's URL as `seed`, `width`, `depth`, `height` and `speed`, for example `?seed=123&width=0.3&depth=0.5&height=0.2&speed=10`. A restart gives the run without any Disturb presses, schedule changes, or moved or removed food and water.
+- **Replay:** the circular arrow with a play mark, beside the restart arrow, starts the run again from the beginning with the same seed and settings and everything you changed during it: Disturb presses, light schedule changes, and moved, removed or restored food and water, each at the moment you made it. The white lines, the patches and the light come back as they did, and the fly does exactly what it did before, at any time speed. Anything you change during a replay is added to it, so the next replay has both. Your time speed is kept. The changes don't fit in the URL, so reloading the page gives the run without them, as a restart does.
+- **Export:** the download arrow exports the run you are watching, named with its seed and how far the run has got in simulated seconds. Choose how many simulated seconds apart its samples are first, 10 by default. JSON downloads one gzipped file, such as `fly-sim-seed-42-at-3600s.json.gz`, which alone is enough to trace and reproduce the run. CSV downloads three gzipped tables for a notebook, such as `fly-sim-seed-42-at-3600s-samples.csv.gz`, and the browser may ask once whether the page may download several files. See [Exported runs](#exported-runs).
+- **Open:** the folder opens an exported run's JSON, from the viewer or a [batch](#run-a-batch), and replays it from the beginning with its seed, setup, parameters and Interventions, exactly as Replay does. The URL changes to match it where it can, and Replay, Restart and the die then work as they do for any other run, so anything you change adds to the replay. A file from another model version might not replay the same run, so you're asked first. A file in a record format version this simulator can't read is refused, and so is a file that isn't an export.
 - **Food and water:** the straw-yellow patch towards the south-west corner is food and the blue patch towards the north-east corner is water. The fly can feed or drink only while standing on one, and it finds them by following odour and humidity, so it can miss one that is out of range. The ribbon shows feeding in vermilion and drinking in cyan, and the bars show Hunger, Thirst, Odour and Humidity. `food` and `water` in the URL set where they start, in metres from the west and south walls, and `energy` and `hydration` how full the fly's reserves start, from 0.01 to 1, for example `?food=0.2,0.3&water=0.8,0.7&hydration=0.1`.
 - **Fields:** the wavy-lines button shows what the fly could detect: the Odour Field in olive and the Humidity Field in pale blue, each fading out to a faint dome where its range ends.
 - **Moving food and water:** drag a patch across the floor of the main view to move it. Dragging a patch doesn't orbit the camera. Its field moves with it, but the fly only finds out when it senses the new place.
 - **Removing food or water:** the dish and drop buttons take the food or water away and put it back. Without it, the matching reserve keeps falling, the fly weakens, and when a reserve runs out it dies: a banner says so, and the ribbon and bars stop. Restart and the die still work.
 - **Light schedule:** a run starts at lights-on, at 06:00, with 12 hours of light. The sun opens a menu that changes the schedule during the run: set the lights-on and lights-off times and press Set, or choose always on (sun) or always off (moon). The Room and the dial change at once, and the fly's activity responds at once, but its Circadian Clock takes days to follow, so darkness alone doesn't send it to sleep. While paused, the Room and dial change at once, and the fly gets the change when you resume. A restart goes back to the starting schedule. `lightHours` in the URL changes the starting hours of light, for example `?lightHours=0.05` for lights-off after 3 simulated minutes.
+
+## Run a batch
+
+A batch runs many seeded Simulation Runs without the viewer or a browser, and writes their exports for a notebook. From the repo root, with Node 24 or later and nothing else installed:
+
+```powershell
+npm run batch -- --seeds 20 --duration 3d
+```
+
+Each seed runs in its own Node process, as many at once as the machine has cores. A simulated day takes about 5 seconds per seed, so tens of seeds over a few days finish in minutes. The command reports each seed as it finishes, and how long the batch took. Its options are:
+
+| Option                           | What it sets                                                                                                                                  |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--seeds`                        | How many seeds, from 1 (`10`), a range (`5-9`, or `42-42` for one) or a list (`3,7,42`). 10 by default.                                       |
+| `--duration`                     | How long each run lasts in simulated time, in `s`, `m`, `h` or `d`, such as `90m` or `2d`. 1 day by default. A run whose fly dies ends there. |
+| `--out`                          | The directory to write to, `batch-output` by default. A batch run again overwrites its files.                                                 |
+| `--sample-interval`              | Whole simulated seconds between exported samples, 10 by default.                                                                              |
+| `--width`, `--depth`, `--height` | The Room's size in metres, from 0.1 to 5, as the viewer's URL has them.                                                                       |
+| `--food`, `--water`              | Where each starts, as `x,y` in metres from the west and south walls.                                                                          |
+| `--energy`, `--hydration`        | How full each reserve starts, from 0.01 to 1.                                                                                                 |
+| `--light-hours`                  | The starting hours of light from lights-on at 06:00, from 0 to 24.                                                                            |
+| `--jobs`                         | How many seeds run at once, one per core by default. It changes nothing in the files.                                                         |
+
+`npm run batch -- --help` lists them too. An invalid option, such as a Room too small for the fly, stops the batch with a message saying what is wrong before any run starts.
+
+The output directory holds:
+
+- `samples.csv.gz`, `transitions.csv.gz` and `interventions.csv.gz`: the [CSV tables](#csv-tables) of every seed, one after another under a single header row, so one pandas load gives every run.
+- `manifest.json`: what was run, with the command's options, the model version and the record format version, and for each seed how long its run lasted in simulated seconds, whether its fly died and how, and its files.
+- `seeds/`: each seed's [export](#exported-runs) as JSON, such as `fly-sim-seed-3-at-259200s.json.gz`, and its own three tables. Each is in the viewer's format, and the viewer can open the JSON to replay the run.
+
+The same command run again writes identical files. For example, Inactivity Bout durations per seed, from the fly entering Immobility or sleep until it next leaves both:
+
+```python
+import pandas as pd
+
+transitions = pd.read_csv("batch-output/transitions.csv.gz")
+INACTIVE = ["immobility", "sleeping"]
+
+def inactivity_bouts(run):
+    # Where the fly starts or stops being inactive. The bouts cut short by the start and end of
+    # the run are left out.
+    changes = run[run["to"].isin(INACTIVE) != run["from"].isin(INACTIVE)]
+    starts = changes["time_s"].where(changes["to"].isin(INACTIVE))
+    ends = changes["time_s"].where(~changes["to"].isin(INACTIVE)).shift(-1)
+    bouts = pd.DataFrame({"start_s": starts, "end_s": ends}).dropna()
+    return bouts["end_s"] - bouts["start_s"]
+
+bouts = transitions.groupby("seed").apply(inactivity_bouts).rename("duration_s")
+print(bouts.groupby(level="seed").describe())
+```
+
+## Exported runs
+
+An export is a gzipped JSON file that holds everything needed to trace and reproduce a run. Its fields are:
+
+| Field                                            | What it holds                                                                                                                                                                                       |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `format`                                         | Always `"fly-sim-run"`.                                                                                                                                                                             |
+| `recordFormatVersion`                            | The version of the file's layout, now 1.                                                                                                                                                            |
+| `modelVersion`                                   | The model that made the run. Another model version might not reproduce it.                                                                                                                          |
+| `seed`, `triggerStream`                          | The run's seed, and which random stream drew its Trigger Levels.                                                                                                                                    |
+| `stepsPerSecond`                                 | The model's steps per simulated second, 50.                                                                                                                                                         |
+| `room`                                           | The Room's size in metres.                                                                                                                                                                          |
+| `parameters`                                     | Every model parameter, including `initialEnergy` and `initialHydration`, how full the reserves started.                                                                                             |
+| `food`, `water`                                  | Where each started, in metres from the west and south walls, or `null` for none.                                                                                                                    |
+| `lightSchedule`                                  | The schedule the run started with. Changes to it are among the Interventions.                                                                                                                       |
+| `step`, `death`                                  | The step the run had reached, and how and when the fly died, or `null`.                                                                                                                             |
+| `interventions`                                  | Every Intervention, with the step it applied at.                                                                                                                                                    |
+| `firedTransitions`                               | Every fired transition, with its Trigger Level, its hazard and Driver contributions, and the fly's state when it fired.                                                                             |
+| `timeOnSurfaceSeconds`, `timeInBehaviourSeconds` | Totals over the whole run.                                                                                                                                                                          |
+| `sampleIntervalSeconds`, `samplesStartSeconds`   | How many simulated seconds apart the samples are, and when the exported samples start.                                                                                                              |
+| `samples`                                        | The fly's full state at every multiple of the interval, and at the moment of death if the fly died: behaviour, Vigilance State, position, reserves, Drivers and each available transition's hazard. |
+
+Samples are thinned, as a full-detail record is about 170 MB of JSON per simulated day, but fired transitions and Interventions never are, so bout durations come out exact. A long viewer run keeps only its latest two to four and a half simulated days of samples, and `samplesStartSeconds` then says where they start. The setup and Interventions still cover the whole run, so the full-detail run can always be regenerated from the file, with `createSimulationRun(replaySetup(file))` advanced by `file.step` steps.
+
+An export holds the run so far. Exported part-way through a replay, it has the replayed Interventions the run has reached, and not those still to come, which Replay would also repeat.
+
+Python reads it with its own modules:
+
+```python
+import gzip, json
+
+with gzip.open("fly-sim-seed-42-at-3600s.json.gz", "rt") as file:
+    run = json.load(file)
+
+print(run["seed"], run["modelVersion"], len(run["firedTransitions"]))
+bouts = [(each["step"], each["from"], each["to"]) for each in run["firedTransitions"]]
+```
+
+### CSV tables
+
+The CSV export has three tables, each with one header row. Every row starts with `seed`, `model_version`, `step` and `time_s`, so tables from many runs stack into one frame. A cell that doesn't apply, such as Sleep Depth while the fly is awake, is empty, which pandas reads as missing.
+
+- **`samples`:** one row per exported sample, thinned as the JSON's are, with the moment of death as its last row if the fly died. Its columns are `time_of_day_h`, `light_level`, `lights_on_h` and `light_hours` (the schedule in effect), `behaviour`, `vigilance_state`, `surface`, `x`, `y` and `z` (metres from the west wall, south wall and floor), `speed_m_per_s`, `energy`, `hydration`, `hunger`, `thirst`, `sleep_pressure`, `sleep_depth`, `arousal`, `circadian_phase_h`, `startle`, `odour`, `humidity`, `recent_odour`, `recent_humidity`, `touching_food`, `touching_water`, `food_x`, `food_y`, `water_x` and `water_y`, and `death_cause`, which is empty until the row for the moment the fly died. Then, for each transition, such as `immobility_to_walking`, come its `_hazard` per second, a column per Driver with that Driver's contribution, such as `immobility_to_walking_sleep_pressure`, and `_p_next_minute`, the red strip's chance of firing within a minute. A transition that isn't available from the current behaviour has empty cells, not zeros.
+- **`transitions`:** one row per fired transition, never thinned: `transition`, `from`, `to`, `trigger_level`, `hazard`, a column per Driver with its contribution (`spontaneous`, `arousal`, `contact`, `light`, `sleep_pressure`, `circadian`, `startle`, `hunger`, `odour`, `thirst`, `humidity`), `p_next_minute`, and the state when it fired: `vigilance_state`, `sleep_pressure`, `sleep_depth`, `hunger` and `thirst`. A transition's `step` is the end of the step it fired in, so the behaviour it leads to shows from the sample at that step.
+- **`interventions`:** one row per Intervention, never thinned: `type` (`disturb`, `light-schedule`, `move-source`, `remove-source` or `restore-source`), `source`, `x` and `y` for a move, and `lights_on_h` and `light_hours` for a new schedule.
+
+pandas reads them as they are:
+
+```python
+import pandas as pd
+
+samples = pd.read_csv("fly-sim-seed-42-at-3600s-samples.csv.gz")
+transitions = pd.read_csv("fly-sim-seed-42-at-3600s-transitions.csv.gz")
+interventions = pd.read_csv("fly-sim-seed-42-at-3600s-interventions.csv.gz")
+
+samples.groupby("behaviour")["time_s"].count()
+```
+
+The CSV column layout is part of the same contract as the JSON, under the same record format version.
+
+The record format version is a compatibility contract. Every later version of the simulator reads files written at any released version, or comes with a proposed way to migrate them.
 
 ## Test phase 1
 
@@ -78,14 +194,29 @@ Run `npm start` from the repo root, as above, and then:
 
 Feeding and drinking frequency, how far the fields reach, how hard the fly searches and how long it survives are rough tunings, so feedback on how they look is useful.
 
+## Test phase 4
+
+Run `npm start` from the repo root, as above, and add `?seed=123` to the end of the page's address. Then:
+
+1. **Replay a run with changes.** At the default 60×, after about 30 simulated seconds, press the lightning bolt twice, open the sun's menu and press the moon for always off, and drag the food to another place on the floor. Let it run for another minute and watch the ribbon. Press Replay, the circular arrow with a play mark beside the plain one. The run starts again from 06:00 on the dial: the white lines come back at the same moments, the Room goes dark when it did, the food jumps to where you dropped it when you dropped it, and the ribbon repeats what it showed. Set the speed to 600× and press Replay again, and the same run plays faster.
+2. **Changes add to a replay.** During the replay, press the drop to take the water away. Press Replay: the earlier changes and the water's removal all happen again, and the drop button shows the water gone when it went.
+3. **Export as JSON.** Once the replay is past the moment you took the water away, press pause. Press the download arrow, leave the sample interval at 10 and press JSON. A file named like `fly-sim-seed-123-at-150s.json.gz` downloads. With Python, `python -c "import gzip, json; run = json.load(gzip.open('fly-sim-seed-123-at-150s.json.gz', 'rt')); print(run['seed'], [each['type'] for each in run['interventions']])"`, with your file's name, prints `123` and your five changes: two `disturb`, then `light-schedule`, `move-source` and `remove-source`.
+4. **Export as CSV.** Press the download arrow and CSV, and allow several downloads if the browser asks. Three files download, ending in `-samples.csv.gz`, `-transitions.csv.gz` and `-interventions.csv.gz`. Each opens with pandas' `pd.read_csv`: the samples table has a row every 10 simulated seconds, and the interventions table a row for each change.
+5. **Open an exported run.** Press the plain circular arrow, and the run starts without any of your changes. Press the die for a different run, then the folder, and choose the JSON from step 3. The page loads the exported run, with `seed=123` in its address, and replays it from the start with all your changes, as it was.
+6. **Run a small batch.** In a second terminal, from the repo root, run `npm run batch -- --seeds 4 --duration 6h --out batch-test`. It prints a line for each seed as it finishes, and how long the batch took, a few seconds. `batch-test` then holds `manifest.json`, the three combined tables and a `seeds` folder. Open one of the seeds' JSON files in the viewer with the folder, and it plays that seed's run, with its seed in the page's address.
+7. **Files that aren't runs.** Open `batch-test/manifest.json` with the folder. The page says it isn't an exported run, and the run carries on.
+
+Replay, export and the batch runner are new, so feedback on how they work for your analysis is useful.
+
 ## Code map
 
-- **`src/engine`** is the model, with no rendering or UI code. Lint stops it importing three.js or the viewer. Its one interface is `createSimulationRun` in `simulationRun.ts`, re-exported from `index.ts`: give it a setup, advance it, intervene and read its Run Record. `model.ts` has the behaviours, Drivers and transitions, including Hunger, Thirst, steering by odour and humidity, and weakening. `parameters.ts` has the model's parameters and their defaults, including the reserves' rates. `physiology.ts` has the per-step state updates: arousal, Sleep Pressure, Sleep Depth, the Circadian Clock, Startle, the Energy and Hydration Reserves, and what the fly has sensed lately. `simulationRun.ts` sets up and steps the run, fires transitions, moves the fly, applies Interventions, ends the run on death and keeps the Run Record. `roomContents.ts` holds the Room's contents: where the food and water are, whether they are there, contact with them, and the Odour and Humidity Fields. `movement.ts` has the fly's movement over the Room's surfaces, `lightSchedule.ts` the Light Schedule and `random.ts` the seeded random streams.
-- **The worker path.** The engine runs in a Web Worker, so a new run setting or command has to pass through all four of `src/viewer/protocol.ts` (the messages), `simulationWorker.ts` (owns the Simulation Run), `simulationClient.ts` (the viewer's side) and `main.ts` (wires the viewer together).
-- **Settings and restart.** `runSettings.ts` reads and writes a run's settings in the URL, including where the food and water start and how full the reserves start, and a restart is a page load with new settings.
+- **`src/engine`** is the model, with no rendering or UI code. Lint stops it importing three.js or the viewer. Its one interface is `createSimulationRun` in `simulationRun.ts`, re-exported from `index.ts`: give it a setup, advance it, intervene and read its Run Record. `model.ts` has the behaviours, Drivers and transitions, including Hunger, Thirst, steering by odour and humidity, and weakening. `parameters.ts` has the model's parameters and their defaults, including the reserves' rates. `physiology.ts` has the per-step state updates: arousal, Sleep Pressure, Sleep Depth, the Circadian Clock, Startle, the Energy and Hydration Reserves, and what the fly has sensed lately. `simulationRun.ts` sets up and steps the run, fires transitions, moves the fly, applies Interventions, ends the run on death and keeps the Run Record, and its `replaySetup` gives the setup that replays a recorded run. `setupOptions.ts` turns the setup choices the experimenter has, in the viewer's URL or a batch's command, into a setup, and checks them. `runExport.ts` converts a Run Record into the export format, reads exports back, and holds the record format version, and `runTables.ts` turns an export into its CSV tables and names an export's files, for the viewer and the batch alike. `roomContents.ts` holds the Room's contents: where the food and water are, whether they are there, contact with them, and the Odour and Humidity Fields. `exactMath.ts` has the elementary functions the engine uses, such as `exp` and `sin`, computed the same way on every platform. `Math`'s own differ in their last bits between Node and browsers, so lint stops the engine using them, and a batch run in Node replays exactly in the viewer. `movement.ts` has the fly's movement over the Room's surfaces, `lightSchedule.ts` the Light Schedule and `random.ts` the seeded random streams.
+- **The worker path.** The engine runs in a Web Worker, so a new run setting or command has to pass through all four of `src/viewer/protocol.ts` (the messages), `simulationWorker.ts` (owns the Simulation Run), `simulationClient.ts` (the viewer's side) and `main.ts` (wires the viewer together). Replay and export go this way too: the worker hands back a replay's setup, and builds and gzips an export itself, with `gzip.ts`, so a long run's record never has to cross to the page. `download.ts` saves the files.
+- **Settings, restart and replay.** `runSettings.ts` reads and writes a run's settings in the URL, including where the food and water start and how full the reserves start, and turns them into a setup through the engine's `setupFromOptions`. A restart is a page load with new settings. A replay, and opening an exported run, is a page load too, and `replay.ts` keeps its setup and Interventions, which don't fit in the URL, in the tab's session storage for that load. The worker sends Interventions to the viewer as the run reaches them, so a replay's show at their original steps.
 - **The 3D view.** `roomScene.ts` builds the Room, its lighting, the food and water patches and the fly's place in it, `flyModel.ts` the procedural fly and its leg, wing and mouthpart movement, `fieldOverlay.ts` the overlay of the fields, `sourceDragging.ts` dragging food and water, and `views.ts` the monitoring and close-up cameras, the inset swap, the amber ring and the floor spot. `monitoringCamera.ts` frames the Room.
-- **The panels.** `driverPanel.ts` draws the bars, red strips and flashes, `ribbon.ts` the ribbon, `timeControls.ts` the pause, speed and dial, and `runControls.ts` Disturb, the light menu, restart, Room size, removing food and water, and the field overlay's toggle. `palette.ts` has their colours, names and icons.
-- **Tests.** `tests/engine` holds Vitest tests of the engine through `createSimulationRun`. `e2e` holds Playwright tests of the app in Chromium, which observe a run through `window.flySim`, set up in `main.ts`. Shared steps are in `e2e/helpers.ts`.
+- **The panels.** `driverPanel.ts` draws the bars, red strips and flashes, `ribbon.ts` the ribbon, `timeControls.ts` the pause, speed and dial, and `runControls.ts` Disturb, the light menu, restart, replay, Room size, removing food and water, the field overlay's toggle and the export menu. `palette.ts` has their colours, names and icons.
+- **The batch runner.** `src/batch` runs seeds without the viewer, in Node, which runs the engine's TypeScript itself once `resolveTypeScript.ts` adds the file extensions the engine's imports leave out. `cli.ts` is what `npm run batch` runs, `batchOptions.ts` reads and checks its options, `batch.ts` starts a process per seed, combines the tables and writes the manifest, `seedProcess.ts` is a seed's process, which writes its exports, and `simulateSeed.ts` runs a seed, keeping only the samples the export needs.
+- **Tests.** `tests/engine` holds Vitest tests of the engine through `createSimulationRun`, and `tests/batch` tests of the batch command, run as `npm run batch` runs it. `e2e` holds Playwright tests of the app in Chromium, which observe a run through `window.flySim`, set up in `main.ts`. Shared steps are in `e2e/helpers.ts`.
 
 ## Verify it
 
@@ -96,7 +227,7 @@ npm ci
 npx playwright install chromium
 ```
 
-Then run every gate: formatting, lint with type-aware static analysis, type checks, engine tests, dependency audit, build and browser tests.
+Then run every gate: formatting, lint with type-aware static analysis, type checks, engine and batch tests, dependency audit, build and browser tests.
 
 ```powershell
 npm run verify

@@ -1,3 +1,4 @@
+import { hypot, power } from "./exactMath";
 import type { Position, RoomSetup, Surface } from "./movement";
 
 /** A place on the Room's floor, measured from its west and south walls. */
@@ -40,8 +41,8 @@ export function validateFloorPlace(room: RoomSetup, { x, y }: FloorPlace): void 
  */
 export function odourField(food: FloorPlace | null, rangeMetres: number, at: Position): number {
   if (!food || rangeMetres <= 0) return 0;
-  const distance = Math.hypot(at.x - food.x, at.y - food.y, at.z);
-  return distance >= rangeMetres ? 0 : (1 - distance / rangeMetres) ** 2;
+  const distance = hypot(at.x - food.x, at.y - food.y, at.z);
+  return distance >= rangeMetres ? 0 : power(1 - distance / rangeMetres, 2);
 }
 
 /** How far each field reaches, and how humid the Room is. */
@@ -64,10 +65,10 @@ export function humidityField(
 ): number {
   const { humidityRangeMetres: range, globalHumidity, humidityRise } = settings;
   if (!water || range <= 0) return globalHumidity;
-  const distance = Math.hypot(at.x - water.x, at.y - water.y, at.z);
+  const distance = hypot(at.x - water.x, at.y - water.y, at.z);
   return distance >= range
     ? globalHumidity
-    : globalHumidity + humidityRise * (1 - distance / range) ** 2;
+    : globalHumidity + humidityRise * power(1 - distance / range, 2);
 }
 
 /** What is in the Room besides the fly. The fly learns of it only through its senses. */
@@ -109,7 +110,7 @@ export function createRoomContents(
       return (
         place !== null &&
         surface === "floor" &&
-        Math.hypot(position.x - place.x, position.y - place.y) <= SOURCE_RADIUS_METRES
+        hypot(position.x - place.x, position.y - place.y) <= SOURCE_RADIUS_METRES
       );
     },
     odourAt: (position) => odourField(present("food"), settings.odourRangeMetres, position),

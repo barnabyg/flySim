@@ -1,28 +1,36 @@
 import {
-  DEFAULT_PARAMETERS,
   STEPS_PER_SECOND,
   createSimulationRun,
+  exportFiles,
+  exportRun,
+  type ExportFormat,
   type SimulationRun,
+  type SimulationSetup,
 } from "../engine";
-import type { FromSimulation, ToSimulation } from "./protocol";
+import { gzip } from "./gzip";
+import type { ExportedFile, FromSimulation, ToSimulation } from "./protocol";
 
 const TICK_MILLISECONDS = 16;
 /** The longest one tick may spend advancing, which keeps messages flowing at high speeds. */
 const TICK_BUDGET_MILLISECONDS = 12;
 const STEPS_PER_BATCH = 200;
-/** A record's worth of samples to retain: about two simulated days at one per second. */
+/**
+ * A record's worth of samples to retain, at one per second. The run drops them in blocks of this
+ * many, so it holds between two and four and a half simulated days.
+ */
 const MAX_RECORDED_SAMPLES = 200_000;
 
 let speed = 1;
 let paused = false;
 let run: SimulationRun | undefined;
+let setup: SimulationSetup | undefined;
 let lastTickTime = 0;
 let stepsOwed = 0;
 let firedSent = 0;
 let interventionsSent = 0;
 
-function send(message: FromSimulation): void {
-  postMessage(message);
+function send(message: FromSimulation, transfer: Transferable[] = []): void {
+  postMessage(message, { transfer });
 }
 
 function tick(): void {
@@ -49,14 +57,47 @@ function tick(): void {
 
 function sendFrame(): void {
   if (!run) return;
+  const sample = run.current();
+  // A replay's Interventions show only once the run reaches them. One made now goes after any
+  // already reached, and before any still to come, so those reached are always the first ones.
+  const reached = run.interventions.findIndex((each) => each.step > sample.step);
+  const interventionsReached = reached === -1 ? run.interventions.length : reached;
   send({
     type: "frame",
-    sample: run.current(),
+    sample,
     fired: run.firedTransitions.slice(firedSent),
-    interventions: run.interventions.slice(interventionsSent),
+    interventions: run.interventions.slice(interventionsSent, interventionsReached),
   });
   firedSent = run.firedTransitions.length;
-  interventionsSent = run.interventions.length;
+  interventionsSent = interventionsReached;
+}
+
+/**
+ * Exports the run here rather than in the viewer, as a long run's record is too big to pass over
+ * without stalling the page. The run waits while its record is converted, and goes on while the
+ * files are zipped.
+ */
+async function sendExport(
+  requestId: number,
+  format: ExportFormat,
+  sampleIntervalSeconds: number,
+): Promise<void> {
+  if (!run) return;
+  let files: ExportedFile[];
+  try {
+    const file = exportRun(run.record(), sampleIntervalSeconds);
+    files = await Promise.all(
+      exportFiles(file, format).map(async ({ name, text }) => ({ name, data: await gzip(text) })),
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    send({ type: "export-failed", requestId, message });
+    return;
+  }
+  send(
+    { type: "export", requestId, files },
+    files.map((each) => each.data),
+  );
 }
 
 onmessage = (event: MessageEvent<ToSimulation>) => {
@@ -64,18 +105,8 @@ onmessage = (event: MessageEvent<ToSimulation>) => {
   switch (message.type) {
     case "start":
       speed = message.speed;
-      run = createSimulationRun({
-        room: message.room,
-        seed: message.seed,
-        lightSchedule: message.lightSchedule,
-        ...message.sources,
-        parameters: {
-          ...DEFAULT_PARAMETERS,
-          initialEnergy: message.reserves.energy ?? DEFAULT_PARAMETERS.initialEnergy,
-          initialHydration: message.reserves.hydration ?? DEFAULT_PARAMETERS.initialHydration,
-        },
-        maxRecordedSamples: MAX_RECORDED_SAMPLES,
-      });
+      setup = message.setup;
+      run = createSimulationRun({ ...setup, maxRecordedSamples: MAX_RECORDED_SAMPLES });
       lastTickTime = performance.now();
       setInterval(tick, TICK_MILLISECONDS);
       break;
@@ -96,6 +127,15 @@ onmessage = (event: MessageEvent<ToSimulation>) => {
       break;
     case "request-record":
       if (run) send({ type: "record", requestId: message.requestId, record: run.record() });
+      break;
+    case "request-replay":
+      if (run && setup) {
+        const interventions = [...run.interventions];
+        send({ type: "replay", requestId: message.requestId, setup: { ...setup, interventions } });
+      }
+      break;
+    case "request-export":
+      void sendExport(message.requestId, message.format, message.sampleIntervalSeconds);
       break;
   }
 };

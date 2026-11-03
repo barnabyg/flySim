@@ -119,12 +119,28 @@ _Avoid_: Poke, tap, stimulus
 ### Runs
 
 **Simulation Run**:
-One seeded run of the model from a setup of Room, Light Schedule, model parameters and Interventions. The same setup and seed always give the same run, at any time speed. A test can also choose which random stream draws Trigger Levels.
+One seeded run of the model from a setup of Room, Light Schedule, model parameters and Interventions. The same setup and seed always give the same run, at any time speed, in the viewer in any browser and in a Batch. A test can also choose which random stream draws Trigger Levels.
 _Avoid_: Simulation, session, episode
 
+**Replay**:
+Starting a Simulation Run again from its beginning with the same seed and setup and every Intervention made in it, each at its original step, which gives the same run at any time speed. Interventions made during a replay add to those it repeats. A restart, by contrast, repeats the setup without any Interventions.
+_Avoid_: Rerun, playback (which suggests showing a recording rather than running the model again)
+
 **Run Record**:
-What a Simulation Run stores: its seed and setup, a sample of the fly's state each simulated second, every fired transition and every Intervention. A long run in the viewer keeps only its latest samples.
+What a Simulation Run stores: its seed and setup, including which random stream draws Trigger Levels, a sample of the fly's state each simulated second, every fired transition, every Intervention and the step it has reached. A long run in the viewer keeps only its latest samples.
 _Avoid_: Log, history, trace
+
+**Export**:
+A Run Record saved as a gzipped file, tagged with the model version, the record format version, the seed, the full model parameters and the starting setup. Its samples are thinned to one every so many simulated seconds, but its fired transitions and Interventions never are, and the file alone reproduces the run.
+_Avoid_: Dump, save file
+
+**Record Format Version**:
+The version of an Export's layout. It is a compatibility contract: every later version of the simulator reads files written at any released version, or comes with a proposed migration. A file from another model version may still not reproduce its run.
+_Avoid_: File version, schema version
+
+**Batch**:
+Many Simulation Runs of the same setup, one per seed, run without the viewer for a set simulated time or until the fly dies. It writes each run's Export, tables combining every run, and a manifest of what was run.
+_Avoid_: Sweep, experiment (which suggests varying the setup)
 
 ### Observations
 

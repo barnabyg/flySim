@@ -1,30 +1,32 @@
 import type {
+  ExportFormat,
   FiredTransition,
-  FloorPlace,
   Intervention,
   InterventionAction,
-  LightSchedule,
-  SourceKind,
   RunRecord,
   RunSample,
-  RoomSetup,
+  SimulationSetup,
 } from "../engine";
-import type { StartingReserves } from "./runSettings";
+
+/** A gzipped file ready to download. */
+export interface ExportedFile {
+  readonly name: string;
+  readonly data: ArrayBuffer;
+}
 
 export type ToSimulation =
-  | {
-      readonly type: "start";
-      readonly seed: number;
-      readonly room: RoomSetup;
-      readonly speed: number;
-      readonly lightSchedule: LightSchedule;
-      readonly sources: Partial<Readonly<Record<SourceKind, FloorPlace>>>;
-      readonly reserves: StartingReserves;
-    }
+  | { readonly type: "start"; readonly setup: SimulationSetup; readonly speed: number }
   | { readonly type: "set-speed"; readonly speed: number }
   | { readonly type: "set-paused"; readonly paused: boolean }
   | { readonly type: "intervene"; readonly action: InterventionAction }
-  | { readonly type: "request-record"; readonly requestId: number };
+  | { readonly type: "request-record"; readonly requestId: number }
+  | { readonly type: "request-replay"; readonly requestId: number }
+  | {
+      readonly type: "request-export";
+      readonly requestId: number;
+      readonly format: ExportFormat;
+      readonly sampleIntervalSeconds: number;
+    };
 
 export type FromSimulation =
   | {
@@ -32,7 +34,16 @@ export type FromSimulation =
       readonly sample: RunSample;
       /** Transitions fired since the previous frame. */
       readonly fired: readonly FiredTransition[];
-      /** Interventions made since the previous frame. */
+      /** Interventions made or reached since the previous frame. */
       readonly interventions: readonly Intervention[];
     }
-  | { readonly type: "record"; readonly requestId: number; readonly record: RunRecord };
+  | { readonly type: "record"; readonly requestId: number; readonly record: RunRecord }
+  /** The run's setup with every Intervention so far, including any replayed but not yet reached. */
+  | { readonly type: "replay"; readonly requestId: number; readonly setup: SimulationSetup }
+  | {
+      readonly type: "export";
+      readonly requestId: number;
+      readonly files: readonly ExportedFile[];
+    }
+  /** Why an export couldn't be made, such as a run too long for its samples to fit in one file. */
+  | { readonly type: "export-failed"; readonly requestId: number; readonly message: string };

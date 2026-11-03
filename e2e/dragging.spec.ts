@@ -1,20 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
-import type { SourceKind } from "../src/engine";
-import { currentSample, openApp, runRecord } from "./helpers";
-
-async function sources(page: Page) {
-  return page.evaluate(() => window.flySim.sources());
-}
-
-/** Drags a source by the given number of pixels in the main view, in small steps. */
-async function drag(page: Page, kind: SourceKind, by: { x: number; y: number }): Promise<void> {
-  const start = (await sources(page))[kind]?.client;
-  if (!start) throw new Error(`${kind} isn't showing`);
-  await page.mouse.move(start.x, start.y);
-  await page.mouse.down();
-  await page.mouse.move(start.x + by.x, start.y + by.y, { steps: 10 });
-  await page.mouse.up();
-}
+import { expect, test } from "@playwright/test";
+import { currentSample, drag, openApp, runRecord, sources } from "./helpers";
 
 test("dragging the food moves it in the run, as an Intervention, without orbiting", async ({
   page,

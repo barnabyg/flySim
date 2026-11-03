@@ -1,3 +1,4 @@
+import { cos, hypot, sin } from "./exactMath";
 import type { RandomStream } from "./random";
 
 export type Surface = "floor" | "ceiling" | "west-wall" | "east-wall" | "south-wall" | "north-wall";
@@ -140,8 +141,8 @@ export function createMovement(room: RoomSetup, random: RandomStream): Movement 
   };
   const startingHeading = 2 * Math.PI * random.uniform();
   const forward: Record<Axis, number> = {
-    x: Math.cos(startingHeading),
-    y: Math.sin(startingHeading),
+    x: cos(startingHeading),
+    y: sin(startingHeading),
     z: 0,
   };
   let surface: Surface = "floor";
@@ -163,7 +164,7 @@ export function createMovement(room: RoomSetup, random: RandomStream): Movement 
   }
 
   function normaliseForward(): void {
-    const length = Math.hypot(forward.x, forward.y, forward.z);
+    const length = hypot(forward.x, forward.y, forward.z);
     for (const axis of AXES) forward[axis] /= length;
   }
 
@@ -175,7 +176,7 @@ export function createMovement(room: RoomSetup, random: RandomStream): Movement 
       z: normal.x * forward.y - normal.y * forward.x,
     };
     for (const axis of AXES) {
-      forward[axis] = forward[axis] * Math.cos(radians) + side[axis] * Math.sin(radians);
+      forward[axis] = forward[axis] * cos(radians) + side[axis] * sin(radians);
     }
     normaliseForward();
   }
@@ -270,7 +271,7 @@ export function createMovement(room: RoomSetup, random: RandomStream): Movement 
     for (let i = 1; i < points.length; i++) {
       const [a, b] = [points[i - 1], points[i]];
       if (!a || !b) throw new Error("missing path point");
-      distances.push((distances[i - 1] ?? 0) + Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z));
+      distances.push((distances[i - 1] ?? 0) + hypot(b.x - a.x, b.y - a.y, b.z - a.z));
     }
     return { target, points, distances, segment: 0, travelled: 0, arrived: false };
   }
@@ -281,8 +282,8 @@ export function createMovement(room: RoomSetup, random: RandomStream): Movement 
     to: Readonly<Record<Axis, number>>,
   ): void {
     const [dx, dy, dz] = [to.x - from.x, to.y - from.y, to.z - from.z];
-    const level = Math.hypot(dx, dy);
-    if (level > MIN_LEVEL_SHARE_OF_FLIGHT * Math.hypot(level, dz)) {
+    const level = hypot(dx, dy);
+    if (level > MIN_LEVEL_SHARE_OF_FLIGHT * hypot(level, dz)) {
       forward.x = dx / level;
       forward.y = dy / level;
     }
@@ -300,7 +301,7 @@ export function createMovement(room: RoomSetup, random: RandomStream): Movement 
     surface = at.target;
     const onAxis = SURFACE_PLANES[surface].axis;
     forward[onAxis] = 0;
-    if (Math.hypot(forward.x, forward.y, forward.z) < 0.01) {
+    if (hypot(forward.x, forward.y, forward.z) < 0.01) {
       forward[onAxis === "x" ? "y" : "x"] = 1;
     }
     normaliseForward();
@@ -310,7 +311,7 @@ export function createMovement(room: RoomSetup, random: RandomStream): Movement 
     takeOff: () => {
       flight = planFlight();
       // A fly facing straight up or down a wall levels out by facing into the Room.
-      if (Math.hypot(forward.x, forward.y) < 0.01) {
+      if (hypot(forward.x, forward.y) < 0.01) {
         const normal = normalOf(surface);
         forward.x = normal.x;
         forward.y = normal.y;
@@ -360,7 +361,7 @@ export function createMovement(room: RoomSetup, random: RandomStream): Movement 
         );
       }
       forward.z = 0;
-      if (Math.hypot(forward.x, forward.y) < 0.01) forward.x = 1;
+      if (hypot(forward.x, forward.y) < 0.01) forward.x = 1;
       normaliseForward();
     },
     land: () => {

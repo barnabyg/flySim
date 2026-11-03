@@ -1,3 +1,4 @@
+import { exp, power, sin, tanh } from "./exactMath";
 import type { ModelParameters } from "./parameters";
 
 export type Behaviour =
@@ -170,9 +171,9 @@ const NO_CONTRIBUTIONS: Readonly<Record<DriverId, number>> = {
  * gate is broad and the siesta's narrow, which leaves a morning and evening of activity.
  */
 function sleepGate(circadianPhaseHours: number, parameters: ModelParameters): number {
-  const dayPositive = Math.sin((2 * Math.PI * circadianPhaseHours) / 24);
+  const dayPositive = sin((2 * Math.PI * circadianPhaseHours) / 24);
   return dayPositive > 0
-    ? parameters.siestaGateStrength * dayPositive ** 4
+    ? parameters.siestaGateStrength * power(dayPositive, 4)
     : Math.sqrt(-dayPositive);
 }
 
@@ -188,12 +189,12 @@ export function turningScale(
 ): number {
   const odourChange =
     (senses.odour - state.recentOdour) / (state.recentOdour + parameters.odourDetectionFloor);
-  const odourRising = Math.tanh(odourChange / parameters.odourContrast);
-  const humidityRising = Math.tanh(
+  const odourRising = tanh(odourChange / parameters.odourContrast);
+  const humidityRising = tanh(
     (senses.humidity - state.recentHumidity) / parameters.humidityContrast,
   );
   // Hunger sets how much odour matters and Thirst how much humidity does.
-  return Math.exp(
+  return exp(
     -parameters.odourSteeringGain * state.hunger * odourRising -
       parameters.humiditySteeringGain * state.thirst * humidityRising,
   );
@@ -221,7 +222,7 @@ const EFFORTFUL: ReadonlySet<TransitionId> = new Set<TransitionId>([
  */
 function strengthLeft(state: InternalState, parameters: ModelParameters): number {
   const reserve = Math.min(state.energy, state.hydration);
-  return Math.min(1, reserve / parameters.weaknessReserve) ** 2;
+  return power(Math.min(1, reserve / parameters.weaknessReserve), 2);
 }
 
 /**
@@ -264,9 +265,9 @@ function unweakenedContributions(
         arousal: parameters.startWalkingArousalRate * arousal * arousal,
         light: parameters.startWalkingLightRate * senses.lightLevel,
         startle: parameters.startWalkingStartleRate * startle,
-        hunger: parameters.startWalkingHungerRate * hunger ** 4,
+        hunger: parameters.startWalkingHungerRate * power(hunger, 4),
         odour: parameters.startWalkingOdourRate * senses.odour * hunger,
-        thirst: parameters.startWalkingThirstRate * thirst ** 4,
+        thirst: parameters.startWalkingThirstRate * power(thirst, 4),
         humidity: parameters.startWalkingHumidityRate * damp * thirst,
       };
     case "immobility-to-grooming":
@@ -283,9 +284,9 @@ function unweakenedContributions(
         spontaneous: parameters.walkAfterGroomingSpontaneousRate,
         arousal: parameters.walkAfterGroomingArousalRate * arousal,
         startle: parameters.walkAfterGroomingStartleRate * startle,
-        hunger: parameters.walkAfterGroomingHungerRate * hunger ** 4,
+        hunger: parameters.walkAfterGroomingHungerRate * power(hunger, 4),
         odour: parameters.walkAfterGroomingOdourRate * senses.odour * hunger,
-        thirst: parameters.walkAfterGroomingThirstRate * thirst ** 4,
+        thirst: parameters.walkAfterGroomingThirstRate * power(thirst, 4),
         humidity: parameters.walkAfterGroomingHumidityRate * damp * thirst,
       };
     case "immobility-to-flying":
@@ -345,14 +346,14 @@ function unweakenedContributions(
         ...NO_CONTRIBUTIONS,
         hunger:
           parameters.startFeedingHungerRate *
-          hunger ** 3 *
+          power(hunger, 3) *
           (1 - parameters.feedingThirstInhibition * thirst) *
           onFood,
       };
     case "feeding-to-immobility":
       return {
         ...NO_CONTRIBUTIONS,
-        hunger: parameters.stopFeedingLowHungerRate * (1 - hunger) ** 4,
+        hunger: parameters.stopFeedingLowHungerRate * power(1 - hunger, 4),
         startle: parameters.stopFeedingStartleRate * startle,
         contact: senses.touchingFood ? 0 : parameters.lostContactRate,
       };
@@ -360,12 +361,12 @@ function unweakenedContributions(
     case "walking-to-drinking":
       return {
         ...NO_CONTRIBUTIONS,
-        thirst: parameters.startDrinkingThirstRate * thirst ** 3 * onWater,
+        thirst: parameters.startDrinkingThirstRate * power(thirst, 3) * onWater,
       };
     case "drinking-to-immobility":
       return {
         ...NO_CONTRIBUTIONS,
-        thirst: parameters.stopDrinkingLowThirstRate * (1 - thirst) ** 4,
+        thirst: parameters.stopDrinkingLowThirstRate * power(1 - thirst, 4),
         startle: parameters.stopDrinkingStartleRate * startle,
         contact: senses.touchingWater ? 0 : parameters.lostContactRate,
       };

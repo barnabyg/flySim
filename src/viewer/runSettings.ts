@@ -1,15 +1,18 @@
 import {
   DEFAULT_LIGHT_SCHEDULE,
+  DEFAULT_PARAMETERS,
   DEFAULT_ROOM,
+  MAX_ROOM_METRES,
+  MIN_ROOM_METRES,
+  MIN_STARTING_RESERVE,
   SOURCE_KINDS,
+  setupFromOptions,
   type FloorPlace,
+  type SimulationSetup,
   type SourceKind,
   type LightSchedule,
   type RoomSetup,
 } from "../engine";
-
-export const MIN_ROOM_METRES = 0.1;
-export const MAX_ROOM_METRES = 5;
 
 /** What a run starts with. The URL holds it, so a restart is a fresh page load. */
 export interface RunSettings {
@@ -30,8 +33,6 @@ export interface StartingReserves {
 }
 
 const RESERVES = ["energy", "hydration"] as const;
-/** A reserve can't start empty, as the fly would be dead before the run began. */
-const MIN_STARTING_RESERVE = 0.01;
 
 export function randomSeed(): number {
   return Math.floor(Math.random() * 2 ** 31);
@@ -126,4 +127,47 @@ export function urlForSettings({
     if (level !== undefined) parameters.set(reserve, String(level));
   }
   return `?${parameters.toString()}`;
+}
+
+/**
+ * The settings that match a setup as closely as the URL can say, so that Restart, the die and the
+ * URL go on from it. The setup itself may hold more, such as other parameters.
+ */
+export function settingsForSetup(setup: SimulationSetup, speed: number): RunSettings {
+  const { food, water, parameters } = setup;
+  const reserve = (level: number | undefined, fallback: number) =>
+    level === undefined || level === fallback ? undefined : level;
+  const energy = reserve(parameters?.initialEnergy, DEFAULT_PARAMETERS.initialEnergy);
+  const hydration = reserve(parameters?.initialHydration, DEFAULT_PARAMETERS.initialHydration);
+  return {
+    seed: setup.seed,
+    room: setup.room,
+    speed,
+    lightSchedule: {
+      ...DEFAULT_LIGHT_SCHEDULE,
+      lightHours: (setup.lightSchedule ?? DEFAULT_LIGHT_SCHEDULE).lightHours,
+    },
+    sources: { ...(food && { food }), ...(water && { water }) },
+    reserves: {
+      ...(energy !== undefined && { energy }),
+      ...(hydration !== undefined && { hydration }),
+    },
+  };
+}
+
+/** The run the settings start, without any Interventions. */
+export function setupForSettings({
+  seed,
+  room,
+  lightSchedule,
+  sources,
+  reserves,
+}: RunSettings): SimulationSetup {
+  return setupFromOptions({
+    seed,
+    room,
+    lightHours: lightSchedule.lightHours,
+    ...sources,
+    ...reserves,
+  });
 }

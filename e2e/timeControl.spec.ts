@@ -188,9 +188,12 @@ for (const { speed, watchMilliseconds, checked } of RIBBON_RUNS) {
     });
 
     expect(columns).toBeGreaterThan(100);
-    // A behaviour can only be checked where it fills a good part of some column.
+    // A behaviour can only be checked where it fills a good part of some column, well above the
+    // tolerance. Flights last a second and a half at most, and one can straddle two columns of
+    // about 5 s, so a flight is sure only of about 15% of one.
     for (const behaviour of checked) {
-      expect(peak[behaviour], `${behaviour}'s largest share of a column`).toBeGreaterThan(0.2);
+      const enough = behaviour === "flying" ? 0.13 : 0.2;
+      expect(peak[behaviour], `${behaviour}'s largest share of a column`).toBeGreaterThan(enough);
     }
   });
 }

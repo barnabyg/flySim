@@ -1,16 +1,13 @@
 import type {
+  ExportFormat,
   FiredTransition,
-  FloorPlace,
   Intervention,
   InterventionAction,
-  LightSchedule,
-  SourceKind,
-  RoomSetup,
   RunRecord,
   RunSample,
+  SimulationSetup,
 } from "../engine";
-import type { FromSimulation, ToSimulation } from "./protocol";
-import type { StartingReserves } from "./runSettings";
+import type { ExportedFile, FromSimulation, ToSimulation } from "./protocol";
 
 export type FrameListener = (
   sample: RunSample,
@@ -26,20 +23,24 @@ export interface SimulationClient {
   setPaused(paused: boolean): void;
   intervene(action: InterventionAction): void;
   record(): Promise<RunRecord>;
+  /** The setup that replays the run, with every Intervention so far. */
+  replaySetup(): Promise<SimulationSetup>;
+  /** The run so far as gzipped files, with samples the given number of seconds apart. */
+  exportRun(format: ExportFormat, sampleIntervalSeconds: number): Promise<readonly ExportedFile[]>;
 }
 
+/** A request to the worker, which the client gives an id to match its reply. */
+type Request<Message = Extract<ToSimulation, { requestId: number }>> = Message extends unknown
+  ? Omit<Message, "requestId">
+  : never;
+
+type Reply = Extract<FromSimulation, { requestId: number }>;
+
 /** The viewer's only link to the engine, which runs off the rendering thread. */
-export function startSimulation(
-  seed: number,
-  room: RoomSetup,
-  speed: number,
-  lightSchedule: LightSchedule,
-  sources: Partial<Readonly<Record<SourceKind, FloorPlace>>>,
-  reserves: StartingReserves,
-): SimulationClient {
+export function startSimulation(setup: SimulationSetup, speed: number): SimulationClient {
   const worker = new Worker(new URL("./simulationWorker.ts", import.meta.url), { type: "module" });
   const listeners: FrameListener[] = [];
-  const pendingRecords = new Map<number, (record: RunRecord) => void>();
+  const pendingReplies = new Map<number, (reply: Reply) => void>();
   let latest: RunSample | undefined;
   let nextRequestId = 0;
 
@@ -47,23 +48,28 @@ export function startSimulation(
     worker.postMessage(message);
   }
 
+  function request(message: Request): Promise<Reply> {
+    return new Promise((resolve) => {
+      const requestId = nextRequestId++;
+      pendingReplies.set(requestId, resolve);
+      send({ ...message, requestId });
+    });
+  }
+
   worker.onmessage = (event: MessageEvent<FromSimulation>) => {
     const message = event.data;
-    switch (message.type) {
-      case "frame":
-        latest = message.sample;
-        for (const listener of listeners) {
-          listener(message.sample, message.fired, message.interventions);
-        }
-        break;
-      case "record":
-        pendingRecords.get(message.requestId)?.(message.record);
-        pendingRecords.delete(message.requestId);
-        break;
+    if (message.type === "frame") {
+      latest = message.sample;
+      for (const listener of listeners) {
+        listener(message.sample, message.fired, message.interventions);
+      }
+      return;
     }
+    pendingReplies.get(message.requestId)?.(message);
+    pendingReplies.delete(message.requestId);
   };
 
-  send({ type: "start", seed, room, speed, lightSchedule, sources, reserves });
+  send({ type: "start", setup, speed });
 
   return {
     latest: () => latest,
@@ -79,11 +85,21 @@ export function startSimulation(
     intervene: (action) => {
       send({ type: "intervene", action });
     },
-    record: () =>
-      new Promise((resolve) => {
-        const requestId = nextRequestId++;
-        pendingRecords.set(requestId, resolve);
-        send({ type: "request-record", requestId });
-      }),
+    record: async () => {
+      const reply = await request({ type: "request-record" });
+      if (reply.type !== "record") throw new Error(`Expected a record, not a ${reply.type}`);
+      return reply.record;
+    },
+    replaySetup: async () => {
+      const reply = await request({ type: "request-replay" });
+      if (reply.type !== "replay") throw new Error(`Expected a replay, not a ${reply.type}`);
+      return reply.setup;
+    },
+    exportRun: async (format, sampleIntervalSeconds) => {
+      const reply = await request({ type: "request-export", format, sampleIntervalSeconds });
+      if (reply.type === "export-failed") throw new Error(reply.message);
+      if (reply.type !== "export") throw new Error(`Expected an export, not a ${reply.type}`);
+      return reply.files;
+    },
   };
 }
