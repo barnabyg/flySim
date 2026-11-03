@@ -18,6 +18,11 @@ export interface PublishedValue {
   readonly unit: string;
   readonly uncertainty: {
     readonly kind: "sem" | "sd" | "ci95" | "iqr" | "range" | "none";
+    /**
+     * One number is a half-width either side of the value. For a single value, two numbers are
+     * the low and high ends, as of a confidence interval or range. For a profile, there is one
+     * half-width per bin.
+     */
     readonly value: number | readonly number[] | null;
   };
   /** How many flies, or null if the source doesn't say. */
@@ -113,8 +118,10 @@ export function readValidationReport(json: string): ValidationReport {
     typeof parsed.generatedAt !== "string" ||
     typeof parsed.modelVersion !== "string" ||
     typeof parsed.parameters !== "object" ||
+    typeof parsed.stepsPerSecond !== "number" ||
     !Array.isArray(parsed.seeds) ||
-    !Array.isArray(parsed.targets)
+    !Array.isArray(parsed.targets) ||
+    !Array.isArray(parsed.skipped)
   ) {
     throw new Error("This validation report is incomplete.");
   }

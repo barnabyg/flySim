@@ -1,17 +1,12 @@
-import {
-  DEFAULT_LIGHT_SCHEDULE,
-  DEFAULT_PARAMETERS,
-  DEFAULT_STEPS_PER_SECOND,
-  MODEL_VERSION,
-} from "../engine";
+import { DEFAULT_PARAMETERS, DEFAULT_STEPS_PER_SECOND, MODEL_VERSION } from "../engine";
 import { runInProcesses } from "../batch/processPool";
-import type { BeamCrossingAssay } from "./assays";
-import type { BeamObservation } from "./beamMonitor";
-import { scoreBeamObservation } from "./beamMonitor";
+import { UnsupportedTargetError, assayFor, type Assay } from "./assays";
 import { countedTargets, type EvidencePack, type ValidationTarget } from "./evidencePack";
+import type { InstrumentSettings, Observation } from "./instruments";
 import type { ObserveJob } from "./observeProcess";
 import { REPORT_FORMAT, REPORT_VERSION, type ValidationReport } from "./report";
-import { UnsupportedTargetError, evaluateTarget, type AssayedFly } from "./targets";
+import { scoreObservation } from "./scoring";
+import { evaluateTarget, type AssayedFly } from "./targets";
 
 const OBSERVE_PROCESS = new URL("./observeProcess.ts", import.meta.url);
 
@@ -29,84 +24,73 @@ export interface ValidationOptions {
   readonly onFlyFinished?: (finished: number, total: number) => void;
 }
 
-/**
- * A target's Virtual Assay, set up as its study set up its own, or an error saying why the suite
- * can't run it yet.
- */
-export function assayFor(target: ValidationTarget): BeamCrossingAssay {
-  const { assay, fly } = target;
-  if (assay.kind !== "beam-crossing") {
-    throw new UnsupportedTargetError(`There is no ${assay.kind} Virtual Assay yet`);
-  }
-  const lengthMetres = assay.chamber.lengthMm / 1000;
-  return {
-    kind: "beam-crossing",
-    chamber: {
-      name: assay.chamber.description,
-      lengthMetres,
-      widthMetres: assay.chamber.widthMm / 1000,
-      heightMetres: assay.chamber.heightMm / 1000,
-    },
-    beamPositionsMetres: assay.beamPositionsMm?.map((mm) => mm / 1000) ?? [lengthMetres / 2],
-    binSeconds: assay.binSeconds,
-    sleepThresholdMinutes: assay.sleepThresholdMinutes,
-    acclimationHours: assay.acclimationHours,
-    recordedDays: assay.recordedDays,
-    lightSchedule: { ...DEFAULT_LIGHT_SCHEDULE, lightHours: fly.lightSchedule.lightHours },
-  };
+/** A study's flies, and every instrument any of its targets watches them with. */
+interface Study {
+  readonly assay: Assay;
+  readonly instruments: InstrumentSettings[];
 }
 
 /**
  * Runs every counted target's Virtual Assay for each seed, each fly in its own process, scores
- * what the assays observed, and judges the model against each target. Targets sharing an assay's
- * settings share its flies.
+ * what the assays observed, and judges the model against each target. Targets of the same study
+ * watch the same flies, each with its own instrument, as a study recording with two at once did.
  */
 export async function runValidation(options: ValidationOptions): Promise<ValidationReport> {
   const seeds = options.seeds ?? VALIDATION_SEEDS;
   const stepsPerSecond = options.stepsPerSecond ?? DEFAULT_STEPS_PER_SECOND;
   const skipped: { id: string; title: string; reason: string }[] = [];
-  const runnable: { target: ValidationTarget; assay: BeamCrossingAssay; key: string }[] = [];
+  const studies = new Map<string, Study>();
+  const runnable: { target: ValidationTarget; assay: Assay; study: string; instrument: number }[] =
+    [];
   for (const target of countedTargets(options.pack)) {
+    let assay;
     try {
-      const assay = assayFor(target);
-      runnable.push({ target, assay, key: JSON.stringify(assay) });
+      assay = assayFor(target);
     } catch (error) {
       if (!(error instanceof UnsupportedTargetError)) throw error;
       skipped.push({ id: target.id, title: target.title, reason: error.message });
+      continue;
     }
+    // The same flies, whatever each target calls their chamber.
+    const studyKey = JSON.stringify({
+      ...assay.study,
+      chamber: { ...assay.study.chamber, name: "" },
+    });
+    const study = studies.get(studyKey) ?? { assay, instruments: [] };
+    studies.set(studyKey, study);
+    const instrumentKey = JSON.stringify(assay.instrument);
+    let instrument = study.instruments.findIndex((each) => JSON.stringify(each) === instrumentKey);
+    if (instrument === -1) instrument = study.instruments.push(assay.instrument) - 1;
+    runnable.push({ target, assay, study: studyKey, instrument });
   }
 
-  const assays = new Map(runnable.map(({ key, assay }) => [key, assay]));
-  const jobs: (ObserveJob & { key: string })[] = [...assays].flatMap(([key, assay]) =>
-    seeds.map((seed) => ({ key, assay, seed, stepsPerSecond })),
+  const jobs = [...studies].flatMap(([key, study]) =>
+    seeds.map((seed) => ({
+      key,
+      job: { study: study.assay.study, instruments: study.instruments, seed, stepsPerSecond },
+    })),
   );
-  const observations = await runInProcesses<BeamObservation>(
+  const recorded = await runInProcesses<Observation[]>(
     OBSERVE_PROCESS,
-    jobs,
+    jobs.map(({ job }): ObserveJob => job),
     options.jobs,
     (_, finished) => options.onFlyFinished?.(finished, jobs.length),
   );
-  const fliesByAssay = new Map<string, AssayedFly[]>();
-  jobs.forEach(({ key, assay, seed }, index) => {
-    const observation = observations[index];
-    // A fly that died is left out, as a study leaves out its dead flies.
-    if (!observation || observation.died) return;
-    const flies = fliesByAssay.get(key) ?? [];
-    flies.push({
-      seed,
-      observation,
-      scored: scoreBeamObservation(observation, assay.sleepThresholdMinutes),
-    });
-    fliesByAssay.set(key, flies);
-  });
 
-  const targets = runnable.flatMap(({ target, assay, key }) => {
+  const targets = runnable.flatMap(({ target, assay, study, instrument }) => {
+    const flies: AssayedFly[] = [];
+    jobs.forEach(({ key, job }, index) => {
+      const observation = recorded[index]?.[instrument];
+      // A fly that died is left out, as a study leaves out its dead flies.
+      if (key !== study || !observation || observation.died) return;
+      flies.push({
+        seed: job.seed,
+        observation,
+        scored: scoreObservation(observation, assay.scoring),
+      });
+    });
     try {
-      return [
-        evaluateTarget(target, fliesByAssay.get(key) ?? [], {
-          lightHours: assay.lightSchedule.lightHours,
-        }),
-      ];
+      return evaluateTarget(target, flies, { lightHours: assay.study.lightSchedule.lightHours });
     } catch (error) {
       if (!(error instanceof UnsupportedTargetError)) throw error;
       skipped.push({ id: target.id, title: target.title, reason: error.message });

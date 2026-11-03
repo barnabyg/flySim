@@ -198,9 +198,7 @@ export function createMovement(room: RoomSetup, random: RandomStream): Movement 
     const old = SURFACE_PLANES[surface];
     position[axis] = side === "min" ? 0 : extents[axis];
     position[old.axis] =
-      old.side === "min"
-        ? clearance + overshoot
-        : extents[old.axis] - clearance - overshoot;
+      old.side === "min" ? clearance + overshoot : extents[old.axis] - clearance - overshoot;
     forward[old.axis] = normalSign(old.side) * Math.abs(forward[axis]);
     forward[axis] = 0;
     normaliseForward();
@@ -363,10 +361,7 @@ export function createMovement(room: RoomSetup, random: RandomStream): Movement 
       surface = "floor";
       position.z = 0;
       for (const axis of ["x", "y"] as const) {
-        position[axis] = Math.min(
-          extents[axis] - clearance,
-          Math.max(clearance, position[axis]),
-        );
+        position[axis] = Math.min(extents[axis] - clearance, Math.max(clearance, position[axis]));
       }
       forward.z = 0;
       if (hypot(forward.x, forward.y) < 0.01) forward.x = 1;

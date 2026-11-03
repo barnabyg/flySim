@@ -1,12 +1,32 @@
 export {
-  activeBins,
-  recordBeamCrossings,
-  scoreBeamObservation,
-  type BeamMonitorSettings,
+  ACTIVITY_MONITOR,
+  CALIBRATIONS,
+  UnsupportedTargetError,
+  assayFor,
+  assaySetup,
+  observeFly,
+  type Assay,
+  type AssayCalibration,
+  type StudySetup,
+} from "./assays";
+export {
+  observeRun,
+  type BeamCrossingSettings,
   type BeamObservation,
-} from "./beamMonitor";
-export { poolBouts, scoreActivity, type Bout, type ScoredActivity } from "./scoring";
-export { ACTIVITY_MONITOR, assaySetup, observeFly, type BeamCrossingAssay } from "./assays";
+  type InstrumentSettings,
+  type Observation,
+  type VideoObservation,
+  type VideoTrackingSettings,
+} from "./instruments";
+export {
+  activeBins,
+  poolBouts,
+  scoreActivity,
+  scoreObservation,
+  type Bout,
+  type ScoredActivity,
+  type ScoringRule,
+} from "./scoring";
 export {
   EvidencePackError,
   countedTargets,
@@ -14,5 +34,5 @@ export {
   type EvidencePack,
   type ValidationTarget,
 } from "./evidencePack";
-export { VALIDATION_SEEDS, assayFor, runValidation, type ValidationOptions } from "./runValidation";
+export { VALIDATION_SEEDS, runValidation, type ValidationOptions } from "./runValidation";
 export * from "./report";

@@ -155,3 +155,30 @@ export function pearson(a: readonly number[], b: readonly number[]): number | nu
   });
   return varianceA > 0 && varianceB > 0 ? covariance / Math.sqrt(varianceA * varianceB) : null;
 }
+
+/**
+ * The rate of an exponential tail: minus the least-squares slope of the log of the CCDF, the share
+ * of lengths at least t, at each whole second t from xmin to xmax. Null if too few seconds have
+ * any lengths to fit.
+ */
+export function exponentialTailRate(
+  values: readonly number[],
+  xmin: number,
+  xmax: number,
+): number | null {
+  if (values.length === 0) return null;
+  const points: [number, number][] = [];
+  for (let t = Math.ceil(xmin); t <= xmax; t++) {
+    const share = values.filter((each) => each >= t).length / values.length;
+    if (share > 0) points.push([t, Math.log(share)]);
+  }
+  if (points.length < 3) return null;
+  const meanT = points.reduce((sum, [t]) => sum + t, 0) / points.length;
+  const meanLog = points.reduce((sum, [, log]) => sum + log, 0) / points.length;
+  let [covariance, variance] = [0, 0];
+  for (const [t, log] of points) {
+    covariance += (t - meanT) * (log - meanLog);
+    variance += (t - meanT) * (t - meanT);
+  }
+  return -covariance / variance;
+}

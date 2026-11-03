@@ -13,6 +13,7 @@ import { scoreActivity } from "../../src/validation";
 const MINUTE = 60;
 const DAY_MINUTES = 24 * 60;
 const LD_12_12 = { lightHours: 12 };
+const FIVE_MINUTES = { sleepThresholdMinutes: 5 };
 
 /** A day of one-minute bins, inactive in the given minutes of the day and active otherwise. */
 function dayInactiveDuring(...spans: (readonly [number, number])[]): boolean[] {
@@ -28,7 +29,7 @@ describe("measures of Scored Sleep", () => {
     dayInactiveDuring([60, 70], [200, 203], [13 * 60, 15 * 60]),
     MINUTE,
     0,
-    5,
+    FIVE_MINUTES,
   );
 
   it("adds up Scored Sleep per day, and per light and dark phase", () => {
@@ -46,7 +47,7 @@ describe("measures of Scored Sleep", () => {
       ],
       MINUTE,
       86_400,
-      5,
+      FIVE_MINUTES,
     );
     expect(scoredSleepMinutesPerDay(twoDays, "light", LD_12_12)).toBe(10);
     expect(scoredSleepMinutesPerDay(twoDays, "dark", LD_12_12)).toBe(120);
@@ -68,14 +69,19 @@ describe("measures of Scored Sleep", () => {
     expect(sleepBoutsPerDay(fly, "dark", LD_12_12)).toBe(1);
     expect(meanSleepBoutMinutes(fly, "dark", LD_12_12)).toBe(120);
     expect(meanSleepBoutMinutes(fly, "day", LD_12_12)).toBe(65);
-    const awake = scoreActivity(Array<boolean>(60).fill(true), MINUTE, 0, 5);
+    const awake = scoreActivity(Array<boolean>(60).fill(true), MINUTE, 0, FIVE_MINUTES);
     expect(meanSleepBoutMinutes(awake, "day", LD_12_12)).toBeNull();
   });
 });
 
 describe("measures of bout shape", () => {
   it("leaves bouts cut off by the record's ends out of their lengths", () => {
-    const fly = scoreActivity([false, true, false, false, true, true, false], MINUTE, 0, 5);
+    const fly = scoreActivity(
+      [false, true, false, false, true, true, false],
+      MINUTE,
+      0,
+      FIVE_MINUTES,
+    );
     expect(completeDurations(fly.inactivityBouts)).toEqual([120]);
     expect(completeDurations(fly.activityBouts)).toEqual([60, 120]);
   });

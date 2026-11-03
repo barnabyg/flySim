@@ -12,6 +12,11 @@ describe("the model against the Evidence Pack", () => {
     expect(report.targets.length).toBeGreaterThan(0);
   });
 
+  it("lists only comparisons it has, and none held out, as awaiting tuning", () => {
+    const tunable = report.targets.filter((target) => !target.heldOut).map((target) => target.id);
+    for (const id of AWAITING_TUNING.keys()) expect(tunable).toContain(id);
+  });
+
   it("has at least one held-out target", () => {
     expect(report.targets.some((target) => target.heldOut)).toBe(true);
   });

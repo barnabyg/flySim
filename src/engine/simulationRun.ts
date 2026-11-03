@@ -254,6 +254,12 @@ export interface SimulationRun {
    * cheaper than {@link current}, so a Virtual Assay can watch every step.
    */
   pose(): MovementPose;
+  /**
+   * Whether any part of the fly is moving, as its legs do while it walks or grooms in place and
+   * its wings do in flight. A camera can see this, but not the Vigilance State: a sleeping fly
+   * and an immobile one both keep still.
+   */
+  moving(): boolean;
   /** All transitions so far, as a live view that grows as the run advances. */
   readonly firedTransitions: readonly FiredTransition[];
   /** Applies an intervention at the start of the next step, and returns it with that step. */
@@ -566,6 +572,8 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
     },
     current,
     pose: () => movement.pose(),
+    moving: () =>
+      !death && (behaviour === "walking" || behaviour === "grooming" || behaviour === "flying"),
     firedTransitions,
     intervene: (action) => {
       if (death) throw new Error("The fly has died, so the run can't change");

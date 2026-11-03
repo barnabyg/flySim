@@ -31,6 +31,7 @@ This installs dependencies if needed, starts the app and opens it in your browse
 - **Fields:** the wavy-lines button shows what the fly could detect: the Odour Field in olive and the Humidity Field in pale blue, each fading out to a faint dome where its range ends.
 - **Moving food and water:** drag a patch across the floor of the main view to move it. Dragging a patch doesn't orbit the camera. Its field moves with it, but the fly only finds out when it senses the new place.
 - **Removing food or water:** the dish and drop buttons take the food or water away and put it back. Without it, the matching reserve keeps falling, the fly weakens, and when a reserve runs out it dies: a banner says so, and the ribbon and bars stop. Restart and the die still work.
+- **Validation:** the chart icon in the controls opens the validation view, over the Room, which keeps running underneath. It shows the latest validation report: a chart per Validation Target with the published values and their uncertainty, each simulated fly and the model's pooled value, and whether the model meets the target. Held-out targets are marked. Hover over any mark for its numbers. The header says when the report was made, for which model version, step size and seeds, and marks it stale if the model or its parameters have changed since. With no report it says to run `npm run validate`. The back arrow or Escape returns to the Room, and `?view=validation` in the URL opens straight onto the view.
 - **Light schedule:** a run starts at lights-on, at 06:00, with 12 hours of light. The sun opens a menu that changes the schedule during the run: set the lights-on and lights-off times and press Set, or choose always on (sun) or always off (moon). The Room and the dial change at once, and the fly's activity responds at once, but its Circadian Clock takes days to follow, so darkness alone doesn't send it to sleep. While paused, the Room and dial change at once, and the fly gets the change when you resume. A restart goes back to the starting schedule. `lightHours` in the URL changes the starting hours of light, for example `?lightHours=0.05` for lights-off after 3 simulated minutes.
 
 ## Run a batch
@@ -84,6 +85,20 @@ def inactivity_bouts(run):
 bouts = transitions.groupby("seed").apply(inactivity_bouts).rename("duration_s")
 print(bouts.groupby(level="seed").describe())
 ```
+
+## Validate the model
+
+The validation suite runs Virtual Assays of the Reference Fly against the [Evidence Pack](evidence/README.md)'s Validation Targets and writes a report the validation view shows. From the repo root:
+
+```powershell
+npm run validate:view
+```
+
+This runs the suite and then opens the app on the validation view. `npm run validate` runs the suite alone. Each study's Chamber, Light Schedule and instruments are set up as the study set up its own, and each simulated fly runs in its own Node process, as a batch's seeds do: 16 seeds per study, about two and a half minutes on a machine with 20 threads. A study that let its flies settle for days is simulated with a day of it, as the model doesn't age. The report goes to `validation-output/report.json`, tagged with the model version, parameters, step size and seeds, and the same command gives the same report apart from when it was made.
+
+Each target is a test. A target the model doesn't meet fails the suite, except a held-out target, which is reported but never tuned against, and the targets listed in `validation/awaitingTuning.ts`, which the model doesn't meet yet before tuning. Those are expected to fail, so one that starts to match fails the suite until it is taken off the list.
+
+Where a source leaves a choice open that an assay can't, such as a movement threshold in pixels of unknown size, `CALIBRATIONS` in `src/validation/assays.ts` makes it and says why.
 
 ## Exported runs
 
@@ -218,7 +233,8 @@ Replay, export and the batch runner are new, so feedback on how they work for yo
 - **The 3D view.** `roomScene.ts` builds the Room, its lighting, the food and water patches and the fly's place in it, `flyModel.ts` the procedural fly and its leg, wing and mouthpart movement, `fieldOverlay.ts` the overlay of the fields, `sourceDragging.ts` dragging food and water, and `views.ts` the monitoring and close-up cameras, the inset swap, the amber ring and the floor spot. `monitoringCamera.ts` frames the Room.
 - **The panels.** `driverPanel.ts` draws the bars, red strips and flashes, `ribbon.ts` the ribbon, `timeControls.ts` the pause, speed and dial, and `runControls.ts` Disturb, the light menu, restart, replay, Room size, removing food and water, the field overlay's toggle and the export menu. `palette.ts` has their colours, names and icons.
 - **The batch runner.** `src/batch` runs seeds without the viewer, in Node, which runs the engine's TypeScript itself once `resolveTypeScript.ts` adds the file extensions the engine's imports leave out. `cli.ts` is what `npm run batch` runs, `batchOptions.ts` reads and checks its options, `batch.ts` starts a process per seed, combines the tables and writes the manifest, `seedProcess.ts` is a seed's process, which writes its exports, and `simulateSeed.ts` runs a seed, keeping only the samples the export needs.
-- **Tests.** `tests/engine` holds Vitest tests of the engine through `createSimulationRun`, and `tests/batch` tests of the batch command, run as `npm run batch` runs it. `e2e` holds Playwright tests of the app in Chromium, which observe a run through `window.flySim`, set up in `main.ts`. Shared steps are in `e2e/helpers.ts`.
+- **Validation.** `evidence/evidencePack.json` is the Evidence Pack, with its summary in `evidence/README.md`, and `src/validation/evidencePack.ts` its schema. `src/validation` holds the Virtual Assays, which run without the viewer. `assays.ts` sets up a study's Chamber and Light Schedule from its target, and runs a fly through it. `instruments.ts` has the instruments, which watch a run step by step through `pose` and `moving` and record only what a lab's could: the beam-crossing activity monitor, which counts crossings of each beam per bin, and video tracking, which compares frames for a change of position and, where its study counts it, grooming in place. `scoring.ts` scores an observation, and nothing else, into Inactivity Bouts, Activity Bouts and Scored Sleep. `measures.ts` and `targets.ts` work out a target's measure per fly and pooled, and judge it against its criterion. `runValidation.ts` runs every counted target's study, a process per fly through `observeProcess.ts` and the batch's `processPool.ts`, and builds the report, whose format is in `report.ts`. The suite itself is in `validation/`, with its own `vitest.validation.config.ts`: `globalSetup.ts` runs the assays once and writes the report, and `targets.validation.ts` makes each target a test. In the viewer, `validationView.ts` draws the report.
+- **Tests.** `tests/engine` holds Vitest tests of the engine through `createSimulationRun`, and `tests/batch` tests of the batch command, run as `npm run batch` runs it, and `tests/validation` tests of the assays' instruments, scoring, measures and runner, on hand-built observations and short runs. `e2e` holds Playwright tests of the app in Chromium, which observe a run through `window.flySim`, set up in `main.ts`. Shared steps are in `e2e/helpers.ts`.
 
 ## Verify it
 
@@ -246,7 +262,7 @@ npx playwright test e2e/timeControl.spec.ts -g "ribbon"
 
 Playwright starts the dev server itself.
 
-CI runs the same command on the only Node version it's tested with.
+CI runs the same command on the only Node version it's tested with, and runs the [validation suite](#validate-the-model), `npm run validate`, as a job of its own beside it.
 
 Exceptions:
 

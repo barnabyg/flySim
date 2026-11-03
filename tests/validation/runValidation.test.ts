@@ -109,12 +109,8 @@ describe("the validation suite's runner", () => {
     expect(typeof sleep?.model.pooled).toBe("number");
     expect(typeof sleep?.result.pass).toBe("boolean");
     // A target without its assay is listed, not dropped silently. A candidate isn't run.
-    expect(report.skipped).toEqual([
-      expect.objectContaining({
-        id: "video",
-        reason: expect.stringMatching(/no a-method-with-no-assay/),
-      }),
-    ]);
+    expect(report.skipped.map((each) => each.id)).toEqual(["video"]);
+    expect(report.skipped[0]?.reason).toMatch(/no a-method-with-no-assay/);
 
     // The same command gives the same report.
     expect(await runValidation(options)).toEqual(report);
@@ -128,7 +124,9 @@ describe("the Evidence Pack's schema", () => {
 
   it("refuses a target that is missing a field", () => {
     const [first, ...rest] = PACK.targets;
-    const { criterion: _, ...withoutCriterion } = first ?? target("x");
+    const withoutCriterion = Object.fromEntries(
+      Object.entries(first ?? {}).filter(([field]) => field !== "criterion"),
+    );
     expect(() => readEvidencePack({ ...PACK, targets: [withoutCriterion, ...rest] })).toThrow(
       /Target sleep has no criterion.kind/,
     );
