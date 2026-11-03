@@ -102,7 +102,7 @@ describe("scoring an activity monitor's record", () => {
     expect(scored.activityBouts.map((bout) => bout.durationSeconds)).toEqual([30, 10]);
   });
 
-  it("counts stillness shorter than a study's shortest rest as part of the activity around it", () => {
+  it("counts inactivity shorter than a study's shortest Inactivity Bout as part of the activity around it", () => {
     // Active, still for 0.5 s, active, still for 2 s, active, in 0.25 s frames.
     const frames = [
       true,

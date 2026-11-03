@@ -5,6 +5,7 @@ import {
   coefficientOfVariation,
   completeDurations,
   exponentialTailRate,
+  inPhase,
   mean,
   meanProfile,
   meanSleepBoutMinutes,
@@ -88,11 +89,7 @@ function comparisonsOf(target: ValidationTarget): Comparison[] {
 }
 
 function startsIn(phase: Phase, context: DayContext): (bout: Bout) => boolean {
-  return (bout) => {
-    if (phase === "day") return true;
-    const light = bout.startSeconds % 86_400 < context.lightHours * 3600;
-    return phase === "light" ? light : !light;
-  };
+  return (bout) => inPhase(bout.startSeconds, phase, context);
 }
 
 function scalarMeasure(

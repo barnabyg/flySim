@@ -13,7 +13,8 @@ export type Phase = "light" | "dark" | "day";
 /** What a measure gives for one fly, or for every fly pooled. */
 export type MeasureValue = number | readonly number[] | null;
 
-function inPhase(seconds: number, phase: Phase, context: DayContext): boolean {
+/** Whether a moment, in simulated seconds from the run's start at lights-on, is in a phase. */
+export function inPhase(seconds: number, phase: Phase, context: DayContext): boolean {
   if (phase === "day") return true;
   const light = seconds % DAY_SECONDS < context.lightHours * 3600;
   return phase === "light" ? light : !light;
@@ -128,6 +129,7 @@ export function powerLawExponent(
   return (low + high) / 2;
 }
 
+/** The mean of the values present, or null if there are none. */
 export function mean(values: readonly (number | null)[]): number | null {
   const present = values.filter((each): each is number => each !== null);
   return present.length === 0
@@ -142,6 +144,7 @@ export function meanProfile(profiles: readonly (readonly number[])[]): number[] 
   return first.map((_, bin) => mean(profiles.map((profile) => profile[bin] ?? null)) ?? 0);
 }
 
+/** Pearson's correlation of two profiles of the same length, or null if either is flat. */
 export function pearson(a: readonly number[], b: readonly number[]): number | null {
   if (a.length !== b.length || a.length < 2) return null;
   const meanA = a.reduce((sum, each) => sum + each, 0) / a.length;

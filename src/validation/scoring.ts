@@ -33,8 +33,9 @@ export interface ScoringRule {
   /** An Inactivity Bout at least this long is Scored Sleep. */
   readonly sleepThresholdMinutes: number;
   /**
-   * A stillness shorter than this isn't an Inactivity Bout, and counts as part of the activity
-   * around it, as when a method needs a fly to stay put for a while before it is resting.
+   * A run of inactive bins shorter than this isn't an Inactivity Bout, and counts as part of the
+   * activity around it, as when a method scores an Inactivity Bout only once the fly has stayed
+   * put for a while.
    */
   readonly minInactivitySeconds?: number;
 }
@@ -42,24 +43,27 @@ export interface ScoringRule {
 /** Runs of bins that were all active or all inactive, with how many bins each lasts. */
 type Runs = readonly (readonly [active: boolean, bins: number])[];
 
+/** Adds bins to the end of a record of runs, extending the last run if it is the same. */
+export function appendRun(runs: [boolean, number][], active: boolean, bins: number): void {
+  const last = runs.at(-1);
+  if (last?.[0] === active) last[1] += bins;
+  else runs.push([active, bins]);
+}
+
 function runsOf(active: readonly boolean[]): Runs {
   const runs: [boolean, number][] = [];
-  for (const each of active) {
-    const last = runs.at(-1);
-    if (last?.[0] === each) last[1] += 1;
-    else runs.push([each, 1]);
-  }
+  for (const each of active) appendRun(runs, each, 1);
   return runs;
 }
 
-/** Treats inactive runs shorter than the shortest Inactivity Bout as activity, and joins them up. */
-function withoutShortStillness(runs: Runs, binSeconds: number, minSeconds: number): Runs {
+/**
+ * Treats inactive runs shorter than the shortest Inactivity Bout as activity, and joins them to
+ * the activity either side.
+ */
+function withoutShortInactivity(runs: Runs, binSeconds: number, minSeconds: number): Runs {
   const joined: [boolean, number][] = [];
   for (const [active, bins] of runs) {
-    const counted = active || bins * binSeconds < minSeconds;
-    const last = joined.at(-1);
-    if (last?.[0] === counted) last[1] += bins;
-    else joined.push([counted, bins]);
+    appendRun(joined, active || bins * binSeconds < minSeconds, bins);
   }
   return joined;
 }
@@ -71,7 +75,7 @@ function scoreRuns(
   rule: ScoringRule,
 ): ScoredActivity {
   const runs = rule.minInactivitySeconds
-    ? withoutShortStillness(given, binSeconds, rule.minInactivitySeconds)
+    ? withoutShortInactivity(given, binSeconds, rule.minInactivitySeconds)
     : given;
   const inactivityBouts: Bout[] = [];
   const activityBouts: Bout[] = [];

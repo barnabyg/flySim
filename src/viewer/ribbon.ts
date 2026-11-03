@@ -56,9 +56,9 @@ export interface Ribbon {
  * A strip of behaviour over time. Each pixel column is stacked by the share of its
  * time spent in each behaviour, so bouts too short to draw at high speeds are still
  * shown in the right proportions rather than being dropped or blended. Sleep is
- * shaded by Sleep Depth, which arrives with each frame.
+ * shaded by Sleep Depth, which arrives with each frame. A run's Interventions are timed in
+ * its steps, of which it takes the given number a second.
  */
-/** A run's Interventions are timed in its steps, of which it takes this many a second. */
 export function createRibbon(canvas: HTMLCanvasElement, stepsPerSecond: number): Ribbon {
   const context = canvas.getContext("2d");
   if (!context) throw new Error("No 2D context for the ribbon");

@@ -1,4 +1,5 @@
 import type { Position, SimulationRun } from "../engine";
+import { appendRun } from "./scoring";
 
 /** An infrared beam monitor: each beam across the tube counts the fly's crossings. */
 export interface BeamCrossingSettings {
@@ -142,9 +143,7 @@ function videoRecorder(
         lastFrameMoving = moving;
       }
       if (steps % stepsPerWindow === 0) {
-        const last = runs.at(-1);
-        if (last?.[0] === windowMoved) last[1] += 1;
-        else runs.push([windowMoved, 1]);
+        appendRun(runs, windowMoved, 1);
         windowMoved = false;
       }
     },

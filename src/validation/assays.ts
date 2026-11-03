@@ -128,7 +128,7 @@ export const CALIBRATIONS: Readonly<Record<string, AssayCalibration>> = {
     groomingCountsAsMovement: false,
     minInactivitySeconds: 1,
     reason:
-      "Xu 2021 tracks the centroid, and any change of location of a pixel is movement, but doesn't give the pixel's size. 0.1 mm is below any step the fly walks in a frame, so any walking shows. A centroid doesn't move when the fly grooms in place. Its Methods count only a stay of more than 1 s as a rest.",
+      "Xu 2021 tracks the centroid, and any change of location of a pixel is movement, but doesn't give the pixel's size. 0.1 mm is below any step the fly walks in a frame, so any walking shows. A centroid doesn't move when the fly grooms in place. Its Methods score only a stay of more than 1 s as an Inactivity Bout.",
   },
   "geissmann-2019-daily-scored-sleep-ethoscope": {
     movementThresholdMetres: 0.001,

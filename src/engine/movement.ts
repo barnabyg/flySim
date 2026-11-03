@@ -137,7 +137,7 @@ export function createMovement(room: RoomSetup, random: RandomStream): Movement 
   };
   for (const axis of AXES) {
     if (!(extents[axis] >= MIN_BOX_METRES)) {
-      throw new Error(`The Room is too small for the fly along ${axis}`);
+      throw new Error(`The Room, or Chamber, is too small for the fly along ${axis}`);
     }
   }
   const clearance = Math.min(CLEARANCE_METRES, Math.min(extents.x, extents.y, extents.z) / 4);

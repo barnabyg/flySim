@@ -28,6 +28,7 @@ export interface Clock {
   readonly stepHours: number;
 }
 
+/** The clock of a run taking this many steps a second, which must be in the allowed range. */
 export function clockOf(stepsPerSecond: number): Clock {
   if (!(
     Number.isInteger(stepsPerSecond) &&
