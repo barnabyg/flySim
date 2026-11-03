@@ -81,10 +81,13 @@ test("the open control loads an exported run with Interventions and replays it",
   expect(page.url()).toContain("seed=31");
   expect(page.url()).toContain("speed=600");
 
-  // Interventions made after opening add to it, and Replay keeps them all.
-  await page.locator("#disturb").click();
-  await expect.poll(async () => (await runRecord(page)).interventions).toHaveLength(3);
+  // Interventions made after opening add to it, and Replay keeps them all. A key press disturbs
+  // once, where a slow mouse press could repeat. The run is paused so its record stays small.
   await page.locator("#pause").click();
+  await page.locator("#disturb").press("Enter");
+  await expect
+    .poll(() => page.evaluate(async () => (await window.flySim.record()).interventions.length))
+    .toBe(3);
   const withMore = await runRecord(page);
   await page.locator("#replay").click();
   await expect
