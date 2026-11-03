@@ -133,17 +133,3 @@ export function disagreementHtml(report: ValidationReport, tips: string[]): stri
     <div class="targets disagreement-assays">${report.disagreement.map((assay) => assayHtml(assay, tips)).join("")}</div>
   </section>`;
 }
-
-/** Switches an assay's charts between time and bouts. */
-export function handleScaleSwitch(event: Event): void {
-  const button = event.target instanceof Element ? event.target.closest("[data-scale]") : null;
-  const group = button?.closest(".target");
-  if (!button || !group) return;
-  const scale = button.getAttribute("data-scale");
-  for (const each of group.querySelectorAll("[data-scale]")) {
-    each.setAttribute("aria-pressed", String(each === button));
-  }
-  for (const each of group.querySelectorAll<HTMLElement>("[data-scale-chart]")) {
-    each.hidden = each.getAttribute("data-scale-chart") !== scale;
-  }
-}

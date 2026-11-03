@@ -9,6 +9,7 @@ import {
 import { runInProcesses } from "../batch/processPool";
 import { UnsupportedTargetError, assayFor, type Assay, type FlyRecording } from "./assays";
 import {
+  BOUT_MEASURES,
   BOUT_SHAPE_XMIN_SECONDS,
   STEP_SIZE_TOLERANCE,
   boutKindShape,
@@ -41,20 +42,12 @@ export const VALIDATION_SEEDS: readonly number[] = Array.from({ length: 16 }, (_
  */
 export const OTHER_BOUT_SHAPE_STEPS_PER_SECOND: readonly number[] = [25];
 
-/** The measures whose targets score bouts, so their assays are checked for bout shapes. */
-const BOUT_MEASURES: ReadonlySet<string> = new Set([
-  "inactivity-bout-duration-distribution",
-  "activity-bout-duration-distribution",
-]);
-
 export interface ValidationOptions {
   readonly pack: EvidencePack;
   readonly seeds?: readonly number[];
   readonly stepsPerSecond?: number;
   /** The model's parameters, its defaults if not given, as when tuning tries others. */
   readonly parameters?: ModelParameters;
-  /** The other step sizes that assays scoring bouts run at, for their bout shapes. */
-  readonly otherBoutShapeStepsPerSecond?: readonly number[];
   /** How many flies run at once, each in its own process. */
   readonly jobs: number;
   /** When the report is made, which is all that differs between two reports of the same run. */
@@ -160,10 +153,10 @@ export async function runValidation(options: ValidationOptions): Promise<Validat
   }
 
   const boutAssays = distinctAssays(runnable).filter(({ targets }) =>
-    targets.some((target) => BOUT_MEASURES.has(target.measure)),
+    targets.some((target) => target.measure in BOUT_MEASURES),
   );
   const boutStudies = new Set(boutAssays.map(({ first }) => first.study));
-  const otherSteps = options.otherBoutShapeStepsPerSecond ?? OTHER_BOUT_SHAPE_STEPS_PER_SECOND;
+  const otherSteps = OTHER_BOUT_SHAPE_STEPS_PER_SECOND;
   const jobs: Job[] = [...studies].flatMap(([key, study]) =>
     [stepsPerSecond, ...(boutStudies.has(key) ? otherSteps : [])].flatMap((steps) =>
       seeds.map((seed) => ({
@@ -236,21 +229,23 @@ export async function runValidation(options: ValidationOptions): Promise<Validat
   };
 }
 
-function seconds(value: number): string {
+/** Seconds as an instrument's settings read, such as "30 s". */
+function secondsText(value: number): string {
   return `${String(value)} s`;
 }
 
 /** What a Virtual Assay is, as its study and instrument, such as "Xu 2021: beam monitor, 60-s bins". */
 function assayTitle(target: ValidationTarget, assay: Assay): string {
-  // Ids start with the first author and the year, as in xu-2021-male-scored-sleep-profile.
+  // Every id in the pack starts with the first author and the year, as in
+  // xu-2021-male-scored-sleep-profile, which the pack's citations don't give apart.
   const [author = "", year = ""] = target.id.split("-");
   const name = `${author.charAt(0).toUpperCase()}${author.slice(1)}`;
   const study = /^\d{4}$/.test(year) ? `${name} ${year}` : name;
   const { instrument } = assay;
   const method =
     instrument.kind === "beam-crossing"
-      ? `beam monitor, ${seconds(instrument.binSeconds)} bins`
-      : `video, a frame every ${seconds(instrument.frameSeconds)}, ${
+      ? `beam monitor, ${secondsText(instrument.binSeconds)} bins`
+      : `video, a frame every ${secondsText(instrument.frameSeconds)}, ${
           instrument.groomingCountsAsMovement
             ? "grooming counts as movement"
             : "grooming doesn't count"

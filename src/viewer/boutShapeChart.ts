@@ -5,6 +5,7 @@ import {
   type SurvivalCurve,
 } from "../validation/boutShapes";
 import type { AssayBoutShapes, ValidationReport } from "../validation/report";
+import { logSpaced } from "../validation/fitting";
 import { VALIDATION_COLOURS as COLOURS } from "./palette";
 import { HEIGHT, PLOT, WIDTH, escapeHtml, formatNumber, tipRow } from "./validationChart";
 
@@ -44,10 +45,7 @@ export function survivalAt(curve: SurvivalCurve, seconds: number): number | null
 export function exponentialCurve(kind: BoutKindShape, until: number): SurvivalCurve | null {
   const mean = kind.pooled.test.exponentialMeanSeconds;
   if (mean === null || mean <= 0) return null;
-  const durations = Array.from(
-    { length: 60 },
-    (_, index) => kind.xminSeconds * (until / kind.xminSeconds) ** (index / 59),
-  );
+  const durations = logSpaced(kind.xminSeconds, until, 60);
   return {
     durations,
     survival: durations.map((t) => Math.exp(-(t - kind.xminSeconds) / mean)),
@@ -63,7 +61,8 @@ function decadeTicks(low: number, high: number): number[] {
   return ticks;
 }
 
-function seconds(value: number): string {
+/** A duration as it reads on a chart, in hours, minutes or seconds. */
+function durationText(value: number): string {
   if (value >= 3600) return `${formatNumber(value / 3600)} h`;
   if (value >= 60) return `${formatNumber(value / 60)} min`;
   return `${formatNumber(value)} s`;
@@ -152,7 +151,7 @@ function chartSvg(
       .map((fly) => survivalAt(fly.curve, t))
       .filter((s): s is number => s !== null);
     const rows = [
-      `<div class="tooltip-heading">At least ${seconds(t)} · share of bouts</div>`,
+      `<div class="tooltip-heading">At least ${durationText(t)} · share of bouts</div>`,
       tipRow(COLOURS.model, "Pooled", value(survivalAt(kind.pooled.curve, t))),
       ...(flies.length > 0
         ? [
@@ -208,7 +207,7 @@ export function boutKindHtml(
   const title = `${assay.title}: ${KIND_NAMES[kind.bouts]}`;
   return `<article class="target" data-bout-shape="${escapeHtml(assay.id)}" data-bouts="${kind.bouts}">
     <header class="target-header"><h2>${escapeHtml(title)}</h2></header>
-    <p class="result-description">Expected: ${EXPECTED_NAMES[kind.expected]}, per fly and pooled, for bouts at least ${seconds(kind.xminSeconds)} long.</p>
+    <p class="result-description">Expected: ${EXPECTED_NAMES[kind.expected]}, per fly and pooled, for bouts at least ${durationText(kind.xminSeconds)} long.</p>
     ${resultsHtml(assay, kind.bouts)}
     ${extraHtml}
     <div class="scale-switch" role="group" aria-label="Axes">
@@ -264,7 +263,7 @@ export function boutShapesHtml(
   ).join("");
   return `<section id="validation-bout-shapes" class="validation-section">
     <h2>Bout shapes</h2>
-    <p class="section-note">ADR-0001's first validation stage: Inactivity Bouts must have a falling hazard and Activity Bouts must be close to exponential, per fly as well as pooled, at every step size tested. The test is a likelihood ratio of a Weibull fit against an exponential one, at the ${formatNumber(SIGNIFICANCE * 100)}% level, where a Weibull shape within ${formatNumber(EXPONENTIAL_SHAPE_RANGE.low)} to ${formatNumber(EXPONENTIAL_SHAPE_RANGE.high)} still counts as close to exponential. The curves are at the suite's own step size.</p>
+    <p class="section-note">ADR-0001's first validation stage: Inactivity Bouts must have a falling hazard and Activity Bouts must be close to exponential, per fly as well as pooled, at every step size tested. The test is a likelihood ratio of a Weibull fit against an exponential one, at the ${formatNumber(SIGNIFICANCE * 100)}% level, where a Weibull shape within ${formatNumber(EXPONENTIAL_SHAPE_RANGE.low)} to ${formatNumber(EXPONENTIAL_SHAPE_RANGE.high)} still counts as close to exponential, a stated margin, as with this many bouts the test rejects even a slight departure. The curves are at the suite's own step size.</p>
     <div class="chart-legend">${legend}${[...legends].join("")}</div>
     <div class="targets">${charts.join("")}</div>
   </section>`;

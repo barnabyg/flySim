@@ -104,3 +104,20 @@ export function linePath(
   });
   return path;
 }
+
+/**
+ * Switches a card's charts between the scales its buttons offer, such as time and bouts, or
+ * log–log and log–linear axes.
+ */
+export function handleScaleSwitch(event: Event): void {
+  const button = event.target instanceof Element ? event.target.closest("[data-scale]") : null;
+  const group = button?.closest(".target");
+  if (!button || !group) return;
+  const scale = button.getAttribute("data-scale");
+  for (const each of group.querySelectorAll("[data-scale]")) {
+    each.setAttribute("aria-pressed", String(each === button));
+  }
+  for (const each of group.querySelectorAll<HTMLElement>("[data-scale-chart]")) {
+    each.hidden = each.getAttribute("data-scale-chart") !== scale;
+  }
+}

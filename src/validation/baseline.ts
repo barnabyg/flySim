@@ -4,7 +4,8 @@
  * explaining it, which is why ADR-0001 rejects it as a mechanism. It exists only to compare the
  * model's bouts with, and nothing in the engine uses it, which lint enforces.
  */
-import type { SurvivalCurve } from "./boutShapes";
+import { MIN_BOUTS, type FitOptions, type SurvivalCurve } from "./boutShapes";
+import { groupDurations, groupedCount, logSpaced, maximise } from "./fitting";
 
 /** The baseline's form and how it is fitted, as the report records them. */
 export const BASELINE_FORM =
@@ -28,6 +29,11 @@ export interface BaselineParameters {
 /** Below this rate there is no exponential tail to speak of. */
 const NO_TAIL_RATE = 1e-7;
 
+/** The tail as a rate, 1/τ, or 0 with no tail. */
+function tailRate({ tauSeconds }: BaselineParameters): number {
+  return tauSeconds === null ? 0 : 1 / tauSeconds;
+}
+
 /** The baseline's log survival from xmin, with the tail as a rate, 1/τ. */
 function logSurvival(t: number, xmin: number, beta: number, rate: number): number {
   return -beta * Math.log(t / xmin) - rate * (t - xmin);
@@ -40,7 +46,7 @@ export function baselineCurve(
   xmaxSeconds: number,
   points = 50,
 ): SurvivalCurve {
-  const rate = parameters.tauSeconds === null ? 0 : 1 / parameters.tauSeconds;
+  const rate = tailRate(parameters);
   const durations = logSpaced(xminSeconds, xmaxSeconds, points);
   return {
     durations,
@@ -48,45 +54,23 @@ export function baselineCurve(
   };
 }
 
-function logSpaced(low: number, high: number, points: number): number[] {
-  return Array.from({ length: points }, (_, index) =>
-    points === 1 ? low : low * (high / low) ** (index / (points - 1)),
-  );
-}
-
-function maximise(f: (x: number) => number, low: number, high: number): number {
-  const golden = (Math.sqrt(5) - 1) / 2;
-  let [a, b] = [low, high];
-  for (let i = 0; i < 70 && b - a > 1e-7; i++) {
-    const c = b - golden * (b - a);
-    const d = a + golden * (b - a);
-    if (f(c) < f(d)) a = c;
-    else b = d;
-  }
-  return (a + b) / 2;
-}
-
+/** The baseline's parameters from its exponent and tail rate, with no tail below the least rate. */
 function parametersOf(beta: number, rate: number): BaselineParameters {
   return { beta, tauSeconds: rate <= NO_TAIL_RATE ? null : 1 / rate };
 }
 
 /**
  * Fits the baseline to bout durations by maximum likelihood. Durations scored in bins count as the
- * bin they fell in. Null for fewer than 20 bouts.
+ * bin they fell in. Null for fewer bouts than a bout shape needs.
  */
 export function fitBaselineToDurations(
   durations: readonly number[],
-  options: { readonly xminSeconds: number; readonly binSeconds: number },
+  options: FitOptions,
 ): BaselineParameters | null {
   const { xminSeconds: xmin, binSeconds: bin } = options;
-  const counts = new Map<number, number>();
-  for (const each of durations) {
-    if (each < xmin) continue;
-    const t = Math.round(each * 1e6) / 1e6;
-    counts.set(t, (counts.get(t) ?? 0) + 1);
-  }
-  const n = [...counts.values()].reduce((sum, each) => sum + each, 0);
-  if (n < 20) return null;
+  // Measured from 0, as the baseline's form is in t itself.
+  const counts = groupDurations(durations, xmin, 0);
+  if (groupedCount(counts) < MIN_BOUTS) return null;
   const logLikelihood = (beta: number, rate: number): number => {
     let sum = 0;
     for (const [t, count] of counts) {
@@ -176,6 +160,6 @@ export function baselineSurvival(
   parameters: BaselineParameters,
   xminSeconds: number,
 ): (seconds: number) => number {
-  const rate = parameters.tauSeconds === null ? 0 : 1 / parameters.tauSeconds;
+  const rate = tailRate(parameters);
   return (t) => Math.exp(logSurvival(t, xminSeconds, parameters.beta, rate));
 }

@@ -10,13 +10,14 @@ import {
 import { VALIDATION_COLOURS as COLOURS } from "./palette";
 import { baselineExtras } from "./baselineView";
 import { boutShapesHtml } from "./boutShapeChart";
-import { disagreementHtml, handleScaleSwitch } from "./disagreementChart";
+import { disagreementHtml } from "./disagreementChart";
 import { relationshipsHtml } from "./relationshipList";
 import {
   Chart,
   PLOT,
   escapeHtml,
   formatNumber,
+  handleScaleSwitch,
   linePath,
   tipRow,
   withUnit,

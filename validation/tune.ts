@@ -14,8 +14,8 @@
 import { readFileSync } from "node:fs";
 import { DEFAULT_PARAMETERS, DEFAULT_STEPS_PER_SECOND, type ModelParameters } from "../src/engine";
 import { VALIDATION_SEEDS, readEvidencePack, runValidation, tuningPack } from "../src/validation";
+import { EVIDENCE_PACK_PATH } from "./globalSetup";
 
-const EVIDENCE_PACK_PATH = "evidence/evidencePack.json";
 const USAGE =
   "Usage: validation/tune.ts <overrides.json> [--seeds N] [--steps-per-second S] [--jobs J]";
 

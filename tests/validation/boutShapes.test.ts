@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createRandomStream } from "../../src/engine/random";
 import {
   distributionDistance,
   fallingOnlyWhenPooled,
@@ -6,16 +7,10 @@ import {
   testBoutShape,
 } from "../../src/validation";
 
-/** A small seeded generator, so the samples are the same every run. */
+/** A seeded generator, so the samples are the same every run. */
 function random(seed: number): () => number {
-  let state = seed >>> 0;
-  return () => {
-    state = (state + 0x6d2b79f5) >>> 0;
-    let t = state;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
+  const stream = createRandomStream(seed, 0);
+  return () => stream.uniform();
 }
 
 function exponential(n: number, meanSeconds: number, seed: number): number[] {

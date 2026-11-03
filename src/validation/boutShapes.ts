@@ -11,6 +11,8 @@
  * exponential fits exactly however coarse the bins are.
  */
 
+import { groupDurations, groupedCount, logSpaced, maximise } from "./fitting";
+
 /** The significance level of the likelihood-ratio test. */
 export const SIGNIFICANCE = 0.01;
 
@@ -32,6 +34,7 @@ export type BoutShapeVerdict =
   | "exponential"
   /** A rising hazard. */
   | "rising"
+  /** Fewer than {@link MIN_BOUTS} bouts, or every one the same length. */
   | "too-few";
 
 export interface BoutShapeTest {
@@ -51,18 +54,6 @@ export interface FitOptions {
   readonly xminSeconds: number;
   /** The width of the bins durations were scored in, or 0 for exact durations. */
   readonly binSeconds: number;
-}
-
-/** Durations from xmin, grouped by value, as a scored record repeats the same few values. */
-function grouped(durations: readonly number[], xmin: number): Map<number, number> {
-  const counts = new Map<number, number>();
-  for (const each of durations) {
-    if (each < xmin) continue;
-    // Rounded so that durations of the same number of bins group together.
-    const y = Math.round((each - xmin) * 1e6) / 1e6;
-    counts.set(y, (counts.get(y) ?? 0) + 1);
-  }
-  return counts;
 }
 
 /** A Weibull's log-likelihood of the grouped durations, with shape k and scale λ. */
@@ -86,27 +77,6 @@ function logLikelihood(
   return sum;
 }
 
-/** The value in [low, high] at which a function with one peak there is highest. */
-function maximise(f: (x: number) => number, low: number, high: number): number {
-  const golden = (Math.sqrt(5) - 1) / 2;
-  let [a, b] = [low, high];
-  let c = b - golden * (b - a);
-  let d = a + golden * (b - a);
-  let [fc, fd] = [f(c), f(d)];
-  for (let i = 0; i < 80 && b - a > 1e-7; i++) {
-    if (fc < fd) {
-      [a, c, fc] = [c, d, fd];
-      d = a + golden * (b - a);
-      fd = f(d);
-    } else {
-      [b, d, fd] = [d, c, fc];
-      c = b - golden * (b - a);
-      fc = f(c);
-    }
-  }
-  return (a + b) / 2;
-}
-
 interface Fit {
   readonly shape: number;
   readonly scale: number;
@@ -116,7 +86,7 @@ interface Fit {
 /** The best scale for a shape, and the log-likelihood it gives. */
 function fitScale(counts: ReadonlyMap<number, number>, k: number, bin: number): Fit {
   const ys = [...counts.keys()];
-  const n = [...counts.values()].reduce((sum, each) => sum + each, 0);
+  const n = groupedCount(counts);
   const mean = ys.reduce((sum, y) => sum + y * (counts.get(y) ?? 0), 0) / n + bin / 2;
   let scale: number;
   if (bin === 0) {
@@ -157,8 +127,8 @@ function erfc(x: number): number {
 
 /** Tests whether bout durations are exponential beyond xmin, or have a falling or rising hazard. */
 export function testBoutShape(durations: readonly number[], options: FitOptions): BoutShapeTest {
-  const counts = grouped(durations, options.xminSeconds);
-  const n = [...counts.values()].reduce((sum, each) => sum + each, 0);
+  const counts = groupDurations(durations, options.xminSeconds, options.xminSeconds);
+  const n = groupedCount(counts);
   // With every duration the same, no shape can be fitted.
   if (n < MIN_BOUTS || counts.size < 2) {
     return { n, shape: null, exponentialMeanSeconds: null, pValue: null, verdict: "too-few" };
@@ -198,13 +168,10 @@ export function survivalCurve(
   if (longest === undefined) return { durations: [], survival: [] };
   const at: number[] = [];
   const survival: number[] = [];
-  const ratio = longest / xminSeconds;
   let index = 0;
-  for (let point = 0; point < points; point++) {
-    const t =
-      points === 1 || ratio <= 1 ? xminSeconds : xminSeconds * ratio ** (point / (points - 1));
-    while (index < sorted.length && (sorted[index] ?? 0) < t - 1e-9) index += 1;
+  for (const t of logSpaced(xminSeconds, longest, points)) {
     if (at.length > 0 && t - (at.at(-1) ?? 0) < 1e-9) continue;
+    while (index < sorted.length && (sorted[index] ?? 0) < t - 1e-9) index += 1;
     at.push(t);
     survival.push((sorted.length - index) / sorted.length);
   }
@@ -259,8 +226,17 @@ export const STEP_SIZE_TOLERANCE = 0.05;
 
 export type BoutKind = "inactivity" | "activity";
 
+/** The measures whose targets score bouts, and the kind of bout each measures. */
+export const BOUT_MEASURES: Readonly<Record<string, BoutKind>> = {
+  "inactivity-bout-duration-distribution": "inactivity",
+  "activity-bout-duration-distribution": "activity",
+};
+
+/** What ADR-0001's first validation stage asks of a kind of bout. */
+export type ExpectedShape = "falling" | "exponential";
+
 /** What ADR-0001's first validation stage expects of each kind of bout. */
-export const EXPECTED_SHAPE: Readonly<Record<BoutKind, "falling" | "exponential">> = {
+export const EXPECTED_SHAPE: Readonly<Record<BoutKind, ExpectedShape>> = {
   inactivity: "falling",
   activity: "exponential",
 };
@@ -268,7 +244,7 @@ export const EXPECTED_SHAPE: Readonly<Record<BoutKind, "falling" | "exponential"
 /** One kind of bout's shape in one assay at one step size, per fly and pooled. */
 export interface BoutKindShape {
   readonly bouts: BoutKind;
-  readonly expected: "falling" | "exponential";
+  readonly expected: ExpectedShape;
   readonly xminSeconds: number;
   readonly perFly: readonly {
     readonly seed: number;
@@ -284,7 +260,7 @@ export interface BoutKindShape {
 
 const VERDICT_NAMES: Readonly<Record<BoutShapeVerdict, string>> = {
   falling: "a falling hazard",
-  exponential: "consistent with exponential",
+  exponential: "close to exponential",
   rising: "a rising hazard",
   "too-few": "too few bouts",
 };

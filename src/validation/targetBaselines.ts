@@ -10,7 +10,7 @@ import {
   fitBaselineToDurations,
   type BaselineParameters,
 } from "./baseline";
-import type { BoutKind, SurvivalCurve } from "./boutShapes";
+import { BOUT_MEASURES, type BoutKind, type SurvivalCurve } from "./boutShapes";
 import type { ValidationTarget } from "./evidencePack";
 import { completeDurations, inPhase, type DayContext } from "./measures";
 import type { ScoredActivity } from "./scoring";
@@ -80,11 +80,6 @@ function publishedFit(
   return null;
 }
 
-const KINDS: Readonly<Record<string, BoutKind>> = {
-  "inactivity-bout-duration-distribution": "inactivity",
-  "activity-bout-duration-distribution": "activity",
-};
-
 /**
  * The descriptive baseline for each comparison of a bout-duration target, fitted to its published
  * fit, with how far it is from the model's pooled bouts and from the published data.
@@ -95,7 +90,7 @@ export function targetBaselines(
   context: DayContext,
   binSeconds: number,
 ): BoutBaseline[] {
-  const bouts = KINDS[target.measure];
+  const bouts = BOUT_MEASURES[target.measure];
   if (!bouts) return [];
   return comparisonsOf(target).flatMap((comparison) => {
     const fit = publishedFit(comparison);
