@@ -25,6 +25,7 @@ export {
   MODEL_VERSION,
   createSimulationRun,
   replaySetup,
+  type Chamber,
   type Death,
   type FiredTransition,
   type Intervention,

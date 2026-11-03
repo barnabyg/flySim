@@ -72,8 +72,27 @@ export type InterventionType = InterventionAction["type"];
 /** An action applied at the start of its step. */
 export type Intervention = InterventionAction & { readonly step: number };
 
+/**
+ * A study's chamber, such as an activity-monitor tube, which a Virtual Assay runs the fly in
+ * instead of the Room. Its size is the setup's room.
+ */
+export interface Chamber {
+  /** What the study calls it, which the Run Record shows. */
+  readonly name: string;
+  /** Whether the fly can take off at all. When it can't, no take-off is ever available. */
+  readonly flightPossible: boolean;
+  /**
+   * How close to a source's place the fly touches it, from any surface, as it would a food plug
+   * filling the chamber's end. Food and water may share a place, as a plug provides both.
+   */
+  readonly sourceReachMetres: number;
+}
+
 export interface SimulationSetup {
+  /** The box the fly lives in: the Room, or a study's chamber when one is given. */
   readonly room: RoomSetup;
+  /** A study's chamber, for a Virtual Assay. The default is the Room. */
+  readonly chamber?: Chamber | null;
   readonly seed: number;
   readonly parameters?: ModelParameters;
   /**
@@ -165,6 +184,8 @@ export interface RunRecord {
   /** Which random stream drew Trigger Levels. */
   readonly triggerStream: number;
   readonly room: RoomSetup;
+  /** The study's chamber the fly lived in, or null for the Room. */
+  readonly chamber: Chamber | null;
   readonly parameters: ModelParameters;
   /** Where the food started, or null if there was none. */
   readonly food: FloorPlace | null;
@@ -195,6 +216,7 @@ export type RecordedSetup = Pick<
   | "triggerStream"
   | "stepsPerSecond"
   | "room"
+  | "chamber"
   | "parameters"
   | "food"
   | "water"
@@ -212,6 +234,7 @@ export function replaySetup(recorded: RecordedSetup): SimulationSetup {
     triggerStream: recorded.triggerStream,
     stepsPerSecond: recorded.stepsPerSecond,
     room: recorded.room,
+    chamber: recorded.chamber,
     parameters: recorded.parameters,
     food: recorded.food,
     water: recorded.water,
@@ -277,7 +300,20 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
     food: setup.food === undefined ? defaultPlace("food", room) : setup.food,
     water: setup.water === undefined ? defaultPlace("water", room) : setup.water,
   };
-  const contents = createRoomContents(room, initialPlaces, parameters);
+  const chamber = setup.chamber ?? null;
+  if (chamber && !(chamber.sourceReachMetres > 0)) {
+    throw new Error(`A chamber's sources must reach some way, not ${chamber.sourceReachMetres} m`);
+  }
+  const contents = createRoomContents(
+    room,
+    initialPlaces,
+    parameters,
+    chamber?.sourceReachMetres ?? null,
+  );
+  /** The transitions this setup allows at all. A chamber may make flight impossible. */
+  const possibleTransitions = TRANSITIONS.filter(
+    (definition) => definition.to !== "flying" || (chamber?.flightPossible ?? true),
+  );
   const initialLightSchedule = setup.lightSchedule ?? DEFAULT_LIGHT_SCHEDULE;
   validateLightSchedule(initialLightSchedule);
   let lightSchedule = initialLightSchedule;
@@ -308,11 +344,13 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
   let pending = drawTriggerLevels();
 
   function drawTriggerLevels(): PendingTransition[] {
-    return TRANSITIONS.filter((definition) => definition.from === behaviour).map((definition) => ({
-      definition,
-      triggerLevel: triggerLevelStream.exponential(),
-      accumulatedHazard: 0,
-    }));
+    return possibleTransitions
+      .filter((definition) => definition.from === behaviour)
+      .map((definition) => ({
+        definition,
+        triggerLevel: triggerLevelStream.exponential(),
+        accumulatedHazard: 0,
+      }));
   }
 
   function currentTimeOfDay(): number {
@@ -538,6 +576,7 @@ export function createSimulationRun(setup: SimulationSetup): SimulationRun {
       seed,
       triggerStream,
       room,
+      chamber,
       parameters,
       food: initialPlaces.food,
       water: initialPlaces.water,

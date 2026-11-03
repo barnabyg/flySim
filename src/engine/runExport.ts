@@ -8,6 +8,7 @@ import {
   MODEL_VERSION,
   createSimulationRun,
   replaySetup,
+  type Chamber,
   type Death,
   type FiredTransition,
   type Intervention,
@@ -22,9 +23,10 @@ export const EXPORT_FORMAT = "fly-sim-run";
  * The version of the export's layout, in JSON and in CSV. Files written at any released version
  * must stay readable, or a later version must come with a way to migrate them.
  */
-export const RECORD_FORMAT_VERSION = 1;
+export const RECORD_FORMAT_VERSION = 2;
 
-const READABLE_RECORD_FORMAT_VERSIONS: readonly number[] = [1];
+/** Version 1 had no chamber, as every run was in the Room, and its step size was always 50. */
+const READABLE_RECORD_FORMAT_VERSIONS: readonly number[] = [1, 2];
 
 export const DEFAULT_SAMPLE_INTERVAL_SECONDS = 10;
 
@@ -42,6 +44,8 @@ export interface RunExport {
   readonly triggerStream: number;
   readonly stepsPerSecond: number;
   readonly room: RoomSetup;
+  /** The study's chamber the fly lived in, or null for the Room. */
+  readonly chamber: Chamber | null;
   /** The full model parameters, including how full the reserves started. */
   readonly parameters: ModelParameters;
   /** Where the food started, or null if there was none. */
@@ -116,6 +120,7 @@ export function exportRun(
     triggerStream: record.triggerStream,
     stepsPerSecond: record.stepsPerSecond,
     room: record.room,
+    chamber: record.chamber,
     parameters: record.parameters,
     food: record.food,
     water: record.water,
@@ -171,7 +176,8 @@ export function readRunExport(json: string): RunExportReading {
       `This file's record format version is ${String(version)}, which this version of the simulator can't read. It reads version ${READABLE_RECORD_FORMAT_VERSIONS.join(" and ")}.`,
     );
   }
-  const run = parsed as unknown as RunExport;
+  // A version 1 file has no chamber, as its run was in the Room.
+  const run = { chamber: null, ...parsed } as unknown as RunExport;
   const wellFormed =
     typeof run.modelVersion === "string" &&
     Number.isInteger(run.seed) &&
@@ -180,7 +186,12 @@ export function readRunExport(json: string): RunExportReading {
     isObject(run.room) &&
     isObject(run.parameters) &&
     isObject(run.lightSchedule) &&
-    Array.isArray(run.interventions);
+    Array.isArray(run.interventions) &&
+    (run.chamber === null ||
+      (isObject(run.chamber) &&
+        typeof run.chamber.name === "string" &&
+        typeof run.chamber.flightPossible === "boolean" &&
+        isFinitePositive(run.chamber.sourceReachMetres)));
   if (!wellFormed) throw new RunExportError(`${NOT_AN_EXPORT} Its setup is incomplete.`);
   const { widthMetres, depthMetres, heightMetres } = run.room;
   if (![widthMetres, depthMetres, heightMetres].every((size) => isFinitePositive(size))) {

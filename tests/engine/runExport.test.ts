@@ -158,7 +158,7 @@ describe("reading an exported file", () => {
   });
 
   it("refuses a record format version it can't read", () => {
-    for (const recordFormatVersion of [0, 2, "1", undefined]) {
+    for (const recordFormatVersion of [0, 3, "1", undefined]) {
       expect(() => readRunExport(JSON.stringify({ ...file, recordFormatVersion }))).toThrow(
         /record format version .* can't read/,
       );

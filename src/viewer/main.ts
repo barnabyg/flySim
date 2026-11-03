@@ -100,6 +100,11 @@ async function openRun(file: File): Promise<void> {
     return;
   }
   const { run, sameModelVersion } = reading;
+  if (run.chamber) {
+    // Chambers are for Virtual Assays, which run without the viewer.
+    report(new Error(`This run is in a study's chamber, the ${run.chamber.name}, not the Room.`));
+    return;
+  }
   if (
     !sameModelVersion &&
     !confirm(

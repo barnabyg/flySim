@@ -89,10 +89,16 @@ export interface RoomContents {
   restore(kind: SourceKind): void;
 }
 
+/**
+ * Creates the Room's contents, or a chamber's when given how far its sources reach. A
+ * chamber's source, such as a food plug filling the end of a tube, is touched from any
+ * surface within that distance of its place, rather than only from the floor around it.
+ */
 export function createRoomContents(
   room: RoomSetup,
   initialPlaces: Readonly<Record<SourceKind, FloorPlace | null>>,
   settings: FieldSettings,
+  sourceReachMetres: number | null = null,
 ): RoomContents {
   for (const kind of SOURCE_KINDS) {
     const place = initialPlaces[kind];
@@ -107,8 +113,14 @@ export function createRoomContents(
   return {
     touching: (kind, position, surface) => {
       const place = present(kind);
+      if (place === null) return false;
+      if (sourceReachMetres !== null) {
+        return (
+          surface !== null &&
+          hypot(position.x - place.x, position.y - place.y, position.z) <= sourceReachMetres
+        );
+      }
       return (
-        place !== null &&
         surface === "floor" &&
         hypot(position.x - place.x, position.y - place.y) <= SOURCE_RADIUS_METRES
       );

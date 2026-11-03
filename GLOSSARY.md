@@ -82,7 +82,11 @@ _Avoid_: Threshold, cutoff
 
 **Room**:
 The box-shaped world the user watches, containing the fly and features such as food, water and light sources.
-_Avoid_: Arena, sandbox, chamber
+_Avoid_: Arena, sandbox, chamber (which is a study's)
+
+**Chamber**:
+A study's own small box, such as a 65 × 5 × 5 mm activity-monitor tube, that a Virtual Assay runs the fly in instead of the Room, with food and water where the study puts them. A tube's food plug provides both at one end, and the fly touches it from any surface close to it. A chamber can make flight impossible, so no take-off is ever available. The viewer shows only the Room.
+_Avoid_: Arena, tube (when any chamber is meant), Room
 
 **Food Source**:
 A patch of food on the Room's floor, at a place a Simulation Run's setup gives. It never runs out, and the fly touches it only by standing on it.
