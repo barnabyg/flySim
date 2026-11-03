@@ -32,6 +32,18 @@
  * have the same shape. Then a settled, awake fly could keep still or groom for minutes, as the beam
  * monitor and video targets say it does, while a fly between walks resumes quickly. Values can be
  * tried with `npm run tune`, which never runs a held-out target.
+ *
+ * Restlessness (#81) is that slow Driver, in the model at rates of 0 for now. Tuned with it, and
+ * with both peaks of the sleep gate squared, the values in `restlessnessCandidate.json` met Xu
+ * 2021's exponents and profile and Zimmerman 2008's light-phase beam sleep, kept long awake
+ * Immobility, and passed the held-out Cascallares 2018 quiescence exponent. But sleep pressure
+ * then hardly brought on sleep, so rebound after lost sleep went, darkness made the fly more active
+ * rather than less, the daily pattern in constant darkness weakened, and only 71 default runs in
+ * 100 showed every awake behaviour within 10 minutes. They weren't adopted. The daily profile
+ * seems to pull against sleep pressure's part in falling asleep in this model, which a next step
+ * would need to resolve: perhaps sleep pressure acting on how deeply the fly sleeps or how soon it
+ * wakes, rather than on falling asleep. The candidate needs the squared gate, which isn't a
+ * parameter, so `npm run tune` with it alone doesn't reproduce those results.
  */
 export const AWAITING_TUNING: ReadonlyMap<string, string> = new Map<string, string>([
   ["xu-2021-inactivity-bouts-power-law:light", "CCDF exponent 0.12, against 0.55 to 0.91"],

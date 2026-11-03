@@ -108,6 +108,7 @@ const SAMPLE_COLUMNS: Columns<RunSample> = [
   ["sleep_pressure", (sample) => sample.sleepPressure],
   ["sleep_depth", (sample) => sample.sleepDepth],
   ["arousal", (sample) => sample.arousal],
+  ["restlessness", (sample) => sample.restlessness],
   ["circadian_phase_h", (sample) => sample.circadianPhaseHours],
   ["startle", (sample) => sample.startle],
   ["odour", (sample) => sample.senses.odour],

@@ -35,6 +35,7 @@ export const DRIVER_COLOURS: Readonly<Record<DriverId, string>> = {
   odour: "#a6b84a",
   thirst: "#3a7fe0",
   humidity: "#8fd0f0",
+  restlessness: "#f0a0a0",
 };
 
 export const BEHAVIOUR_NAMES: Readonly<Record<Behaviour, string>> = {
@@ -59,6 +60,7 @@ export const DRIVER_NAMES: Readonly<Record<DriverId, string>> = {
   odour: "Odour",
   thirst: "Thirst",
   humidity: "Humidity",
+  restlessness: "Restlessness",
 };
 
 const BEHAVIOUR_ICON_PATHS: Readonly<Record<Behaviour, string>> = {

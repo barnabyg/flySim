@@ -50,7 +50,7 @@ test("the export control downloads the run as gzipped JSON, tagged and with its 
   );
   expect(file).toMatchObject({
     format: "fly-sim-run",
-    recordFormatVersion: 2,
+    recordFormatVersion: 3,
     chamber: null,
     modelVersion: record.modelVersion,
     seed: 42,

@@ -63,6 +63,7 @@ export interface BodyNoise {
 export function initialBodyState(parameters: ModelParameters, senses: Senses): BodyState {
   return {
     arousal: parameters.initialArousal,
+    restlessness: parameters.initialRestlessness,
     sleepPressure: parameters.initialSleepPressure,
     sleepDepth: null,
     circadianPhaseHours: 0,
@@ -78,6 +79,7 @@ export function initialBodyState(parameters: ModelParameters, senses: Senses): B
 export function internalStateOf(body: BodyState): InternalState {
   return {
     arousal: body.arousal,
+    restlessness: body.restlessness,
     sleepPressure: body.sleepPressure,
     sleepDepth: body.sleepDepth,
     circadianPhaseHours: body.circadianPhaseHours,
@@ -108,6 +110,7 @@ export function advanceBodyState(
   return {
     ...body,
     arousal: nextArousal(body.arousal, behaviour, parameters, noise.arousal, clock),
+    restlessness: nextRestlessness(body.restlessness, behaviour, parameters, clock),
     sleepPressure,
     sleepDepth: nextSleepDepth(body.sleepDepth, sleepPressure, parameters, noise.sleepDepth, clock),
     circadianPhaseHours: nextCircadianPhase(body.circadianPhaseHours, senses, parameters, clock),
@@ -134,6 +137,23 @@ export function adaptToSenses(
       ((senses.humidity - body.recentHumidity) / parameters.humidityAdaptationSeconds) *
         clock.stepSeconds,
   };
+}
+
+/**
+ * Restlessness rises towards 1 while the fly walks or flies, and falls towards 0 more slowly
+ * otherwise, so it carries over a pause between walks and fades once the fly has settled.
+ */
+function nextRestlessness(
+  restlessness: number,
+  behaviour: Behaviour,
+  parameters: ModelParameters,
+  clock: Clock,
+): number {
+  const active = behaviour === "walking" || behaviour === "flying";
+  const timeConstant = active
+    ? parameters.restlessnessRiseTimeConstantSeconds
+    : parameters.restlessnessFallTimeConstantSeconds;
+  return restlessness + (((active ? 1 : 0) - restlessness) / timeConstant) * clock.stepSeconds;
 }
 
 function arousalTarget(behaviour: Behaviour, parameters: ModelParameters): number {

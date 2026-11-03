@@ -30,6 +30,10 @@ _Avoid_: Time of day (when the internal reading is meant)
 A Driver created by a Disturb that fades within seconds and pushes the fly to act, with less effect the deeper it sleeps.
 _Avoid_: Escape, shock
 
+**Restlessness**:
+A Driver that holds how active the fly has been lately. It rises while the fly walks or flies and falls over minutes while it keeps still, so it outlasts a pause between walks but fades once the fly has settled, and it pushes the fly to walk again. It is a Hypothesis: the model's own answer to how a fly resumes within seconds between walks yet can stay awake and still for many minutes once settled. Its rates are 0 for now, so it pushes nothing, as tuning it cost the Room other behaviours (#81).
+_Avoid_: Activity level, momentum, fatigue
+
 **Energy Reserve**:
 The fly's store of energy, from empty to full. It falls with what the fly does, faster in walking and flight and slower in sleep, and rises only while it feeds.
 _Avoid_: Nutrition, food level, satiety

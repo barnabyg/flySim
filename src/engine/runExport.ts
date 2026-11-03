@@ -23,10 +23,32 @@ export const EXPORT_FORMAT = "fly-sim-run";
  * The version of the export's layout, in JSON and in CSV. Files written at any released version
  * must stay readable, or a later version must come with a way to migrate them.
  */
-export const RECORD_FORMAT_VERSION = 2;
+export const RECORD_FORMAT_VERSION = 3;
 
-/** Version 1 had no chamber, as every run was in the Room, and its step size was always 50. */
-const READABLE_RECORD_FORMAT_VERSIONS: readonly number[] = [1, 2];
+/**
+ * Version 1 had no chamber, as every run was in the Room, and its step size was always 50.
+ * Versions 1 and 2 had no Restlessness, so their files have none of its parameters.
+ */
+const READABLE_RECORD_FORMAT_VERSIONS: readonly number[] = [1, 2, 3];
+
+/**
+ * Restlessness's parameters, for a file from before it, set so that it pushes nothing, as it
+ * didn't then. The run still differs from the original in other ways if its model version does.
+ */
+const BEFORE_RESTLESSNESS: Pick<
+  ModelParameters,
+  | "restlessnessRiseTimeConstantSeconds"
+  | "restlessnessFallTimeConstantSeconds"
+  | "initialRestlessness"
+  | "startWalkingRestlessnessRate"
+  | "walkAfterGroomingRestlessnessRate"
+> = {
+  restlessnessRiseTimeConstantSeconds: DEFAULT_PARAMETERS.restlessnessRiseTimeConstantSeconds,
+  restlessnessFallTimeConstantSeconds: DEFAULT_PARAMETERS.restlessnessFallTimeConstantSeconds,
+  initialRestlessness: 0,
+  startWalkingRestlessnessRate: 0,
+  walkAfterGroomingRestlessnessRate: 0,
+};
 
 export const DEFAULT_SAMPLE_INTERVAL_SECONDS = 10;
 
@@ -177,7 +199,11 @@ export function readRunExport(json: string): RunExportReading {
     );
   }
   // A version 1 file has no chamber, as its run was in the Room.
-  const run = { chamber: null, ...parsed } as unknown as RunExport;
+  const given = { chamber: null, ...parsed } as unknown as RunExport;
+  const run: RunExport =
+    version < 3 && isObject(given.parameters)
+      ? { ...given, parameters: { ...BEFORE_RESTLESSNESS, ...given.parameters } }
+      : given;
   const wellFormed =
     typeof run.modelVersion === "string" &&
     Number.isInteger(run.seed) &&

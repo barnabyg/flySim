@@ -17,18 +17,29 @@ import { recordOf } from "./helpers";
 
 const HOUR = 3600;
 
+/**
+ * Leaves out Restlessness, which came after these runs were made and, at the rates they had, of
+ * 0, changes nothing else.
+ */
+function withoutRestlessness(key: string, value: unknown): unknown {
+  return key === "restlessness" ? undefined : value;
+}
+
 /** What a run did, leaving out its setup, for comparing with runs made before step sizes. */
 function fingerprint(record: RunRecord): string {
   return createHash("sha256")
     .update(
-      JSON.stringify([
-        record.samples,
-        record.firedTransitions,
-        record.timeOnSurfaceSeconds,
-        record.timeInBehaviourSeconds,
-        record.step,
-        record.death,
-      ]),
+      JSON.stringify(
+        [
+          record.samples,
+          record.firedTransitions,
+          record.timeOnSurfaceSeconds,
+          record.timeInBehaviourSeconds,
+          record.step,
+          record.death,
+        ],
+        withoutRestlessness,
+      ),
     )
     .digest("hex");
 }
@@ -102,7 +113,7 @@ describe("a Simulation Run's step size", () => {
 
     // As saved, where JSON writes -0 as 0.
     const again = JSON.parse(
-      JSON.stringify(exportRun(reproduce(file), file.sampleIntervalSeconds)),
+      JSON.stringify(exportRun(reproduce(file), file.sampleIntervalSeconds), withoutRestlessness),
     ) as RunExport;
     expect(again.samples).toEqual(file.samples);
     expect(again.firedTransitions).toEqual(file.firedTransitions);

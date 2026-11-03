@@ -27,6 +27,11 @@ export interface ModelParameters {
   /** Size of arousal's random drift, per square root of a second. */
   readonly arousalNoise: number;
   readonly initialArousal: number;
+  /** Restlessness relaxes towards 1 at this pace while the fly walks or flies. */
+  readonly restlessnessRiseTimeConstantSeconds: number;
+  /** Restlessness relaxes towards 0 at this pace otherwise, more slowly than it rises. */
+  readonly restlessnessFallTimeConstantSeconds: number;
+  readonly initialRestlessness: number;
   /** Rates are per second. */
   readonly startWalkingSpontaneousRate: number;
   readonly startWalkingArousalRate: number;
@@ -41,6 +46,12 @@ export interface ModelParameters {
   readonly startWalkingOdourRate: number;
   /** Scaled by the fourth power of Thirst, as Hunger is, so a parched fly searches. */
   readonly startWalkingThirstRate: number;
+  /**
+   * Scaled by Restlessness, so a fly between walks resumes sooner than one that has settled. It
+   * and walkAfterGroomingRestlessnessRate are 0 for now, as tuning them cost the Room its rebound
+   * and its response to darkness (#81); validation/restlessnessCandidate.json has those values.
+   */
+  readonly startWalkingRestlessnessRate: number;
   readonly stopWalkingSpontaneousRate: number;
   readonly stopWalkingLowArousalRate: number;
   /** Grooming has no contamination model, so nothing about dirt drives these. */
@@ -52,6 +63,7 @@ export interface ModelParameters {
   readonly walkAfterGroomingHungerRate: number;
   readonly walkAfterGroomingOdourRate: number;
   readonly walkAfterGroomingThirstRate: number;
+  readonly walkAfterGroomingRestlessnessRate: number;
   readonly takeOffFromImmobilitySpontaneousRate: number;
   readonly takeOffFromImmobilityArousalRate: number;
   readonly takeOffFromWalkingSpontaneousRate: number;
@@ -184,12 +196,16 @@ export const DEFAULT_PARAMETERS: ModelParameters = {
   arousalTimeConstantSeconds: 120,
   arousalNoise: 0.015,
   initialArousal: 0.5,
+  restlessnessRiseTimeConstantSeconds: 60,
+  restlessnessFallTimeConstantSeconds: 600,
+  initialRestlessness: 0,
   startWalkingSpontaneousRate: 0.0003,
   startWalkingArousalRate: 0.25,
   startWalkingLightRate: 0.002,
   startWalkingHungerRate: 0.03,
   startWalkingOdourRate: 0.02,
   startWalkingThirstRate: 0.03,
+  startWalkingRestlessnessRate: 0,
   stopWalkingSpontaneousRate: 0.02,
   stopWalkingLowArousalRate: 0.06,
   startGroomingSpontaneousRate: 0.001,
@@ -200,6 +216,7 @@ export const DEFAULT_PARAMETERS: ModelParameters = {
   walkAfterGroomingHungerRate: 0.06,
   walkAfterGroomingOdourRate: 0.02,
   walkAfterGroomingThirstRate: 0.06,
+  walkAfterGroomingRestlessnessRate: 0,
   takeOffFromImmobilitySpontaneousRate: 0.002,
   takeOffFromImmobilityArousalRate: 0.02,
   takeOffFromWalkingSpontaneousRate: 0.018,
