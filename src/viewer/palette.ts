@@ -80,3 +80,12 @@ const BEHAVIOUR_ICON_PATHS: Readonly<Record<Behaviour, string>> = {
 export function behaviourIcon(behaviour: Behaviour): string {
   return `<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" style="color:${BEHAVIOUR_COLOURS[behaviour]}">${BEHAVIOUR_ICON_PATHS[behaviour]}</svg>`;
 }
+
+/** The validation view's colours: published data, the model, and whether it meets a target. */
+export const VALIDATION_COLOURS = {
+  published: DAY_COLOUR,
+  model: "#3fc1a0",
+  accepted: "#d7dbe2",
+  pass: "#6fbf4a",
+  fail: "#ff2b2b",
+} as const;

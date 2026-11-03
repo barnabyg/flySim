@@ -46,6 +46,9 @@ const EXPORT_ICON =
 const OPEN_ICON =
   '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M1.5 4V13h11l2-6h-11l-2 6M1.5 4h4l1.5 1.5H12V7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>';
 
+const VALIDATION_ICON =
+  '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M2 2v12h12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 11l3-4 2 2 3-5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
 const DISTURB_ICON =
   '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M9.500 1L3 9h4l-1 6 7-8.500H9z" fill="currentColor"/></svg>';
 
@@ -67,6 +70,7 @@ export interface RunControlHandlers {
   onSourcePresenceChange(kind: SourceKind, present: boolean): void;
   onExport(format: ExportFormat, sampleIntervalSeconds: number): void;
   onOpen(file: File): void;
+  onValidation(): void;
 }
 
 const pad = (value: number): string => String(value).padStart(2, "0");
@@ -144,7 +148,8 @@ export function createRunControls(
       </form>
     </details>
     <button id="open" class="icon-button" type="button" aria-label="Open an exported run" title="Open an exported run and replay it">${OPEN_ICON}</button>
-    <input id="open-file" type="file" accept=".gz,.json,application/gzip,application/json" hidden />`;
+    <input id="open-file" type="file" accept=".gz,.json,application/gzip,application/json" hidden />
+    <button id="validation-open" class="icon-button" type="button" aria-label="Validation" title="Validation: the model against published data">${VALIDATION_ICON}</button>`;
 
   const disturb = container.querySelector<HTMLButtonElement>("#disturb");
   const restart = container.querySelector<HTMLButtonElement>("#restart");
@@ -272,6 +277,11 @@ export function createRunControls(
   if (!open || !openFile) throw new Error("Malformed open controls");
   open.addEventListener("click", () => {
     openFile.click();
+  });
+  const validation = container.querySelector<HTMLButtonElement>("#validation-open");
+  if (!validation) throw new Error("Malformed validation control");
+  validation.addEventListener("click", () => {
+    handlers.onValidation();
   });
   openFile.addEventListener("change", () => {
     const [file] = openFile.files ?? [];
