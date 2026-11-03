@@ -56,7 +56,10 @@
         "strain": "Canton-S",
         "ageDays": "Loaded on day 3 after eclosion. Data from days 5-7 after eclosion.",
         "housing": "Virgin. Collected at eclosion and kept in groups in plastic tubes, then put alone into a chamber on day 3 under short CO2 anaesthesia.",
-        "lightSchedule": { "lightHours": 12, "description": "12 h light : 12 h dark from a cold LED light source. Flies were raised under a 12:12 LED cycle." },
+        "lightSchedule": {
+          "lightHours": 12,
+          "description": "12 h light : 12 h dark from a cold LED light source. Flies were raised under a 12:12 LED cycle."
+        },
         "temperatureC": 25,
         "food": "Standard yeast medium (rearing). The chamber food is not described further."
       },
@@ -135,7 +138,10 @@
         "strain": "Canton-S",
         "ageDays": "Loaded on day 3 after eclosion. Data from days 5-7 after eclosion.",
         "housing": "Virgin. Collected at eclosion and kept in groups in plastic tubes, then put alone into a chamber on day 3 under short CO2 anaesthesia.",
-        "lightSchedule": { "lightHours": 12, "description": "12 h light : 12 h dark from a cold LED light source. Lights-on is ZT0." },
+        "lightSchedule": {
+          "lightHours": 12,
+          "description": "12 h light : 12 h dark from a cold LED light source. Lights-on is ZT0."
+        },
         "temperatureC": 25,
         "food": "Standard yeast medium (rearing). The chamber food is not described further."
       },
@@ -144,7 +150,12 @@
       "published": [
         {
           "label": "male mean Scored Sleep per 30-min bin, ZT0-0.5 first (48 values)",
-          "value": [4.3, 4.0, 9.4, 15.1, 19.1, 20.5, 21.7, 23.0, 23.0, 24.1, 24.4, 24.8, 25.3, 24.8, 24.6, 23.9, 22.2, 21.1, 20.1, 18.4, 14.1, 10.2, 4.6, 1.7, 1.3, 4.8, 10.8, 18.9, 24.8, 26.6, 27.8, 27.7, 27.6, 27.4, 27.6, 27.5, 27.4, 27.5, 27.1, 26.5, 25.1, 21.4, 17.0, 12.7, 10.8, 11.4, 12.1, 11.5],
+          "value": [
+            4.3, 4.0, 9.4, 15.1, 19.1, 20.5, 21.7, 23.0, 23.0, 24.1, 24.4, 24.8, 25.3, 24.8, 24.6,
+            23.9, 22.2, 21.1, 20.1, 18.4, 14.1, 10.2, 4.6, 1.7, 1.3, 4.8, 10.8, 18.9, 24.8, 26.6,
+            27.8, 27.7, 27.6, 27.4, 27.6, 27.5, 27.4, 27.5, 27.1, 26.5, 25.1, 21.4, 17.0, 12.7,
+            10.8, 11.4, 12.1, 11.5
+          ],
           "unit": "min per 30 min",
           "uncertainty": { "kind": "sem", "value": null },
           "n": 168,
@@ -206,7 +217,10 @@
         "strain": "Canton-S (gift of J. Hendricks, sib-mated for 20 generations)",
         "ageDays": "Collected at eclosion, kept overnight on cornmeal agar, then 5 days in the tubes before recording. Table 4 calls these flies '7 days'.",
         "housing": "Alone in a monitor tube from the day after eclosion. Mating status and the overnight housing before loading aren't stated.",
-        "lightSchedule": { "lightHours": 12, "description": "12 h white fluorescent light (425-892 lux) : 12 h infrared light (950 nm). ZT0 is lights-on." },
+        "lightSchedule": {
+          "lightHours": 12,
+          "description": "12 h white fluorescent light (425-892 lux) : 12 h infrared light (950 nm). ZT0 is lights-on."
+        },
         "temperatureC": 25,
         "food": "5% sucrose in 1% agar"
       },
@@ -274,7 +288,10 @@
         "strain": "Canton-S (gift of J. Hendricks, sib-mated for 20 generations)",
         "ageDays": "Collected at eclosion, kept overnight on cornmeal agar, then 5 days in the tubes before recording. Table 4 calls these flies '7 days'.",
         "housing": "Alone in a monitor tube from the day after eclosion. Mating status and the overnight housing before loading aren't stated.",
-        "lightSchedule": { "lightHours": 12, "description": "12 h white fluorescent light (425-892 lux) : 12 h infrared light (950 nm). ZT0 is lights-on." },
+        "lightSchedule": {
+          "lightHours": 12,
+          "description": "12 h white fluorescent light (425-892 lux) : 12 h infrared light (950 nm). ZT0 is lights-on."
+        },
         "temperatureC": 25,
         "food": "5% sucrose in 1% agar"
       },
@@ -346,7 +363,10 @@
         "strain": "Canton-S (gift of J. Hendricks, sib-mated for 20 generations)",
         "ageDays": "Collected at eclosion, kept overnight on cornmeal agar, then 5 days in the tubes before recording. Table 4 calls these flies '7 days'.",
         "housing": "Alone in a monitor tube from the day after eclosion. Mating status and the overnight housing before loading aren't stated.",
-        "lightSchedule": { "lightHours": 12, "description": "12 h white fluorescent light (425-892 lux) : 12 h infrared light (950 nm). ZT0 is lights-on." },
+        "lightSchedule": {
+          "lightHours": 12,
+          "description": "12 h white fluorescent light (425-892 lux) : 12 h infrared light (950 nm). ZT0 is lights-on."
+        },
         "temperatureC": 25,
         "food": "5% sucrose in 1% agar"
       },
@@ -418,7 +438,10 @@
         "strain": "Canton-S (from R. Stanewsky, University of Munster)",
         "ageDays": "Not stated. Pupae aged 7-8 days were put in the tubes and eclosed there. 'Three days of baseline were recorded before any treatment.'",
         "housing": "Alone in a tube from the pupal stage. Socially naive; sorted by sex after eclosion.",
-        "lightSchedule": { "lightHours": 12, "description": "12 h light : 12 h dark (LD), the same regimen as rearing." },
+        "lightSchedule": {
+          "lightHours": 12,
+          "description": "12 h light : 12 h dark (LD), the same regimen as rearing."
+        },
         "temperatureC": 25,
         "food": "Standard corn and yeast medium (the rearing food)"
       },
@@ -490,7 +513,10 @@
         "strain": "Canton-S",
         "ageDays": "Selected 2-3 days after eclosion, then 6 days LD, so about 3-9 days old during the LD recording.",
         "housing": "One fly per track. Mating status isn't stated.",
-        "lightSchedule": { "lightHours": 12, "description": "12 h white LED light (200 lux) : 12 h darkness with 850 nm infrared illumination, for 6 days (entrainment phase)." },
+        "lightSchedule": {
+          "lightHours": 12,
+          "description": "12 h white LED light (200 lux) : 12 h darkness with 850 nm infrared illumination, for 6 days (entrainment phase)."
+        },
         "temperatureC": 23,
         "food": "Banana-jaggery medium. The temperature is stated as 22-24 C at about 50% humidity; 23 C is the midpoint."
       },
@@ -564,7 +590,10 @@
         "strain": "Canton-S",
         "ageDays": "Selected 2-3 days after eclosion, then 6 days LD, so about 3-9 days old during the LD recording.",
         "housing": "One fly per track. Mating status isn't stated.",
-        "lightSchedule": { "lightHours": 12, "description": "12 h white LED light (200 lux) : 12 h darkness with 850 nm infrared illumination, for 6 days." },
+        "lightSchedule": {
+          "lightHours": 12,
+          "description": "12 h white LED light (200 lux) : 12 h darkness with 850 nm infrared illumination, for 6 days."
+        },
         "temperatureC": 23,
         "food": "Banana-jaggery medium. The temperature is stated as 22-24 C at about 50% humidity; 23 C is the midpoint."
       },
@@ -624,7 +653,11 @@
         "samplingIntervalSeconds": 0.04,
         "binSeconds": 0.04,
         "movementRule": "Centroid tracking as in xu-2021-inactivity-bouts-power-law: a stay of more than 1 s at one centroid location is a rest bout.",
-        "movementThreshold": { "value": 1, "unit": "pixel", "description": "Any centroid change; the pixel size in mm isn't stated." },
+        "movementThreshold": {
+          "value": 1,
+          "unit": "pixel",
+          "description": "Any centroid change; the pixel size in mm isn't stated."
+        },
         "groomingCountsAsMovement": null,
         "sleepThresholdMinutes": 5,
         "acclimationHours": 24,
@@ -635,7 +668,10 @@
         "strain": "Canton-S",
         "ageDays": "Loaded on day 3 after eclosion. Data from days 5-7 after eclosion.",
         "housing": "Virgin. Grouped until day 3, then alone in a chamber.",
-        "lightSchedule": { "lightHours": 12, "description": "12 h light : 12 h dark from a cold LED light source." },
+        "lightSchedule": {
+          "lightHours": 12,
+          "description": "12 h light : 12 h dark from a cold LED light source."
+        },
         "temperatureC": 25,
         "food": "Standard yeast medium."
       },
@@ -702,7 +738,11 @@
         "samplingIntervalSeconds": 5,
         "binSeconds": 5,
         "movementRule": "Frame subtraction 5 s apart. The epoch is active if at least one pixel leaves the noise band (below 108 or above 148).",
-        "movementThreshold": { "value": 0.189, "unit": "mm", "description": "A 1-pixel change (189 um)." },
+        "movementThreshold": {
+          "value": 0.189,
+          "unit": "mm",
+          "description": "A 1-pixel change (189 um)."
+        },
         "groomingCountsAsMovement": true,
         "sleepThresholdMinutes": 5,
         "acclimationHours": 120,
@@ -713,7 +753,10 @@
         "strain": "Canton-S (sib-mated for 20 generations)",
         "ageDays": "About 6-7 days (Table 4: '7 days').",
         "housing": "Alone in a monitor tube from the day after eclosion.",
-        "lightSchedule": { "lightHours": 12, "description": "12 h white light : 12 h infrared light." },
+        "lightSchedule": {
+          "lightHours": 12,
+          "description": "12 h white light : 12 h infrared light."
+        },
         "temperatureC": 25,
         "food": "5% sucrose in 1% agar"
       },
@@ -791,7 +834,10 @@
         "strain": "w1118 (control; background for outcrossing)",
         "ageDays": "2-5",
         "housing": "One fly per arena.",
-        "lightSchedule": { "lightHours": 0, "description": "At least 24 h of 12:12 LD acclimation, then 24 h recorded in constant darkness (DD) with infrared illumination." },
+        "lightSchedule": {
+          "lightHours": 0,
+          "description": "At least 24 h of 12:12 LD acclimation, then 24 h recorded in constant darkness (DD) with infrared illumination."
+        },
         "temperatureC": 25,
         "food": "Corn meal, yeast and glucose agar"
       },
@@ -878,7 +924,10 @@
         "strain": "w1118 (control)",
         "ageDays": "2-5",
         "housing": "One fly per arena.",
-        "lightSchedule": { "lightHours": 0, "description": "At least 24 h of 12:12 LD acclimation, then 24 h recorded in DD." },
+        "lightSchedule": {
+          "lightHours": 0,
+          "description": "At least 24 h of 12:12 LD acclimation, then 24 h recorded in DD."
+        },
         "temperatureC": 25,
         "food": "Corn meal, yeast and glucose agar"
       },
