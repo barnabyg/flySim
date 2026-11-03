@@ -9,11 +9,13 @@ import { observeRun, type InstrumentSettings, type Observation } from "./instrum
 import type { ScoringRule } from "./scoring";
 
 /**
- * The most acclimation a run simulates. A study may let its flies settle for days, often to bring
- * them to an age, but the model doesn't age and its state settles within a day, so more would only
- * take longer.
+ * How long every run settles before its instruments record, whatever its study's own acclimation.
+ * A run starts from set reserves, Sleep Pressure and clock rather than from a fly that has lived in
+ * its tube, so it needs some, even for a study that recorded at once, as its flies had already
+ * settled elsewhere. More only takes longer, as the model doesn't age. A day is a calibration,
+ * Provisional, as nothing yet tests how long the model takes to settle.
  */
-export const MAX_ACCLIMATION_HOURS = 24;
+export const SIMULATED_ACCLIMATION_HOURS = 24;
 
 /** A food plug fills the chamber's end, and the fly touches it from any surface this close. */
 const PLUG_REACH_METRES = 0.004;
@@ -191,7 +193,7 @@ export function assayFor(target: ValidationTarget): Assay {
       heightMetres: assay.chamber.heightMm / 1000,
     },
     lightSchedule: { ...DEFAULT_LIGHT_SCHEDULE, lightHours: fly.lightSchedule.lightHours },
-    acclimationHours: Math.min(assay.acclimationHours, MAX_ACCLIMATION_HOURS),
+    acclimationHours: SIMULATED_ACCLIMATION_HOURS,
     recordedDays: assay.recordedDays,
   };
   const scoring: ScoringRule = {

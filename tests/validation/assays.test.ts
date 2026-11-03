@@ -1,7 +1,9 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
+  SIMULATED_ACCLIMATION_HOURS,
   assayFor,
+  assaySetup,
   countedTargets,
   readEvidencePack,
   type Assay,
@@ -67,5 +69,14 @@ describe("each Validation Target's Virtual Assay", () => {
     expect(instrument).toMatchObject({ kind: "beam-crossing" });
     if (instrument.kind !== "beam-crossing") return;
     expect(instrument.beamPositionsMetres[0]).toBeCloseTo(study.chamber.lengthMetres / 2, 9);
+  });
+
+  it("runs every fly in its study's Chamber, without flight, after a day to settle", () => {
+    for (const each of assays.values()) {
+      expect(each.study.acclimationHours).toBe(SIMULATED_ACCLIMATION_HOURS);
+      const setup = assaySetup(each.study, 1);
+      expect(setup.chamber?.flightPossible).toBe(false);
+      expect(setup.food).toEqual(setup.water);
+    }
   });
 });

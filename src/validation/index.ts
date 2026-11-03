@@ -1,6 +1,7 @@
 export {
   ACTIVITY_MONITOR,
   CALIBRATIONS,
+  SIMULATED_ACCLIMATION_HOURS,
   UnsupportedTargetError,
   assayFor,
   assaySetup,
