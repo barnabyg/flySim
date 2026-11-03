@@ -195,7 +195,7 @@ The label for a model relationship or parameter that is roughly tuned or plausib
 _Avoid_: Assumed, default
 
 **Hypothesis**:
-The label for a model relationship that is the model's own proposal and that no source measures, such as its answer to what ends Inactivity Bouts under 5 minutes: background arousal left over from activity, drifting down during stillness.
+The label for a model relationship that is the model's own proposal and that no source measures, such as its answer to what ends Inactivity Bouts under 5 minutes: background arousal left over from activity, drifting down during Immobility.
 _Avoid_: Guess, speculation
 
 **Descriptive Baseline**:

@@ -42,7 +42,7 @@ function established(description: string, evidence: readonly string[]): Relation
 }
 
 const ENDS_SHORT_BOUTS =
-  "It is the model's answer to what ends Inactivity Bouts under 5 minutes: arousal left over from activity drifts down during stillness, so the chance of moving falls the longer the fly stays still. No source measures it.";
+  "It is the model's answer to what ends Inactivity Bouts under 5 minutes: arousal left over from activity drifts down during Immobility, so the chance of moving falls the longer the fly stays still. No source measures it.";
 
 /**
  * Each parameter's label. A tuned value is Provisional unless a counted Evidence Pack target
@@ -153,7 +153,11 @@ export const PARAMETER_LABELS: Readonly<Record<keyof ModelParameters, Relationsh
   weaknessReserve: provisional("How low a reserve falls before the fly weakens."),
 };
 
-/** The male's siesta and consolidated night sleep, timed by the day. */
+/**
+ * The male's siesta and consolidated night sleep, timed by the day. The profile shows the clock's
+ * two openings to sleep, which makes the relationship Established, though the gate's shape in
+ * model 0.7.0 doesn't yet match the profile itself, as validation/awaitingTuning.ts says.
+ */
 const SLEEP_PROFILE = ["xu-2021-male-scored-sleep-profile"];
 
 function driver(
@@ -250,7 +254,7 @@ export const DRIVER_RELATIONSHIPS: readonly DriverRelationship[] = [
     "immobility-to-sleeping",
     "circadian",
     established(
-      "The clock opens the way to sleep at the midday siesta and through the night, and holds it shut around dawn and dusk.",
+      "The clock opens the way to sleep at the midday siesta and through the night, and holds it shut around dawn and dusk. The published profile shows both openings, though the gate's shape doesn't yet match it.",
       SLEEP_PROFILE,
     ),
   ),
